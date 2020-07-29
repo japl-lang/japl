@@ -5,6 +5,8 @@
 2 + 2;
 -1 * 6;
 3 * (9 / 2);  // Parentheses for grouping
+8 % 2;  // Modulo division
+6 ** 9; // Exponentiation
 
 // Variable definition and assignment
 

@@ -37,14 +37,15 @@ class Type(Callable):
 class JAPLFunction(Callable):
     """A generic wrapper for user-defined functions"""
 
-    def __init__(self, declaration):
+    def __init__(self, declaration, closure):
        """Object constructor"""
 
        self.declaration = declaration
        self.arity = len(self.declaration.params)
+       self.closure = closure
 
     def call(self, interpreter, arguments):
-        scope = Environment(interpreter.globals)
+        scope = Environment(self.closure)
         for name, value in zip(self.declaration.params, arguments):
             scope.define(name.lexeme, value)
         interpreter.in_function = True

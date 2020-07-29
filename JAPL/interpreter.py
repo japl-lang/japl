@@ -246,7 +246,7 @@ class Interpreter(object):
     def visit_function(self, statement):
         """Visits a function"""
 
-        function = JAPLFunction(statement)
+        function = JAPLFunction(statement, self.environment)
         self.environment.define(statement.name.lexeme, function)
 
     def exec(self, statement: Statement):
