@@ -1,0 +1,51 @@
+// Example file to test JAPL's syntax
+
+// Mathematical expressions
+
+2 + 2;
+-1 * 6;
+3 * (9 / 2);  // Parentheses for grouping
+
+// Variable definition and assignment
+
+var name = "bob";  // Dynamically typed
+name = "joe";   // Can only be assigned if it's defined
+del name; // Delete a variable
+var foo; // Unitialized variables are equal to nil
+print foo;
+
+// Scoping
+
+var a = "global";
+var b = "global1";
+{  // open a new scope
+    var b = "local";  // Shadow the global variable
+    print a;   // This falls back to the global scope
+    print b;
+}
+print a;  
+print b;  // The outer scope isn't affected
+
+
+// Control flow statements
+
+for (var i = 0; i < 10; i = i + 1) {   // For loops
+    print i;
+}
+
+var n = 0;      
+while (n <= 10) {     // While loops
+    if (n <= 5) {    // If statements
+        print n;
+    }
+    n = n + 1;
+}
+
+print clock();  // Function calls
+
+fun count(n) {   // Function definitions
+  if (n > 1) count(n - 1);
+  print n;
+}
+
+count(3);

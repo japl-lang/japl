@@ -1,0 +1,19 @@
+fun factorial(n) {
+    // Computes the factorial of n iteratively
+
+    if (n < 0) return nil;
+    if (n == 1 or n == 2) return n;
+    var fact = 1;
+    for (var i = 1; i < n + 1; i = i + 1) {
+        fact = fact * i;
+    }
+    return fact;
+}
+
+
+var start = clock();
+print "Computing factorials from 0 to 200";
+for (var i = 0; i < 201; i = i + 1) factorial(i);
+var result = clock() - start;
+print "Computed factorials in " + stringify(result) + " seconds";
+
