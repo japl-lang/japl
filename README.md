@@ -9,7 +9,7 @@ for Just Another Programming Language, but beware! Despite the name, the name is
 ## Some backstory
 
 JAPL is born thanks to the amazing work of Bob (whose surname is obscure) that wrote a book available completely for free
-at [this](https://craftinginterprerers.com) link.
+at [this](https://craftinginterpretrs.com) link.
 
 Even though that books treats the implementation of a basic language named Lox, JAPL is (will, actually) much more feature-rich:
 
