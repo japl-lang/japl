@@ -72,10 +72,13 @@ class Grouping(Expression, Expression.Visitor):
 
 @dataclass
 class Variable(Expression, Expression.Visitor):
-    name: str
+    name: Token
 
     def accept(self, visitor):
         return visitor.visit_var_expr(self)
+
+    def __hash__(self):
+        return hash(self.name.lexeme)
 
 @dataclass
 class Assignment(Expression, Expression.Visitor):
@@ -85,6 +88,9 @@ class Assignment(Expression, Expression.Visitor):
 
     def accept(self, visitor):
         return visitor.visit_assign(self)
+
+    def __hash__(self):
+        return hash(self.name.lexeme)
 
 @dataclass
 class Logical(Expression, Expression.Visitor):
@@ -100,7 +106,7 @@ class Logical(Expression, Expression.Visitor):
 class Call(Expression, Expression.Visitor):
     callee: Expression
     paren: Token
-    arguments: List[Expression]
+    arguments: List[Expression] = ()
 
     def accept(self, visitor):
         return visitor.visit_call_expr(self)

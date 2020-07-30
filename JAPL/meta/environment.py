@@ -29,6 +29,24 @@ class Environment(object):
             return self.enclosing.get(name)
         raise JAPLError(name, f"Undefined name '{name.lexeme}'")
 
+    def get_at(self, distance, name):
+        """Gets a variable in a specific scope"""
+
+        return self.ancestor(distance).map.get(name)
+
+    def ancestor(self, distance):
+        """Finds the scope specified by distance"""
+
+        env = self
+        for i in range(0, distance):
+            env = env.enclosing
+        return env
+
+    def assign_at(self, distance, name, value):
+        """Same as get_at, but assigns instead of retrieving"""
+
+        self.ancestor(distance).map[name.lexeme] = value
+
     def delete(self, var):
         """Deletes a variable"""
 

@@ -14,7 +14,6 @@ var name = "bob";  // Dynamically typed
 name = "joe";   // Can only be assigned if it's defined
 del name; // Delete a variable
 var foo; // Unitialized variables are equal to nil
-print foo;
 
 // Scoping
 
@@ -31,9 +30,6 @@ print b;  // The outer scope isn't affected
 
 // Control flow statements
 
-for (var i = 0; i < 10; i = i + 1) {   // For loops
-    print i;
-}
 
 var n = 0;      
 while (n <= 10) {     // While loops
@@ -42,6 +38,8 @@ while (n <= 10) {     // While loops
     }
     n = n + 1;
 }
+
+// Functions
 
 print clock();  // Function calls
 

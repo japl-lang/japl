@@ -1,18 +1,21 @@
 from JAPL.lexer import Lexer
 from JAPL.meta.exceptions import ParseError, JAPLError
+from JAPL.resolver import Resolver
 from sys import stderr
+from JAPL.parser import Parser
+from JAPL.interpreter import Interpreter
 
 
 class JAPL(object):
     """Wrapper around JAPL's interpreter, lexer and parser"""
 
+
+    interpreter = Interpreter()
+    resolver = Resolver(interpreter)
+
     def run(self, file: str):
         """Runs a file"""
 
-        from JAPL.parser import Parser   # Avoids circular imports
-        from JAPL.interpreter import Interpreter
-
-        self.interpreter = Interpreter()
         if not file:
             self.repl()
         else:
@@ -23,6 +26,7 @@ class JAPL(object):
                     tokens = lexer.lex()
                     parser = Parser(tokens)
                     ast = parser.parse()
+                    self.resolver.resolve(ast)
                     self.interpreter.interpret(ast)
             except FileNotFoundError:
                 print(f"Error: '{file}', no such file or directory")
@@ -37,9 +41,6 @@ class JAPL(object):
 
     def repl(self):
         """Starts an interactive REPL"""
-
-        from JAPL.parser import Parser   # Avoids circular imports
-        from JAPL.interpreter import Interpreter
 
         self.interpreter = Interpreter()
         print("[JAPL 0.1.1 - Interactive REPL]")
@@ -64,6 +65,7 @@ class JAPL(object):
                     print(f"An exception occurred at line {token.line} at '{token.lexeme}': {message}")
                 else:
                     try:
+                        self.resolver.resolve(ast)
                         result = self.interpreter.interpret(ast)
                     except JAPLError as error:
                         token, message = error.args

@@ -6,7 +6,6 @@ from .meta.environment import Environment
 from .types.callable import Callable
 import operator
 from .types.native import Clock, Type, JAPLFunction, Truthy, Stringify
-from .wrapper import JAPL
 
 
 class Interpreter(object):
@@ -33,6 +32,7 @@ class Interpreter(object):
         """Object constructor"""
 
         self.environment = Environment()
+        self.locals = {}
         self.globals = self.environment
         self.globals.define("clock", Clock())
         self.globals.define("type", Type())
@@ -179,10 +179,19 @@ class Interpreter(object):
             val = self.eval(stmt.init)
         self.environment.define(stmt.name.lexeme, val)
 
+    def lookup(self, name, expr):
+        """Performs name lookups in the closest scope"""
+
+        distance = self.locals.get(expr)
+        if distance is not None:
+            return self.environment.get_at(distance, name.lexeme)
+        else:
+            return self.globals.get(name)
+
     def visit_var_expr(self, expr: Variable):
         """Visits a var expression"""
 
-        return self.environment.get(expr.name)
+        return self.lookup(expr.name, expr)
 
     def visit_del(self, stmt: Statement):
         """Visits a del expression"""
@@ -193,7 +202,12 @@ class Interpreter(object):
         """Visits an assignment expression"""
 
         right = self.eval(visitor.value)
-        self.environment.assign(visitor.name, right)
+        distance = self.locals.get(visitor)
+        if distance is not None:
+            self.environment.assign_at(distance, visitor.name, right)
+        else:
+            self.globals.assign(visitor.name, right)
+        return right
 
     def visit_block(self, visitor):
         """Visits a new scope block"""
@@ -261,3 +275,8 @@ class Interpreter(object):
 
         for statement in statements:
             self.exec(statement)
+
+    def resolve(self, expr, depth):
+        """Stores the result of the name resolution"""
+
+        self.locals[expr] = depth   # How many environments to skip!

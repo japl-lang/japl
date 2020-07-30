@@ -18,12 +18,6 @@ class Statement(ABC):
         def accept(self, visitor):
             raise NotImplementedError
 
-        def visit_print(self, visitor):
-            raise NotImplementedError
-
-        def visit_expr(self, visitor):
-            raise NotImplementedError
-
 
 @dataclass
 class Print(Statement, Statement.Visitor):
@@ -35,6 +29,7 @@ class Print(Statement, Statement.Visitor):
 
     def accept(self, visitor):
         visitor.visit_print(self)
+
 
 @dataclass
 class StatementExpr(Statement, Statement.Visitor):
@@ -102,6 +97,7 @@ class While(Statement, Statement.Visitor):
     body: Statement
 
     def accept(self, visitor):
+        print("porcodio")
         visitor.visit_while(self)
 
 @dataclass
