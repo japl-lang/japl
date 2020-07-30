@@ -7,7 +7,7 @@ from ..meta.exceptions import ReturnException
 class Clock(Callable):
     """JAPL's wrapper around time.time"""
 
-    def __init__(self, *args):
+    def __init__(self, *_):
         """Object constructor"""
 
         self.arity = 0
@@ -22,7 +22,7 @@ class Clock(Callable):
 class Type(Callable):
     """JAPL's wrapper around type"""
 
-    def __init__(self, *args):
+    def __init__(self, *_):
         """Object constructor"""
 
         self.arity = 1
@@ -38,11 +38,11 @@ class JAPLFunction(Callable):
     """A generic wrapper for user-defined functions"""
 
     def __init__(self, declaration, closure):
-       """Object constructor"""
+        """Object constructor"""
 
-       self.declaration = declaration
-       self.arity = len(self.declaration.params)
-       self.closure = closure
+        self.declaration = declaration
+        self.arity = len(self.declaration.params)
+        self.closure = closure
 
     def call(self, interpreter, arguments):
         scope = Environment(self.closure)
@@ -63,7 +63,7 @@ class JAPLFunction(Callable):
 class Truthy(Callable):
     """JAPL's wrapper around bool"""
 
-    def __init__(self, *args):
+    def __init__(self, *_):
         """Object constructor"""
 
         self.arity = 1
@@ -78,7 +78,7 @@ class Truthy(Callable):
 class Stringify(Callable):
     """JAPL's wrapper around str()"""
 
-    def __init__(self, *args):
+    def __init__(self, *_):
         """Object constructor"""
 
         self.arity = 1
@@ -88,4 +88,3 @@ class Stringify(Callable):
 
     def __repr__(self):
         return f"<built-in function stringify>"
-

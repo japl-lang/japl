@@ -1,7 +1,10 @@
 from .meta.exceptions import JAPLError
 from .meta.expression import Expression
 from .meta.statement import Statement
-from functools import singledispatchmethod
+try:
+    from functools import singledispatchmethod
+except ImportError:
+    from singledispatchmethod import singledispatchmethod
 from typing import List, Union
 from collections import deque
 

@@ -4,14 +4,15 @@ from .tokenobject import Token
 from typing import List
 
 
-class Expression(ABC):
+class Expression(object):
     """
     An object representing a JAPL expression.
-    This is an abstract base class and is not
-    meant to be instantiated directly, inherit
-    from it instead!
+    This class is not meant to be instantiated directly,
+    inherit from it instead!
     """
 
+    def accept(self, visitor):
+        raise NotImplementedError
 
     class Visitor(ABC):
         """
@@ -20,23 +21,24 @@ class Expression(ABC):
         """
 
         @abstractmethod
-        def accept(self, visitor):
-            raise NotImplementedError
-
         def visit_literal(self, visitor):
             raise NotImplementedError
 
+        @abstractmethod
         def visit_binary(self, visitor):
             raise NotImplementedError
 
+        @abstractmethod
         def visit_grouping(self, visitor):
             raise NotImplementedError
 
+        @abstractmethod
         def visit_unary(self, visitor):
             raise NotImplementedError
 
+
 @dataclass
-class Binary(Expression, Expression.Visitor):
+class Binary(Expression):
     left: Expression
     operator: Token
     right: Expression
@@ -46,7 +48,7 @@ class Binary(Expression, Expression.Visitor):
 
 
 @dataclass
-class Unary(Expression, Expression.Visitor):
+class Unary(Expression):
     operator: Token
     right: Expression
 
@@ -55,7 +57,7 @@ class Unary(Expression, Expression.Visitor):
 
 
 @dataclass
-class Literal(Expression, Expression.Visitor):
+class Literal(Expression):
     value: object
 
     def accept(self, visitor):
@@ -63,7 +65,7 @@ class Literal(Expression, Expression.Visitor):
 
 
 @dataclass
-class Grouping(Expression, Expression.Visitor):
+class Grouping(Expression):
     expr: Expression
 
     def accept(self, visitor):
@@ -71,29 +73,29 @@ class Grouping(Expression, Expression.Visitor):
 
 
 @dataclass
-class Variable(Expression, Expression.Visitor):
+class Variable(Expression):
     name: Token
 
     def accept(self, visitor):
         return visitor.visit_var_expr(self)
 
     def __hash__(self):
-        return hash(self.name.lexeme)
+        return super().__hash__()
+
 
 @dataclass
-class Assignment(Expression, Expression.Visitor):
+class Assignment(Expression):
     name: Token
     value: Expression
-
 
     def accept(self, visitor):
         return visitor.visit_assign(self)
 
     def __hash__(self):
-        return hash(self.name.lexeme)
+        return super().__hash__()
 
 @dataclass
-class Logical(Expression, Expression.Visitor):
+class Logical(Expression):
     left: Expression
     operator: Token
     right: Expression
@@ -103,7 +105,7 @@ class Logical(Expression, Expression.Visitor):
 
 
 @dataclass
-class Call(Expression, Expression.Visitor):
+class Call(Expression):
     callee: Expression
     paren: Token
     arguments: List[Expression] = ()

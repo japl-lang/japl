@@ -1,5 +1,7 @@
-from .objects import Token, TokenType, ParseError
-from typing import List, Union
+from .meta.tokenobject import Token
+from .meta.tokentype import TokenType
+from .meta.exceptions import ParseError
+from typing import List
 
 
 class Lexer(object):
@@ -9,7 +11,6 @@ class Lexer(object):
        produces a list of tokens. Some errors
        are caught here as well.
     """
-
 
     TOKENS = {"(": TokenType.LP, ")": TokenType.RP,
               "{": TokenType.LB, "}": TokenType.RB,
@@ -29,7 +30,6 @@ class Lexer(object):
                 "print": TokenType.PRINT, "return": TokenType.RETURN,
                 "this": TokenType.THIS, "super": TokenType.SUPER,
                 "del": TokenType.DEL, "break": TokenType.BREAK}
-
 
     def __init__(self, source: str):
         """Object constructor"""
@@ -181,7 +181,6 @@ class Lexer(object):
         Performs lexical analysis on self.source
         and returns a list of tokens
         """
-
 
         while not self.done():
             self.start = self.current

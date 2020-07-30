@@ -1,9 +1,10 @@
-from .objects import Expression, Token, TokenType, Binary, Unary, \
-Literal, Grouping, ParseError, JAPLError
-from .meta.statement import Print, StatementExpr, Var, Del, Block, \
-If, While, Break, Function, Return
-from .meta.expression import Variable, Assignment, Logical, Call
-from typing import List
+
+from .meta.exceptions import ParseError
+from .meta.tokentype import TokenType
+from .meta.tokenobject import Token
+from typing import List, Union
+from .meta.expression import Variable, Assignment, Logical, Call, Expression, Binary, Unary, Literal, Grouping, Expression
+from .meta.statement import Print, StatementExpr, Var, Del, Block, If, While, Break, Function, Return, Statement
 
 
 class Parser(object):
@@ -26,7 +27,7 @@ class Parser(object):
             return True
         return False
 
-    def throw(self, message: str, token: Token) -> ParseError:
+    def throw(self, token: Token, message: str) -> ParseError:
         """Returns ParseError with the given message"""
 
         return ParseError(message, token)
@@ -41,10 +42,10 @@ class Parser(object):
                 break
             else:
                 token_type = self.peek().kind
-                if token_type in (TokenType.IF, TokenType.CLASS,
-                                  TokenType.VAR, TokenType.FOR,
-                                  TokenType.WHILE, TokenType.PRINT,
-                                  TokenType.RETURN, TokenType.FUN):
+                if token_type in (
+                        TokenType.IF, TokenType.CLASS, TokenType.VAR, TokenType.FOR, TokenType.WHILE, TokenType.PRINT,
+                        TokenType.RETURN, TokenType.FUN
+                ):
                     return
             self.step()
 
@@ -63,11 +64,13 @@ class Parser(object):
         return self.tokens[self.current - 1]
 
     def done(self):
-       """Returns True if we reached EOF"""
+        """
+        Returns True if we reached EOF
+        """
 
-       return self.peek().kind == TokenType.EOF
+        return self.peek().kind == TokenType.EOF
 
-    def match(self, *types: list):
+    def match(self, *types: Union[TokenType, List[TokenType]]):
         """
         Checks if the current token matches
         any of the given token type(s)
@@ -81,15 +84,14 @@ class Parser(object):
 
     def consume(self, token_type, message: str):
         """
-           Consumes a token, raises an error
-           with the given message if the current token
-           differs from the expected one
+        Consumes a token, raises an error
+        with the given message if the current token
+        differs from the expected one
         """
 
         if self.check(token_type):
             return self.step()
         raise self.throw(self.peek(), message)
-
 
     def primary(self):
         """Parses unary expressions (literals)"""
@@ -184,9 +186,7 @@ class Parser(object):
         """
 
         expr: Expression = self.addition()
-        while self.match(TokenType.GT, TokenType.GE,
-                         TokenType.LT, TokenType.LE,
-                         TokenType.NE):
+        while self.match(TokenType.GT, TokenType.GE, TokenType.LT, TokenType.LE, TokenType.NE):
             operator: Token = self.previous()
             right: Expression = self.addition()
             expr = Binary(expr, operator, right)
@@ -371,14 +371,14 @@ class Parser(object):
         return self.expression_statement()
 
     def var_declaration(self):
-       """Parses a var declaration"""
+        """Parses a var declaration"""
 
-       name = self.consume(TokenType.ID, "Expecting a variable name")
-       init = None
-       if self.match(TokenType.EQ):
-           init = self.expression()
-       self.consume(TokenType.SEMICOLON, "Missing semicolon after declaration")
-       return Var(name, init)
+        name = self.consume(TokenType.ID, "Expecting a variable name")
+        init = None
+        if self.match(TokenType.EQ):
+            init = self.expression()
+        self.consume(TokenType.SEMICOLON, "Missing semicolon after declaration")
+        return Var(name, init)
 
     def function(self, kind: str):
         """Parses a function declaration"""
