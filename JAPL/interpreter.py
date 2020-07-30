@@ -9,7 +9,7 @@ from .meta.expression import Expression, Variable, Literal, Logical, Binary, Una
 from .meta.statement import Statement, Print, StatementExpr, If, While, Del, Break, Return, Var, Block, Function
 
 
-class Interpreter(object):
+class Interpreter(Expression.Visitor, Statement.Visitor):
     """
        An interpreter for the JAPL
        programming language
