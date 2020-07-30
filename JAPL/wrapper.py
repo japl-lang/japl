@@ -47,6 +47,7 @@ class JAPL(object):
                 source = input(">>> ")
             except (EOFError, KeyboardInterrupt):
                 print()
+                return
             else:
                 if not source:
                     continue
