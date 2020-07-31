@@ -1,6 +1,7 @@
 from .meta.exceptions import JAPLError
 from .meta.expression import Expression
 from .meta.statement import Statement
+from .meta.functiontype import FunctionType
 try:
     from functools import singledispatchmethod
 except ImportError:
@@ -9,7 +10,7 @@ from typing import List, Union
 from collections import deque
 
 
-class Resolver(object):
+class Resolver(Expression.Visitor, Statement.Visitor):
     """
     This class serves the purpose of correctly resolving
     name bindings (even with closures) efficiently
@@ -22,6 +23,7 @@ class Resolver(object):
 
         self.interpreter = interpreter
         self.scopes = deque()
+        self.current_function = FunctionType.NONE
 
     @singledispatchmethod
     def resolve(self, stmt_or_expr: Union[Statement, Expression, List[Statement]]):
@@ -75,6 +77,8 @@ class Resolver(object):
         if not self.scopes:
             return
         scope = self.scopes[-1]
+        if name.lexeme in scope:
+            raise JAPLError(name, "Cannot re-declare the same variable in local scope, use assignment instead")
         scope[name.lexeme] = False
 
     def define(self, name):
@@ -118,15 +122,18 @@ class Resolver(object):
                 self.interpreter.resolve(expr, i)
             i += 1
 
-    def resolve_function(self, function):
+    def resolve_function(self, function, function_type: FunctionType):
         """Resolves function objects"""
 
+        enclosing = self.current_function
+        self.current_function = function_type
         self.begin_scope()
         for param in function.params:
             self.declare(param)
             self.define(param)
         self.resolve(function.body)
         self.end_scope()
+        self.current_function = enclosing
 
     def visit_assign(self, expr):
         """Visits an assignment expression"""
@@ -139,7 +146,11 @@ class Resolver(object):
 
         self.declare(stmt.name)
         self.define(stmt.name)
-        self.resolve_function(stmt)
+        self.resolve_function(stmt, FunctionType.FUNCTION)
+
+    def visit_class(self, stmt):
+        self.declare(stmt.name)
+        self.define(stmt.name)
 
     def visit_statement_expr(self, stmt):
         """Visits a statement expression node"""
@@ -162,6 +173,8 @@ class Resolver(object):
     def visit_return(self, stmt):
         """Visits a return statement node"""
 
+        if self.current_function == FunctionType.NONE:
+            raise JAPLError(stmt.keyword, "'return' outside function")
         if stmt.value is not None:
             self.resolve(stmt.value)
 

@@ -3,8 +3,8 @@ from .meta.exceptions import ParseError
 from .meta.tokentype import TokenType
 from .meta.tokenobject import Token
 from typing import List, Union
-from .meta.expression import Variable, Assignment, Logical, Call, Expression, Binary, Unary, Literal, Grouping, Expression
-from .meta.statement import Print, StatementExpr, Var, Del, Block, If, While, Break, Function, Return, Statement
+from .meta.expression import Variable, Assignment, Logical, Call, Binary, Unary, Literal, Grouping, Expression
+from .meta.statement import Print, StatementExpr, Var, Del, Block, If, While, Break, Function, Return, Class
 
 
 class Parser(object):
@@ -398,11 +398,24 @@ class Parser(object):
         body = self.block()
         return Function(name, parameters, body)
 
+    def class_declaration(self):
+        """Parses a class declaration"""
+
+        name = self.consume(TokenType.ID, "Expecting class name")
+        self.consume(TokenType.LB, "Expecting '{' before class body")
+        methods = []
+        while not self.check(TokenType.RB) and not self.done():
+            methods.append(self.function("method"))
+        self.consume(TokenType.RB, "Expecting '}' after class body")
+        return Class(name, methods)
+
     def declaration(self):
         """Parses a declaration"""
 
         try:
-            if self.match(TokenType.FUN):
+            if self.match(TokenType.CLASS):
+                return self.class_declaration()
+            elif self.match(TokenType.FUN):
                 return self.function("function")
             elif self.match(TokenType.VAR):
                 return self.var_declaration()

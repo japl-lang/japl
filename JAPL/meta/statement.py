@@ -56,6 +56,9 @@ class Statement(object):
         def visit_return(self, visitor):
             raise NotImplementedError
 
+        @staticmethod
+        def visit_class(self, visitor):
+            raise NotImplementedError
 
 @dataclass
 class Print(Statement):
@@ -170,3 +173,14 @@ class Return(Statement, BaseException):
 
     def accept(self, visitor):
         visitor.visit_return(self)
+
+
+@dataclass
+class Class(Statement):
+    """A class statement"""
+
+    name: Token
+    methods: list
+
+    def accept(self, visitor):
+        visitor.visit_class(self)

@@ -35,7 +35,7 @@ class JAPL(object):
                     token, message = err.args
                     print(f"An exception occurred at line {token.line}, file '{file}' at '{token.lexeme}': {message}")
                 else:
-                    print(f"An exception occurred, details below\n\n{err}")
+                    print(f"An exception occurred, details below\n\n{type(err).__name__}: {err}")
 
     def repl(self):
         """Starts an interactive REPL"""
@@ -67,8 +67,12 @@ class JAPL(object):
                             self.resolver.resolve(ast)
                             result = self.interpreter.interpret(ast)
                         except JAPLError as error:
-                            token, message = error.args
-                            print(f"A runtime exception occurred at line {token.line} at '{token.lexeme}': {message}")
+                            if len(error.args) == 2:
+                                token, message = error.args
+                                print(
+                                    f"An exception occurred at line {token.line}, file 'stdin' at '{token.lexeme}': {message}")
+                            else:
+                                print(f"An exception occurred, details below\n\n{type(error).__name__}: {error}")
                         else:
                             if result is not None:
                                 print(repr(result))

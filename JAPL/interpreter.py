@@ -6,7 +6,7 @@ from .meta.tokentype import TokenType
 from .types.native import Clock, Type, JAPLFunction, Truthy, Stringify
 from .meta.exceptions import JAPLError, BreakException, ReturnException
 from .meta.expression import Expression, Variable, Literal, Logical, Binary, Unary, Grouping, Assignment, Call
-from .meta.statement import Statement, Print, StatementExpr, If, While, Del, Break, Return, Var, Block, Function
+from .meta.statement import Statement, Print, StatementExpr, If, While, Del, Break, Return, Var, Block, Function, Class
 
 
 class Interpreter(Expression.Visitor, Statement.Visitor):
@@ -31,7 +31,6 @@ class Interpreter(Expression.Visitor, Statement.Visitor):
         self.globals.define("truthy", Truthy())
         self.globals.define("stringify", Stringify())
         self.looping = False
-        self.in_function = False
 
     def number_operand(self, op, operand):
         """
@@ -157,6 +156,10 @@ class Interpreter(Expression.Visitor, Statement.Visitor):
         elif statement.else_branch:
             self.exec(statement.else_branch)
 
+    def visit_class(self, stmt: Class):
+        """Visits a class declaration"""
+
+
     def visit_while(self, statement: While):
         """
         Visits a while node and executes it
@@ -268,13 +271,10 @@ class Interpreter(Expression.Visitor, Statement.Visitor):
         Visits a return statement
         """
 
-        if self.in_function:
-            value = None
-            if statement.value:
-                value = self.eval(statement.value)
-            raise ReturnException(value)
-        else:
-            raise JAPLError(statement.keyword, "'return' outside function")
+        value = None
+        if statement.value:
+            value = self.eval(statement.value)
+        raise ReturnException(value)
 
     def visit_function(self, statement: Function):
         """
