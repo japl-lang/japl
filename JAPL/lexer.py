@@ -108,7 +108,7 @@ class Lexer(object):
 
     def match(self, char: str) -> bool:
         """
-        Returns True if the next character in self.source matches
+        Returns True if the current character in self.source matches
         the given character
         """
 
@@ -160,7 +160,15 @@ class Lexer(object):
         elif char in self.TOKENS:
             if char == "/" and self.match("/"):
                 while self.peek() != "\n" and not self.done():
-                   self.step()   # Who cares about comments?
+                    self.step()   # Who cares about comments?
+            elif char == "/" and self.match("*"):
+                while not self.done():
+                    end = self.peek() + self.peek_next()
+                    if end == "*/":
+                        self.step()   # Consume the two ends
+                        self.step()
+                        break
+                    self.step()
             elif char == "=" and self.match("="):
                 self.tokens.append(self.create_token(TokenType.DEQ))
             elif char == ">" and self.match("="):
