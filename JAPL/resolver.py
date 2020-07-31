@@ -105,7 +105,7 @@ class Resolver(object):
     def visit_var_expr(self, expr):
         """Visits a var expression node"""
 
-        if self.scopes and self.scopes[-1].get(expr.name.lexeme) == False:
+        if self.scopes and self.scopes[-1].get(expr.name.lexeme) is False:
             raise JAPLError(expr.name, f"Cannot read local variable in its own initializer")
         self.resolve_local(expr, expr.name)
 
@@ -114,7 +114,7 @@ class Resolver(object):
 
         i = 0
         for scope in reversed(self.scopes):
-            if name.lexeme in self.scopes:
+            if name.lexeme in scope:
                 self.interpreter.resolve(expr, i)
             i += 1
 

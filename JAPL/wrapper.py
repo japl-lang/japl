@@ -32,7 +32,7 @@ class JAPL(object):
                 print(f"Error' '{file}', permission denied")
             except JAPLError as err:
                 if len(err.args) == 2:
-                    message, token = err.args
+                    token, message = err.args
                     print(f"An exception occurred at line {token.line}, file '{file}' at '{token.lexeme}': {message}")
                 else:
                     print(f"An exception occurred, details below\n\n{err}")

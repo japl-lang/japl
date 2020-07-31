@@ -20,7 +20,7 @@ Even though that books treats the implementation of a basic language named Lox, 
 - A decent standard library (__Work in progress__)
 
 Other than that, JAPL features closures, function definitions, classes and static scoping. You can check
-the provided example `.jpl` files in this repo to find out more about JAPL.
+the provided example `.jpl` files in the repo to find out more about JAPL.
 
 ### Disclaimer
 

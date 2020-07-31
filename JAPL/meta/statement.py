@@ -136,7 +136,6 @@ class While(Statement):
     body: Statement
 
     def accept(self, visitor):
-        print("porcodio")
         visitor.visit_while(self)
 
 
