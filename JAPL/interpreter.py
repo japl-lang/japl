@@ -1,6 +1,7 @@
 import operator
 from typing import List
 from .types.callable import Callable
+from .types.japlclass import JAPLClass
 from .meta.environment import Environment
 from .meta.tokentype import TokenType
 from .types.native import Clock, Type, JAPLFunction, Truthy, Stringify
@@ -159,6 +160,9 @@ class Interpreter(Expression.Visitor, Statement.Visitor):
     def visit_class(self, stmt: Class):
         """Visits a class declaration"""
 
+        self.environment.define(stmt.name.lexeme, None)
+        klass = JAPLClass(stmt.name.lexeme)
+        self.environment.assign(stmt.name, klass)
 
     def visit_while(self, statement: While):
         """

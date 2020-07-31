@@ -1,9 +1,8 @@
-
 from .meta.exceptions import ParseError
 from .meta.tokentype import TokenType
 from .meta.tokenobject import Token
 from typing import List, Union
-from .meta.expression import Variable, Assignment, Logical, Call, Binary, Unary, Literal, Grouping, Expression
+from .meta.expression import Variable, Assignment, Logical, Call, Binary, Unary, Literal, Grouping, Expression, Get
 from .meta.statement import Print, StatementExpr, Var, Del, Block, If, While, Break, Function, Return, Class
 
 
@@ -133,6 +132,9 @@ class Parser(object):
         while True:
             if self.match(TokenType.LP):
                 expr = self.finish_call(expr)
+            elif self.match(TokenType.DOT):
+               name = self.consume(TokenType.ID, "Expecting property after '.'")
+               expr = Get(expr, name)
             else:
                 break
         return expr

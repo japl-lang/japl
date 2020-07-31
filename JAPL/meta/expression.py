@@ -112,3 +112,11 @@ class Call(Expression):
 
     def accept(self, visitor):
         return visitor.visit_call_expr(self)
+
+@dataclass
+class Get(Expression):
+    object: Expression
+    name: Token
+
+    def accept(self, visitor):
+        return visitor.visit_get(self)
