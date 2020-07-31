@@ -2,7 +2,7 @@ from .meta.exceptions import ParseError
 from .meta.tokentype import TokenType
 from .meta.tokenobject import Token
 from typing import List, Union
-from .meta.expression import Variable, Assignment, Logical, Call, Binary, Unary, Literal, Grouping, Expression, Get
+from .meta.expression import Variable, Assignment, Logical, Call, Binary, Unary, Literal, Grouping, Expression, Get, Set
 from .meta.statement import Print, StatementExpr, Var, Del, Block, If, While, Break, Function, Return, Class
 
 
@@ -238,6 +238,8 @@ class Parser(object):
             if isinstance(expr, Variable):
                 name = expr.name
                 return Assignment(name, value)
+            elif isinstance(expr, Get):
+                return Set(expr.object, expr.name, value)
             raise self.throw(eq, "Invalid syntax")
         return expr
 

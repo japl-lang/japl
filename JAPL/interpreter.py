@@ -2,11 +2,12 @@ import operator
 from typing import List
 from .types.callable import Callable
 from .types.japlclass import JAPLClass
+from .types.instance import JAPLInstance
 from .meta.environment import Environment
 from .meta.tokentype import TokenType
 from .types.native import Clock, Type, JAPLFunction, Truthy, Stringify
 from .meta.exceptions import JAPLError, BreakException, ReturnException
-from .meta.expression import Expression, Variable, Literal, Logical, Binary, Unary, Grouping, Assignment, Call
+from .meta.expression import Expression, Variable, Literal, Logical, Binary, Unary, Grouping, Assignment, Call, Get, Set
 from .meta.statement import Statement, Print, StatementExpr, If, While, Del, Break, Return, Var, Block, Function, Class
 
 
@@ -31,7 +32,6 @@ class Interpreter(Expression.Visitor, Statement.Visitor):
         self.globals.define("type", Type())
         self.globals.define("truthy", Truthy())
         self.globals.define("stringify", Stringify())
-        self.looping = False
 
     def number_operand(self, op, operand):
         """
@@ -161,7 +161,11 @@ class Interpreter(Expression.Visitor, Statement.Visitor):
         """Visits a class declaration"""
 
         self.environment.define(stmt.name.lexeme, None)
-        klass = JAPLClass(stmt.name.lexeme)
+        methods = {}
+        for method in stmt.methods:
+            func = JAPLFunction(method, self.environment)
+            methods[method.name.lexeme] = func
+        klass = JAPLClass(stmt.name.lexeme, methods)
         self.environment.assign(stmt.name, klass)
 
     def visit_while(self, statement: While):
@@ -169,13 +173,11 @@ class Interpreter(Expression.Visitor, Statement.Visitor):
         Visits a while node and executes it
         """
 
-        self.looping = True
         while self.eval(statement.condition):
             try:
                 self.exec(statement.body)
             except BreakException:
                 break
-        self.looping = False
 
     def visit_var_stmt(self, stmt: Var):
         """
@@ -237,9 +239,7 @@ class Interpreter(Expression.Visitor, Statement.Visitor):
         Visits a break statement
         """
 
-        if self.looping:
-            raise BreakException()
-        raise JAPLError(stmt.token, "'break' outside loop")
+        raise BreakException()
 
     def visit_call_expr(self, expr: Call):
         """
@@ -287,6 +287,23 @@ class Interpreter(Expression.Visitor, Statement.Visitor):
 
         function = JAPLFunction(statement, self.environment)
         self.environment.define(statement.name.lexeme, function)
+
+    def visit_get(self, expr: Get):
+        """Visits property get expressions and evaluates them"""
+
+        obj = self.eval(expr.object)
+        if isinstance(obj, JAPLInstance):
+            return obj.get(expr.name)
+        raise JAPLError(expr.name, "Only instances have properties")
+
+    def visit_set(self, expr: Set):
+        """Visits property set expressions and evaluates them"""
+
+        obj = self.eval(expr.object)
+        if not isinstance(obj, JAPLInstance):
+            raise JAPLError(expr, "Only instances have fields")
+        value = self.eval(expr.value)
+        obj.set(expr.name, value)
 
     def exec(self, statement: Statement):
         """

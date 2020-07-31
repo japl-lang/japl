@@ -36,6 +36,14 @@ class Expression(object):
         def visit_unary(self, visitor):
             raise NotImplementedError
 
+        @staticmethod
+        def visit_get(self, visitor):
+            raise NotImplementedError
+
+        @staticmethod
+        def visit_set(self, visitor):
+            raise NotImplementedError
+
 
 @dataclass
 class Binary(Expression):
@@ -94,6 +102,7 @@ class Assignment(Expression):
     def __hash__(self):
         return super().__hash__()
 
+
 @dataclass
 class Logical(Expression):
     left: Expression
@@ -113,6 +122,7 @@ class Call(Expression):
     def accept(self, visitor):
         return visitor.visit_call_expr(self)
 
+
 @dataclass
 class Get(Expression):
     object: Expression
@@ -120,3 +130,13 @@ class Get(Expression):
 
     def accept(self, visitor):
         return visitor.visit_get(self)
+
+
+@dataclass
+class Set(Expression):
+    object: Expression
+    name: Token
+    value: Expression
+
+    def accept(self, visitor):
+        return visitor.visit_set(self)

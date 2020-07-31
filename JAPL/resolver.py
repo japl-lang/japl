@@ -2,10 +2,11 @@ from .meta.exceptions import JAPLError
 from .meta.expression import Expression
 from .meta.statement import Statement
 from .meta.functiontype import FunctionType
+from .meta.looptype import LoopType
 try:
     from functools import singledispatchmethod
 except ImportError:
-    from singledispatchmethod import singledispatchmethod
+    from singledispatchmethod import singledispatchmethod   # Backport
 from typing import List, Union
 from collections import deque
 
@@ -24,6 +25,7 @@ class Resolver(Expression.Visitor, Statement.Visitor):
         self.interpreter = interpreter
         self.scopes = deque()
         self.current_function = FunctionType.NONE
+        self.current_loop = LoopType.NONE
 
     @singledispatchmethod
     def resolve(self, stmt_or_expr: Union[Statement, Expression, List[Statement]]):
@@ -151,6 +153,9 @@ class Resolver(Expression.Visitor, Statement.Visitor):
     def visit_class(self, stmt):
         self.declare(stmt.name)
         self.define(stmt.name)
+        for method in stmt.methods:
+            ftype = FunctionType.METHOD
+            self.resolve_function(method, ftype)
 
     def visit_statement_expr(self, stmt):
         """Visits a statement expression node"""
@@ -181,8 +186,11 @@ class Resolver(Expression.Visitor, Statement.Visitor):
     def visit_while(self, stmt):
         """Visits a while statement node"""
 
+        loop = self.current_loop
+        self.current_loop = LoopType.WHILE
         self.resolve(stmt.condition)
         self.resolve(stmt.body)
+        self.current_loop = loop
 
     def visit_binary(self, expr):
         """Visits a binary expression node"""
@@ -225,4 +233,16 @@ class Resolver(Expression.Visitor, Statement.Visitor):
     def visit_break(self, stmt):
         """Visits a break statement"""
 
-        return
+        if self.current_loop == LoopType.NONE:
+            raise JAPLError("'break' outside loop")
+
+    def visit_get(self, expr):
+        """Visits a property get expression"""
+
+        self.resolve(expr.object)
+
+    def visit_set(self, expr):
+        """Visits a property set expression"""
+
+        self.resolve(expr.value)
+        self.resolve(expr.object)
