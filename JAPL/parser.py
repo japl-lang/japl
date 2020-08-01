@@ -2,7 +2,7 @@ from .meta.exceptions import ParseError
 from .meta.tokentype import TokenType
 from .meta.tokenobject import Token
 from typing import List, Union
-from .meta.expression import Variable, Assignment, Logical, Call, Binary, Unary, Literal, Grouping, Expression, Get, Set
+from .meta.expression import Variable, Assignment, Logical, Call, Binary, Unary, Literal, Grouping, Expression, Get, Set, This, Super
 from .meta.statement import Print, StatementExpr, Var, Del, Block, If, While, Break, Function, Return, Class
 
 
@@ -29,7 +29,7 @@ class Parser(object):
     def throw(self, token: Token, message: str) -> ParseError:
         """Returns ParseError with the given message"""
 
-        return ParseError(message, token)
+        return ParseError(token, message)
 
     def synchronize(self):
         """Synchronizes the parser's state to recover after
@@ -109,6 +109,13 @@ class Parser(object):
             return Grouping(expr)
         elif self.match(TokenType.ID):
             return Variable(self.previous())
+        elif self.match(TokenType.SUPER):
+            keyword = self.previous()
+            self.consume(TokenType.DOT, "Expecting '.' after 'super'")
+            method = self.consume(TokenType.ID, "Expecting superclass method name")
+            return Super(keyword, method)
+        elif self.match(TokenType.THIS):
+            return This(self.previous())
         raise self.throw(self.peek(), "Invalid syntax")
 
     def finish_call(self, callee):
@@ -406,12 +413,16 @@ class Parser(object):
         """Parses a class declaration"""
 
         name = self.consume(TokenType.ID, "Expecting class name")
+        superclass = None
+        if self.match(TokenType.LT):
+            self.consume(TokenType.ID, "Expecting superclass name")
+            superclass = Variable(self.previous())
         self.consume(TokenType.LB, "Expecting '{' before class body")
         methods = []
         while not self.check(TokenType.RB) and not self.done():
             methods.append(self.function("method"))
         self.consume(TokenType.RB, "Expecting '}' after class body")
-        return Class(name, methods)
+        return Class(name, methods, superclass)
 
     def declaration(self):
         """Parses a declaration"""

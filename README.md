@@ -8,18 +8,21 @@ for Just Another Programming Language, but beware! Despite the name, the name is
 
 ## Some backstory
 
-JAPL is born thanks to the amazing work of Bob (whose surname is obscure) that wrote a book available completely for free
-at [this](https://craftinginterpreters.com) link.
+JAPL is born thanks to the amazing work of Bob Nystrom that wrote a book available completely for free
+at [this](https://craftinginterpreters.com) link, where he describes the implementation of a simple language called Lox.
 
-Even though that books treats the implementation of a basic language named Lox, JAPL is (will, actually) much more feature-rich:
+
+### What has been added from Lox
 
 - Possibility to delete variables with the `del` statement
 - `break` statement
-- Nested comments (__Coming Soon__)
+- `continue` statement (__Coming Soon__)
+- multi-line comments
+- Nested comments
 - Generators (__Coming soon__)
-- A decent standard library (__Work in progress__)
+- A decent standard library with collections, I/O utilities and such (__Work in progress__)
 
-Other than that, JAPL features closures, function definitions, classes and static scoping. You can check
+Other than that, JAPL features closures, function definitions, classes, inheritance and static scoping. You can check
 the provided example `.jpl` files in the repo to find out more about JAPL.
 
 ### Disclaimer

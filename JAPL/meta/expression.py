@@ -140,3 +140,28 @@ class Set(Expression):
 
     def accept(self, visitor):
         return visitor.visit_set(self)
+
+
+@dataclass
+class This(Expression):
+    keyword: Token
+
+    def accept(self, visitor):
+        return visitor.visit_this(self)
+
+    def __hash__(self):
+        return super().__hash__()
+
+
+@dataclass
+class Super(Expression):
+    keyword: Token
+    method: Token
+
+    def accept(self, visitor):
+        return visitor.visit_super(self)
+
+    def __hash__(self):
+        return super().__hash__()
+
+

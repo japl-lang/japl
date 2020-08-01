@@ -160,12 +160,24 @@ class Interpreter(Expression.Visitor, Statement.Visitor):
     def visit_class(self, stmt: Class):
         """Visits a class declaration"""
 
+        superclass = None
+        if stmt.superclass:
+            superclass = self.eval(stmt.superclass)
+            if not isinstance(superclass, JAPLClass):
+                raise JAPLError(stmt.superclass.name, "Superclass must be a class")
         self.environment.define(stmt.name.lexeme, None)
+        if superclass:
+            environment = Environment(self.environment)
+            environment.define("super", superclass)
+        else:
+            environment = self.environment
         methods = {}
         for method in stmt.methods:
-            func = JAPLFunction(method, self.environment)
+            func = JAPLFunction(method, environment)
             methods[method.name.lexeme] = func
-        klass = JAPLClass(stmt.name.lexeme, methods)
+        klass = JAPLClass(stmt.name.lexeme, methods, superclass)
+        if superclass:
+            self.environment = environment.enclosing
         self.environment.assign(stmt.name, klass)
 
     def visit_while(self, statement: While):
@@ -304,6 +316,22 @@ class Interpreter(Expression.Visitor, Statement.Visitor):
             raise JAPLError(expr, "Only instances have fields")
         value = self.eval(expr.value)
         obj.set(expr.name, value)
+
+    def visit_this(self, expr):
+        """Evaluates 'this' expressions"""
+
+        return self.lookup(expr.keyword, expr)
+
+    def visit_super(self, expr):
+        """Evaluates 'super' expressions"""
+
+        distance = self.locals.get(expr)
+        superclass = self.environment.get_at(distance, "super")
+        instance = self.environment.get_at(distance - 1, "this")
+        meth = superclass.get_method(expr.method.lexeme)
+        if not meth:
+            raise JAPLError(expr.method, f"Undefined property '{expr.method.lexeme}'")
+        return meth.bind(instance)
 
     def exec(self, statement: Statement):
         """

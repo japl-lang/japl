@@ -5,13 +5,28 @@ from .instance import JAPLInstance
 class JAPLClass(Callable):
     """A JAPL class"""
 
-    def __init__(self, name: str, methods: dict):
+    def __init__(self, name: str, methods: dict, superclass):
         self.name = name
         self.methods = methods
-        self.arity = 0
+        self.superclass = superclass
+        if self.get_method("init"):
+            self.arity = self.get_method("init").arity
+        else:
+            self.arity = 0
+
+    def get_method(self, name: str):
+        if name in self.methods:
+            return self.methods[name]
+        elif self.superclass and name in self.superclass.methods:
+            return self.superclass.methods[name]
 
     def __repr__(self):
         return f"<class '{self.name}'>"
 
     def call(self, interpreter, arguments):
-        return JAPLInstance(self)
+        instance = JAPLInstance(self)
+        constructor = self.get_method("init")
+        if constructor:
+            constructor.bind(instance).call(interpreter, arguments)
+        return instance
+

@@ -2,6 +2,7 @@ from .meta.exceptions import JAPLError
 from .meta.expression import Expression
 from .meta.statement import Statement
 from .meta.functiontype import FunctionType
+from .meta.classtype import ClassType
 from .meta.looptype import LoopType
 try:
     from functools import singledispatchmethod
@@ -26,6 +27,7 @@ class Resolver(Expression.Visitor, Statement.Visitor):
         self.scopes = deque()
         self.current_function = FunctionType.NONE
         self.current_loop = LoopType.NONE
+        self.current_class = ClassType.NONE
 
     @singledispatchmethod
     def resolve(self, stmt_or_expr: Union[Statement, Expression, List[Statement]]):
@@ -151,11 +153,29 @@ class Resolver(Expression.Visitor, Statement.Visitor):
         self.resolve_function(stmt, FunctionType.FUNCTION)
 
     def visit_class(self, stmt):
+        """Visits a class statement"""
+
+        enclosing = self.current_class
+        self.current_class = ClassType.CLASS
         self.declare(stmt.name)
         self.define(stmt.name)
+        if stmt.superclass:
+            if stmt.superclass.name.lexeme == stmt.name.lexeme:
+                raise JAPLError(stmt.name, "A class cannot inherit from itself")
+            self.resolve(stmt.superclass)
+            self.begin_scope()
+            self.scopes[-1]["super"] = True
+        self.begin_scope()
+        self.scopes[-1]["this"] = True
         for method in stmt.methods:
             ftype = FunctionType.METHOD
+            if method.name.lexeme == "init":
+                ftype = FunctionType.INIT
             self.resolve_function(method, ftype)
+        self.end_scope()
+        if stmt.superclass:
+            self.end_scope()
+        self.current_class = enclosing
 
     def visit_statement_expr(self, stmt):
         """Visits a statement expression node"""
@@ -180,7 +200,9 @@ class Resolver(Expression.Visitor, Statement.Visitor):
 
         if self.current_function == FunctionType.NONE:
             raise JAPLError(stmt.keyword, "'return' outside function")
-        if stmt.value is not None:
+        elif self.current_function == FunctionType.INIT:
+            raise JAPLError(stmt.keyword, "Cannot explicitly return from constructor")
+        elif stmt.value is not None:
             self.resolve(stmt.value)
 
     def visit_while(self, stmt):
@@ -246,3 +268,19 @@ class Resolver(Expression.Visitor, Statement.Visitor):
 
         self.resolve(expr.value)
         self.resolve(expr.object)
+
+    def visit_this(self, expr):
+        """Visits a 'this' expression"""
+
+        if self.current_class == ClassType.NONE:
+            raise JAPLError(expr.keyword, "'this' outside class")
+        self.resolve_local(expr, expr.keyword)
+
+    def visit_super(self, expr):
+        """Visits a 'super' expression"""
+
+        if self.current_class == ClassType.NONE:
+            raise JAPLError(expr.keyword, "'super' outside class")
+        self.resolve_local(expr, expr.keyword)
+
+

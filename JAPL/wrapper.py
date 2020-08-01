@@ -40,7 +40,6 @@ class JAPL(object):
     def repl(self):
         """Starts an interactive REPL"""
 
-        self.interpreter = Interpreter()
         print("[JAPL 0.1.1 - Interactive REPL]")
         while True:
             try:
@@ -60,7 +59,7 @@ class JAPL(object):
                     try:
                         ast = Parser(tokens).parse()
                     except ParseError as err:
-                        message, token = err.args
+                        token, message = err.args
                         print(f"An exception occurred at line {token.line} at '{token.lexeme}': {message}")
                     else:
                         try:

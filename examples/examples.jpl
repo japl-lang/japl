@@ -27,9 +27,12 @@ var b = "global1";
 print a;  
 print b;  // The outer scope isn't affected
 
+/*
+A multiline comment
+yay!
+*/
 
 // Control flow statements
-
 
 var n = 0;      
 while (n <= 10) {     // While loops
@@ -49,7 +52,7 @@ for (var i = 0; i < 10; i = i + 1) {   // For loops
 print clock();  // Function calls
 
 fun count(n) {   // Function definitions
-  if (n > 1) count(n - 1);
+  if (n > 1) count(n - 1);  // Recursion works
   print n;
 }
 
@@ -83,3 +86,40 @@ fun makeCounter() {
 var counter = makeCounter();
 counter(); // "1".
 counter(); // "2".
+
+
+// Classes
+
+class Person {
+
+    init(name) {   // Class initializer
+
+        this.name = name;
+    }
+
+    greet() {    // Methods don't use the 'fun' keyword!
+        print "Hello, " + this.name;
+    }
+}
+
+var bob = Person("Bob");   // Object creation
+bob.greet();  // Prints Hello, Bob
+var greetbob = bob.greet;  // Functions and methods are first-class objects! (classes are too)
+greetbob();
+
+
+class Male < Person {   // Male inherits from person
+
+    init(name) {
+        super.init(name); // Inherits constructor behavior
+        this.sex = "male";
+
+    }
+
+    greet() {
+        super.greet();  // Inherits behavior from superclass
+    }
+}
+
+var mark = Male("Mark");
+mark.greet();

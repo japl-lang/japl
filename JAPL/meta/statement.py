@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from .expression import Expression
+from .expression import Expression, Variable
 from .tokenobject import Token
 from typing import List, Any
 
@@ -181,6 +181,7 @@ class Class(Statement):
 
     name: Token
     methods: list
+    superclass: Variable
 
     def accept(self, visitor):
         visitor.visit_class(self)

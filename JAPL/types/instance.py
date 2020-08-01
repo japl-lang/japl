@@ -15,8 +15,9 @@ class JAPLInstance:
     def get(self, name: Token):
         if name.lexeme in self.fields:
             return self.fields[name.lexeme]
-        elif name.lexeme in self.klass.methods:
-            return self.klass.methods[name.lexeme]
+        meth = self.klass.get_method(name.lexeme)
+        if meth:
+            return meth.bind(self)
         raise JAPLError(name, f"Undefined property '{name.lexeme}'")
 
     def set(self, name: Token, value: object):
