@@ -17,8 +17,11 @@ class JAPLClass(Callable):
     def get_method(self, name: str):
         if name in self.methods:
             return self.methods[name]
-        elif self.superclass and name in self.superclass.methods:
-            return self.superclass.methods[name]
+        superclass = self.superclass
+        while superclass:
+            if name in superclass.methods:
+                return superclass.methods[name]
+            superclass = superclass.superclass
 
     def __repr__(self):
         return f"<class '{self.name}'>"

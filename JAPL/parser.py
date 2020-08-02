@@ -401,7 +401,10 @@ class Parser(object):
             while True:
                 if len(parameters) >= 255:
                     raise self.throw(self.peek(), "Cannot have more than 255 arguments")
-                parameters.append(self.consume(TokenType.ID, "Expecting parameter name"))
+                parameter = self.consume(TokenType.ID, "Expecting parameter name")
+                if parameter in parameters:
+                    raise self.throw(self.peek(), "Multiple parameters with the same name in function declaration are not allowed")
+                parameters.append(parameter)
                 if not self.match(TokenType.COMMA):
                     break
         self.consume(TokenType.RP, "Unexpected error while parsing function declaration")
