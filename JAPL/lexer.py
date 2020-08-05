@@ -45,6 +45,8 @@ class Lexer(object):
         'Steps' one character in the source code and returns it
         """
 
+        if self.done():
+            return ""
         self.current += 1
         return self.source[self.current - 1]
 
