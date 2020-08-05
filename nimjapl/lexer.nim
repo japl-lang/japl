@@ -3,8 +3,9 @@ import meta/tokentype
 import meta/tokenobject
 import meta/exceptions
 import meta/valueobject
-import strformat
 import system
+import strutils
+import strformat
 
 
 const TOKENS = to_table({
@@ -41,8 +42,8 @@ proc initLexer*(source: string): Lexer =
   result = Lexer(source: source, tokens: @[], line: 1, start: 0, current: 0)
 
 
-proc step*(self: var Lexer): char =
-  result = self.source[self.current]
+proc step*(self: var Lexer): string =
+  result = &"{self.source[self.current]}"
   self.current = self.current + 1
 
 
@@ -63,6 +64,9 @@ proc peekNext*(self: Lexer): string =
     else:
         result = &"{self.source[self.current + 1]}"
 
+
+proc isDigit*(s: string): bool =
+    result = s >= "0" and s <= "9"
 
 proc createToken*(self: var Lexer, tokenType: TokenType, literal: Value): Token =
     result = Token(kind: tokenType,
@@ -85,4 +89,18 @@ proc parseString*(self: var Lexer, delimiter: string) =
     self.tokens.add(token)
 
 
-var lexer = initLexer("'hello'")
+proc parseNumber*(self: var Lexer) =
+    while isDigit(self.peek()):
+        discard self.step()
+    if self.peek() == ".":
+        discard self.step()
+        while self.peek().isDigit():
+            discard self.step()
+        var value = FloatValue(value: parseFloat(self.source[self.start..<self.current]))
+        self.tokens.add(self.createToken(FLOAT, value))
+    else:
+        var value = IntValue(value: parseInt(self.source[self.start..<self.current]))
+        self.tokens.add(self.createToken(INT, value))
+
+
+var lexer = initLexer("3.14")
