@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from .tokentype import TokenType
 
+
 @dataclass
 class Token(object):
     """The representation of a JAPL token"""

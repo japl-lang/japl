@@ -1,5 +1,6 @@
 from enum import Enum, auto
 
+
 class TokenType(Enum):
     """
     An enumeration for all JAPL types
