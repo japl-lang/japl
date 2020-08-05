@@ -42,33 +42,42 @@ proc initLexer*(source: string): Lexer =
   result = Lexer(source: source, tokens: @[], line: 1, start: 0, current: 0)
 
 
-proc step*(self: var Lexer): string =
+proc step(self: var Lexer): string =
   result = &"{self.source[self.current]}"
   self.current = self.current + 1
 
 
-proc done*(self: Lexer): bool =
+proc done(self: Lexer): bool =
     result = self.current >= self.source.len
 
 
-proc peek*(self: Lexer): string =
+proc peek(self: Lexer): string =
     if self.done():
         result = ""
     else:
         result = &"{self.source[self.current]}"
 
 
-proc peekNext*(self: Lexer): string =
+proc peekNext(self: Lexer): string =
     if self.current + 1 >= self.source.len:
         result = ""
     else:
         result = &"{self.source[self.current + 1]}"
 
 
-proc isDigit*(s: string): bool =
+proc isDigit(s: string): bool =
     result = s >= "0" and s <= "9"
 
-proc createToken*(self: var Lexer, tokenType: TokenType, literal: Value): Token =
+
+proc isAlpha(s: string): bool =
+    result = (s >= "a" and s <= "z") or (s >= "A" and s <= "Z") or s == "_"
+
+
+proc isAlnum(s: string): bool =
+    result = isDigit(s) or isAlpha(s)
+
+
+proc createToken(self: var Lexer, tokenType: TokenType, literal: Value): Token =
     result = Token(kind: tokenType,
                    lexeme: self.source[self.start..<self.current],
                    literal: literal,
@@ -76,7 +85,7 @@ proc createToken*(self: var Lexer, tokenType: TokenType, literal: Value): Token 
                    )
 
 
-proc parseString*(self: var Lexer, delimiter: string) =
+proc parseString(self: var Lexer, delimiter: string) =
     while self.peek() != delimiter and not self.done():
         if self.peek() == "\n":
             self.line = self.line + 1
@@ -89,7 +98,7 @@ proc parseString*(self: var Lexer, delimiter: string) =
     self.tokens.add(token)
 
 
-proc parseNumber*(self: var Lexer) =
+proc parseNumber(self: var Lexer) =
     while isDigit(self.peek()):
         discard self.step()
     if self.peek() == ".":
@@ -103,4 +112,15 @@ proc parseNumber*(self: var Lexer) =
         self.tokens.add(self.createToken(INT, value))
 
 
-var lexer = initLexer("3.14")
+proc parseIdentifier(self: var Lexer) =
+    while isAlnum(self.peek()):
+        discard self.step()
+    var text: string = self.source[self.start..<self.current]
+    var keyword = text in RESERVED
+    if keyword:
+        self.tokens.add(self.createToken(RESERVED[text], StrValue(value: text)))
+    else:
+        self.tokens.add(self.createToken(ID, StrValue(value: text)))
+
+
+var lexer = initLexer("_oof_")
