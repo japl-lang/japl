@@ -186,7 +186,7 @@ proc scanToken(self: var Lexer) =
         raise newException(ParseError, &"Unexpected character '{single}' at {self.line}")
 
 
-proc lex(self: var Lexer): seq[Token] =
+proc lex*(self: var Lexer): seq[Token] =
     while not self.done():
         self.start = self.current
         self.scanToken()

@@ -64,7 +64,7 @@ class Resolver(Expression.Visitor, Statement.Visitor):
         Resolves an expression
         """
 
-        expression.accept(self)
+        return expression.accept(self)
 
     @resolve.register
     def resolve_statements(self, stmt: list):
@@ -189,11 +189,6 @@ class Resolver(Expression.Visitor, Statement.Visitor):
         self.resolve(stmt.then_branch)
         if stmt.else_branch:
             self.resolve(stmt.else_branch)
-
-    def visit_print(self, stmt):
-        """Visits a print statement node"""
-
-        self.resolve(stmt.expression)
 
     def visit_return(self, stmt):
         """Visits a return statement node"""

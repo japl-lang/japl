@@ -47,31 +47,23 @@ class JAPL(object):
             except (EOFError, KeyboardInterrupt):
                 print()
                 return
-            else:
-                if not source:
-                    continue
-                lexer = Lexer(source)
-                try:
-                    tokens = lexer.lex()
-                except ParseError as err:
-                    print(f"\nAn exception occurred, details below\n\nParseError: {err.args[0]}")
+            if not source:
+                continue
+            lexer = Lexer(source)
+            try:
+                tokens = lexer.lex()
+                ast = Parser(tokens).parse()
+                self.resolver.resolve(ast)
+                result = self.interpreter.interpret(ast)
+            except ParseError as err:
+                if len(err.args) == 2:
+                    token, message = err.args
+                    print(f"An exception occurred at line {token.line} at '{token.lexeme}': {message}")
                 else:
-                    try:
-                        ast = Parser(tokens).parse()
-                    except ParseError as err:
-                        token, message = err.args
-                        print(f"An exception occurred at line {token.line} at '{token.lexeme}': {message}")
-                    else:
-                        try:
-                            self.resolver.resolve(ast)
-                            result = self.interpreter.interpret(ast)
-                        except JAPLError as error:
-                            if len(error.args) == 2:
-                                token, message = error.args
-                                print(
-                                    f"An exception occurred at line {token.line}, file 'stdin' at '{token.lexeme}': {message}")
-                            else:
-                                print(f"An exception occurred, details below\n\n{type(error).__name__}: {error}")
-                        else:
-                            if result is not None:
-                                print(repr(result))
+                    print(f"\nAn exception occurred, details below\n\nParseError: {err.args[0]}")
+            except JAPLError as error:
+                if len(error.args) == 2:
+                    token, message = error.args
+                    print(f"An exception occurred at line {token.line}, file 'stdin' at '{token.lexeme}': {message}")
+                else:
+                    print(f"An exception occurred, details below\n\n{type(error).__name__}: {error}")

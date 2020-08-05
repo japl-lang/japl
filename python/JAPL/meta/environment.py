@@ -38,7 +38,7 @@ class Environment(object):
         """Finds the scope specified by distance"""
 
         env = self
-        for i in range(0, distance):
+        for _ in range(distance):
             env = env.enclosing
         return env
 
