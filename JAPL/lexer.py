@@ -27,7 +27,7 @@ class Lexer(object):
                 "for": TokenType.FOR, "while": TokenType.WHILE,
                 "var": TokenType.VAR, "nil": TokenType.NIL,
                 "true": TokenType.TRUE, "false": TokenType.FALSE,
-                "print": TokenType.PRINT, "return": TokenType.RETURN,
+                "return": TokenType.RETURN,
                 "this": TokenType.THIS, "super": TokenType.SUPER,
                 "del": TokenType.DEL, "break": TokenType.BREAK}
 
@@ -106,6 +106,25 @@ class Lexer(object):
             kind = self.RESERVED[value]
         self.tokens.append(self.create_token(kind))
 
+    def comment(self):
+        """Handles multi-line comments"""
+
+        closed = False
+        while not self.done():
+            end = self.peek() + self.peek_next()
+            if end == "/*":   # Nested comments
+                self.step()
+                self.step()
+                self.comment()
+            elif end == "*/":
+                closed = True
+                self.step()   # Consume the two ends
+                self.step()
+                break
+            self.step()
+        if self.done() and not closed:
+            raise ParseError(f"Unexpected EOF at line {self.line}")
+
     def match(self, char: str) -> bool:
         """
         Returns True if the current character in self.source matches
@@ -162,13 +181,7 @@ class Lexer(object):
                 while self.peek() != "\n" and not self.done():
                     self.step()   # Who cares about comments?
             elif char == "/" and self.match("*"):
-                while not self.done():
-                    end = self.peek() + self.peek_next()
-                    if end == "*/":
-                        self.step()   # Consume the two ends
-                        self.step()
-                        break
-                    self.step()
+                self.comment()
             elif char == "=" and self.match("="):
                 self.tokens.append(self.create_token(TokenType.DEQ))
             elif char == ">" and self.match("="):
