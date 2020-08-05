@@ -3,7 +3,7 @@ from .meta.tokentype import TokenType
 from .meta.tokenobject import Token
 from typing import List, Union
 from .meta.expression import Variable, Assignment, Logical, Call, Binary, Unary, Literal, Grouping, Expression, Get, Set, This, Super
-from .meta.statement import Print, StatementExpr, Var, Del, Block, If, While, Break, Function, Return, Class
+from .meta.statement import StatementExpr, Var, Del, Block, If, While, Break, Function, Return, Class
 
 
 class Parser(object):
@@ -42,7 +42,7 @@ class Parser(object):
             else:
                 token_type = self.peek().kind
                 if token_type in (
-                        TokenType.IF, TokenType.CLASS, TokenType.VAR, TokenType.FOR, TokenType.WHILE, TokenType.PRINT,
+                        TokenType.IF, TokenType.CLASS, TokenType.VAR, TokenType.FOR, TokenType.WHILE,
                         TokenType.RETURN, TokenType.FUN
                 ):
                     return
@@ -264,13 +264,6 @@ class Parser(object):
             self.current += 1
         return self.previous()
 
-    def print_statement(self):
-        """Returns a Print AST node"""
-
-        value = self.expression()
-        self.consume(TokenType.SEMICOLON, "Missing semicolon after print statement")
-        return Print(value)
-
     def del_statement(self):
         """Returns a del AST node"""
 
@@ -365,8 +358,6 @@ class Parser(object):
 
         if self.match(TokenType.IF):
             return self.if_statement()
-        elif self.match(TokenType.PRINT):
-            return self.print_statement()
         elif self.match(TokenType.RETURN):
             return self.return_statement()
         elif self.match(TokenType.FOR):

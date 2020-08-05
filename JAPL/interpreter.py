@@ -5,10 +5,10 @@ from .types.japlclass import JAPLClass
 from .types.instance import JAPLInstance
 from .meta.environment import Environment
 from .meta.tokentype import TokenType
-from .types.native import Clock, Type, JAPLFunction, Truthy, Stringify
 from .meta.exceptions import JAPLError, BreakException, ReturnException
+from .types.native import Clock, Type, JAPLFunction, Truthy, Stringify, PrintFunction, IsInstance, IsSubclass, IsSuperclass
 from .meta.expression import Expression, Variable, Literal, Logical, Binary, Unary, Grouping, Assignment, Call, Get, Set
-from .meta.statement import Statement, Print, StatementExpr, If, While, Del, Break, Return, Var, Block, Function, Class
+from .meta.statement import Statement, StatementExpr, If, While, Del, Break, Return, Var, Block, Function, Class
 
 
 class Interpreter(Expression.Visitor, Statement.Visitor):
@@ -32,6 +32,10 @@ class Interpreter(Expression.Visitor, Statement.Visitor):
         self.globals.define("type", Type())
         self.globals.define("truthy", Truthy())
         self.globals.define("stringify", Stringify())
+        self.globals.define("print", PrintFunction())
+        self.globals.define("isinstance", IsInstance())
+        self.globals.define("issuperclass", IsSuperclass())
+        self.globals.define("issubclass", IsSubclass())
 
     def number_operand(self, op, operand):
         """
@@ -129,16 +133,6 @@ class Interpreter(Expression.Visitor, Statement.Visitor):
         right = self.eval(expr.right)
         self.compatible_operands(expr.operator, left, right)
         return self.OPS[expr.operator.kind](left, right)
-
-    def visit_print(self, stmt: Print):
-        """
-        Visits the print statement node in the AST and
-        evaluates its expression before printing it to
-        stdout
-        """
-
-        val = self.eval(stmt.expression)
-        print(val)
 
     def visit_statement_expr(self, stmt: StatementExpr):
         """

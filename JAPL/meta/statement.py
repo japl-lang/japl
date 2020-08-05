@@ -16,9 +16,6 @@ class Statement(object):
     class Visitor(ABC):
         """Wrapper to implement the Visitor Pattern"""
 
-        @abstractmethod
-        def visit_print(self, visitor):
-            raise NotImplementedError
 
         @abstractmethod
         def visit_statement_expr(self, visitor):
@@ -59,17 +56,6 @@ class Statement(object):
         @staticmethod
         def visit_class(self, visitor):
             raise NotImplementedError
-
-@dataclass
-class Print(Statement):
-    """
-    The print statement
-    """
-
-    expression: Expression
-
-    def accept(self, visitor):
-        visitor.visit_print(self)
 
 
 @dataclass
