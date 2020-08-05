@@ -8,3 +8,15 @@ type
     value*: int
   FloatValue* = ref object of Value
     value*: float
+
+
+proc `$`(obj: StrValue): string =
+    result = obj.value
+
+
+proc `$`(obj: IntValue): string =
+    result = $obj.value
+
+
+proc `$`(obj: FloatValue): string =
+    result = $obj.value

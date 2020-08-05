@@ -42,13 +42,15 @@ proc initLexer*(source: string): Lexer =
   result = Lexer(source: source, tokens: @[], line: 1, start: 0, current: 0)
 
 
-proc step(self: var Lexer): string =
-  result = &"{self.source[self.current]}"
-  self.current = self.current + 1
-
-
 proc done(self: Lexer): bool =
     result = self.current >= self.source.len
+
+
+proc step(self: var Lexer): string =
+    if self.done():
+        return ""
+    self.current = self.current + 1
+    result = &"{self.source[self.current - 1]}"
 
 
 proc peek(self: Lexer): string =
@@ -56,6 +58,15 @@ proc peek(self: Lexer): string =
         result = ""
     else:
         result = &"{self.source[self.current]}"
+
+
+proc match(self: var Lexer, what: string): bool =
+    if self.done():
+        return false
+    elif self.peek() != what:
+        return false
+    self.current = self.current + 1
+    return true
 
 
 proc peekNext(self: Lexer): string =
@@ -123,4 +134,61 @@ proc parseIdentifier(self: var Lexer) =
         self.tokens.add(self.createToken(ID, StrValue(value: text)))
 
 
-var lexer = initLexer("_oof_")
+proc parseComment(self: var Lexer) =
+    var closed = false
+    while not self.done():
+        var finish = self.peek() & self.peekNext()
+        if finish == "/*":   # Nested comments
+            discard self.step()
+            discard self.step()
+            self.parseComment()
+        elif finish == "*/":
+            closed = true
+            discard self.step()   # Consume the two ends
+            discard self.step()
+            break
+        discard self.step()
+    if self.done() and not closed:
+        raise newException(ParseError, &"Unexpected EOF at line {self.line}")
+
+
+proc scanToken(self: var Lexer) =
+    var single = self.step()
+    if single in [" ", "\t", "\r"]:
+        return
+    elif single == "\n":
+        self.current = self.current + 1
+    elif single in ["""'""", "'"]:
+        self.parseString(single)
+    elif single.isDigit():
+        self.parseNumber()
+    elif single.isAlnum():
+        self.parseIdentifier()
+    elif single in TOKENS:
+        if single == "/" and self.match("/"):
+            while self.peek() != "\n" and not self.done():
+                discard self.step()
+        elif single == "/" and self.match("*"):
+            self.parseComment()
+        elif single == "=" and self.match("="):
+            self.tokens.add(self.createToken(DEQ, StrValue(value: "==")))
+        elif single == ">" and self.match("="):
+            self.tokens.add(self.createToken(GE, StrValue(value: ">=")))
+        elif single == "<" and self.match("="):
+            self.tokens.add(self.createToken(LE, StrValue(value: "<=")))
+        elif single == "!" and self.match("="):
+            self.tokens.add(self.createToken(NE, StrValue(value: "!=")))
+        elif single == "*" and self.match("*"):
+            self.tokens.add(self.createToken(POW, StrValue(value: "**")))
+        else:
+            self.tokens.add(self.createToken(TOKENS[single], StrValue(value: single)))
+    else:
+        raise newException(ParseError, &"Unexpected character '{single}' at {self.line}")
+
+
+proc lex(self: var Lexer): seq[Token] =
+    while not self.done():
+        self.start = self.current
+        self.scanToken()
+    self.tokens.add(Token(kind: EOF, lexeme: "", literal: IntValue(value: -1), line: self.line))
+    return self.tokens
