@@ -2,6 +2,7 @@ import tables
 import meta/tokentype
 import meta/tokenobject
 import meta/exceptions
+import meta/valueobject
 import strformat
 import system
 
@@ -36,7 +37,7 @@ type Lexer* = object
   current: int
 
 
-func initLexer*(source: string): Lexer =
+proc initLexer*(source: string): Lexer =
   result = Lexer(source: source, tokens: @[], line: 1, start: 0, current: 0)
 
 
@@ -63,10 +64,11 @@ proc peekNext*(self: Lexer): string =
         result = &"{self.source[self.current + 1]}"
 
 
-proc createToken*[T](self: var Lexer, tokenType: TokenType, literal: T): Token =
+proc createToken*(self: var Lexer, tokenType: TokenType, literal: Value): Token =
     result = Token(kind: tokenType,
-                   lexeme: self.source[self.start..self.current],
-                   literal: literal
+                   lexeme: self.source[self.start..<self.current],
+                   literal: literal,
+                   line: self.line
                    )
 
 
@@ -78,8 +80,9 @@ proc parseString*(self: var Lexer, delimiter: string) =
     if self.done():
         raise newException(ParseError, &"Unterminated string literal at {self.line}")
     discard self.step()
-    let value = self.source[self.start + 1..self.current - 1]  # Get the value between quotes
-    let token = self.createToken[string](STR, value)
+    let value = StrValue(value: self.source[self.start..<self.current - 1]) # Get the value between quotes
+    let token = self.createToken(STR, value)
+    self.tokens.add(token)
 
-var lexer = initLexer("print")
-echo lexer.createToken[string](STR, "ehlo", STR)
+
+var lexer = initLexer("'hello'")

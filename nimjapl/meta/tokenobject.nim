@@ -1,9 +1,11 @@
 import tokentype
+import valueobject
+
 # Token object
 
 type
-  Token*[T] = ref object of RootOBJ
+  Token* = ref object
     kind*: TokenType
     lexeme*: string
-    literal*: T
+    literal*: Value
     line*: int
