@@ -4,8 +4,8 @@ type
   TokenType* = enum
     PLUS, MINUS, SLASH, STAR,
     NEG, NE, EQ, DEQ, LT, GE,
-    LE, MOD, POW, GT, LP, RP,
-    LB, RB, COMMA, DOT, ID,
+    LE, MOD, POW, GT, LP, RP, LS
+    LB, RB, COMMA, DOT, ID, RS
     INT, FLOAT, BOOL, STR,
     SEMICOLON, AND, CLASS,
     ELSE, FOR, FUN, FALSE,
