@@ -1,22 +1,13 @@
 # Value objects
 
 type
-  Value* = ref object of RootObj
+  Value*[T] = ref object of RootObj
+    value*: T
   StrValue* = ref object of Value
     value*: string
+  CharValue* = ref object of Value
+    value*: char
   IntValue* = ref object of Value
     value*: int
   FloatValue* = ref object of Value
     value*: float
-
-
-proc `$`(obj: StrValue): string =
-    result = obj.value
-
-
-proc `$`(obj: IntValue): string =
-    result = $obj.value
-
-
-proc `$`(obj: FloatValue): string =
-    result = $obj.value

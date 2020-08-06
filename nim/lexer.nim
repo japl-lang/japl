@@ -9,15 +9,15 @@ import strformat
 
 
 const TOKENS = to_table({
-              "(": TokenType.LP, ")": TokenType.RP,
-              "{": TokenType.LB, "}": TokenType.RB,
-              ".": TokenType.DOT, ",": TokenType.COMMA,
-              "-": TokenType.MINUS, "+": TokenType.PLUS,
-              ";": TokenType.SEMICOLON, "*": TokenType.STAR,
-              ">": TokenType.GT, "<": TokenType.LT,
-              "=": TokenType.EQ, "!": TokenType.NEG,
-              "/": TokenType.SLASH, "%": TokenType.MOD,
-               "[": TokenType.LS, "]": TokenType.RS})
+              '(': TokenType.LP, ')': TokenType.RP,
+              '{': TokenType.LB, '}': TokenType.RB,
+              '.': TokenType.DOT, ',': TokenType.COMMA,
+              '-': TokenType.MINUS, '+': TokenType.PLUS,
+              ';': TokenType.SEMICOLON, '*': TokenType.STAR,
+              '>': TokenType.GT, '<': TokenType.LT,
+              '=': TokenType.EQ, '!': TokenType.NEG,
+              '/': TokenType.SLASH, '%': TokenType.MOD,
+               '[': TokenType.LS, ']': TokenType.RS})
 
 const RESERVED = to_table({
                 "or": TokenType.OR, "and": TokenType.AND,
@@ -47,21 +47,21 @@ proc done(self: Lexer): bool =
     result = self.current >= self.source.len
 
 
-proc step(self: var Lexer): string =
+proc step(self: var Lexer): char =
     if self.done():
-        return ""
+        return '\0'
     self.current = self.current + 1
-    result = &"{self.source[self.current - 1]}"
+    result = self.source[self.current - 1]
 
 
-proc peek(self: Lexer): string =
+proc peek(self: Lexer): char =
     if self.done():
-        result = ""
+        result = '\0'
     else:
-        result = &"{self.source[self.current]}"
+        result = self.source[self.current]
 
 
-proc match(self: var Lexer, what: string): bool =
+proc match(self: var Lexer, what: char): bool =
     if self.done():
         return false
     elif self.peek() != what:
@@ -70,23 +70,11 @@ proc match(self: var Lexer, what: string): bool =
     return true
 
 
-proc peekNext(self: Lexer): string =
+proc peekNext(self: Lexer): char =
     if self.current + 1 >= self.source.len:
-        result = ""
+        result = '\0'
     else:
-        result = &"{self.source[self.current + 1]}"
-
-
-proc isDigit(s: string): bool =
-    result = s >= "0" and s <= "9"
-
-
-proc isAlpha(s: string): bool =
-    result = (s >= "a" and s <= "z") or (s >= "A" and s <= "Z") or s == "_"
-
-
-proc isAlnum(s: string): bool =
-    result = isDigit(s) or isAlpha(s)
+        result = self.source[self.current + 1]
 
 
 proc createToken(self: var Lexer, tokenType: TokenType, literal: Value): Token =
@@ -97,9 +85,9 @@ proc createToken(self: var Lexer, tokenType: TokenType, literal: Value): Token =
                    )
 
 
-proc parseString(self: var Lexer, delimiter: string) =
+proc parseString(self: var Lexer, delimiter: char) =
     while self.peek() != delimiter and not self.done():
-        if self.peek() == "\n":
+        if self.peek() == '\n':
             self.line = self.line + 1
         discard self.step()
     if self.done():
@@ -113,7 +101,7 @@ proc parseString(self: var Lexer, delimiter: string) =
 proc parseNumber(self: var Lexer) =
     while isDigit(self.peek()):
         discard self.step()
-    if self.peek() == ".":
+    if self.peek() == '.':
         discard self.step()
         while self.peek().isDigit():
             discard self.step()
@@ -125,7 +113,7 @@ proc parseNumber(self: var Lexer) =
 
 
 proc parseIdentifier(self: var Lexer) =
-    while isAlnum(self.peek()):
+    while self.peek().isAlphaNumeric():
         discard self.step()
     var text: string = self.source[self.start..<self.current]
     var keyword = text in RESERVED
@@ -155,34 +143,34 @@ proc parseComment(self: var Lexer) =
 
 proc scanToken(self: var Lexer) =
     var single = self.step()
-    if single in [" ", "\t", "\r"]:
+    if single in [' ', '\t', '\r']:
         return
-    elif single == "\n":
+    elif single == '\n':
         self.current = self.current + 1
-    elif single in ["""'""", "'"]:
+    elif single in ['"', '\'']:
         self.parseString(single)
     elif single.isDigit():
         self.parseNumber()
-    elif single.isAlnum():
+    elif single.isAlphaNumeric():
         self.parseIdentifier()
     elif single in TOKENS:
-        if single == "/" and self.match("/"):
-            while self.peek() != "\n" and not self.done():
+        if single == '/' and self.match('/'):
+            while self.peek() != '\n' and not self.done():
                 discard self.step()
-        elif single == "/" and self.match("*"):
+        elif single == '/' and self.match('*'):
             self.parseComment()
-        elif single == "=" and self.match("="):
+        elif single == '=' and self.match('='):
             self.tokens.add(self.createToken(DEQ, StrValue(value: "==")))
-        elif single == ">" and self.match("="):
+        elif single == '>' and self.match('='):
             self.tokens.add(self.createToken(GE, StrValue(value: ">=")))
-        elif single == "<" and self.match("="):
+        elif single == '<' and self.match('='):
             self.tokens.add(self.createToken(LE, StrValue(value: "<=")))
-        elif single == "!" and self.match("="):
+        elif single == '!' and self.match('='):
             self.tokens.add(self.createToken(NE, StrValue(value: "!=")))
-        elif single == "*" and self.match("*"):
+        elif single == '*' and self.match('*'):
             self.tokens.add(self.createToken(POW, StrValue(value: "**")))
         else:
-            self.tokens.add(self.createToken(TOKENS[single], StrValue(value: single)))
+            self.tokens.add(self.createToken(TOKENS[single], CharValue(value: single)))
     else:
         raise newException(ParseError, &"Unexpected character '{single}' at {self.line}")
 
@@ -191,5 +179,10 @@ proc lex*(self: var Lexer): seq[Token] =
     while not self.done():
         self.start = self.current
         self.scanToken()
-    self.tokens.add(Token(kind: EOF, lexeme: "", literal: IntValue(value: -1), line: self.line))
+    self.tokens.add(Token(kind: EOF, lexeme: "EOF", literal: IntValue(value: -1), line: self.line))
     return self.tokens
+
+
+var lexer = initLexer("print(1);")
+var tokens = lexer.lex()
+assert tokens[0].literal.value == "print"
