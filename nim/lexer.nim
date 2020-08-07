@@ -93,7 +93,7 @@ proc parseString(self: var Lexer, delimiter: char) =
     if self.done():
         raise newException(ParseError, &"Unterminated string literal at {self.line}")
     discard self.step()
-    let value = StrValue(value: self.source[self.start..<self.current - 1]) # Get the value between quotes
+    let value = Value(kind: ValueTypes.STRING, stringValue: self.source[self.start..<self.current - 1]) # Get the value between quotes
     let token = self.createToken(STR, value)
     self.tokens.add(token)
 
@@ -105,11 +105,11 @@ proc parseNumber(self: var Lexer) =
         discard self.step()
         while self.peek().isDigit():
             discard self.step()
-        var value = FloatValue(value: parseFloat(self.source[self.start..<self.current]))
-        self.tokens.add(self.createToken(FLOAT, value))
+        var value = Value(kind: ValueTypes.FLOAT, floatValue: parseFloat(self.source[self.start..<self.current]))
+        self.tokens.add(self.createToken(TokenType.FLOAT, value))
     else:
-        var value = IntValue(value: parseInt(self.source[self.start..<self.current]))
-        self.tokens.add(self.createToken(INT, value))
+        var value = Value(kind: ValueTypes.INT, intValue: parseInt(self.source[self.start..<self.current]))
+        self.tokens.add(self.createToken(TokenType.INT, value))
 
 
 proc parseIdentifier(self: var Lexer) =
@@ -118,9 +118,9 @@ proc parseIdentifier(self: var Lexer) =
     var text: string = self.source[self.start..<self.current]
     var keyword = text in RESERVED
     if keyword:
-        self.tokens.add(self.createToken(RESERVED[text], StrValue(value: text)))
+        self.tokens.add(self.createToken(RESERVED[text], Value(kind: ValueTypes.STRING, stringValue: text)))
     else:
-        self.tokens.add(self.createToken(ID, StrValue(value: text)))
+        self.tokens.add(self.createToken(ID, Value(kind: ValueTypes.STRING, stringValue: text)))
 
 
 proc parseComment(self: var Lexer) =
@@ -160,17 +160,17 @@ proc scanToken(self: var Lexer) =
         elif single == '/' and self.match('*'):
             self.parseComment()
         elif single == '=' and self.match('='):
-            self.tokens.add(self.createToken(DEQ, StrValue(value: "==")))
+            self.tokens.add(self.createToken(DEQ, Value(kind: ValueTypes.STRING, stringValue: "==")))
         elif single == '>' and self.match('='):
-            self.tokens.add(self.createToken(GE, StrValue(value: ">=")))
+            self.tokens.add(self.createToken(GE, Value(kind: ValueTypes.STRING, stringValue: ">=")))
         elif single == '<' and self.match('='):
-            self.tokens.add(self.createToken(LE, StrValue(value: "<=")))
+            self.tokens.add(self.createToken(LE, Value(kind: ValueTypes.STRING, stringValue: "<=")))
         elif single == '!' and self.match('='):
-            self.tokens.add(self.createToken(NE, StrValue(value: "!=")))
+            self.tokens.add(self.createToken(NE, Value(kind: ValueTypes.STRING, stringValue: "!=")))
         elif single == '*' and self.match('*'):
-            self.tokens.add(self.createToken(POW, StrValue(value: "**")))
+            self.tokens.add(self.createToken(POW, Value(kind: ValueTypes.STRING, stringValue: "**")))
         else:
-            self.tokens.add(self.createToken(TOKENS[single], CharValue(value: single)))
+            self.tokens.add(self.createToken(TOKENS[single], Value(kind: ValueTypes.CHAR, charValue: single)))
     else:
         raise newException(ParseError, &"Unexpected character '{single}' at {self.line}")
 
@@ -179,10 +179,6 @@ proc lex*(self: var Lexer): seq[Token] =
     while not self.done():
         self.start = self.current
         self.scanToken()
-    self.tokens.add(Token(kind: EOF, lexeme: "EOF", literal: IntValue(value: -1), line: self.line))
+    self.tokens.add(Token(kind: EOF, lexeme: "EOF", literal: Value(kind: CHAR, charValue: '\0'), line: self.line))
     return self.tokens
 
-
-var lexer = initLexer("print(1);")
-var tokens = lexer.lex()
-assert tokens[0].literal.value == "print"
