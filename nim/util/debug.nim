@@ -4,8 +4,7 @@ import strformat
 
 
 proc simpleInstruction(name: string, index: int): int =
-    echo &"\tOpCode at offset: {name}"
-    echo ""
+    echo &"\tOpCode at offset: {name}\n"
     return index + 1
 
 
@@ -15,16 +14,16 @@ proc constantLongInstruction(name: string, chunk: Chunk, offset: int): int =
     var constant: int
     copyMem(constant.addr, unsafeAddr(constantArray), sizeof(constantArray))
     echo &"\tOpCode at offset: {name}, points to {constant}"
-    printValue(chunk.consts.values[constant])
-    echo ""
+    let obj = chunk.consts.values[constant]
+    echo &"\tValue: {stringifyValue(obj)}\n\tKind: {obj.kind}\n"
     return offset + 4
 
 
 proc constantInstruction(name: string, chunk: Chunk, offset: int): int =
     var constant = chunk.code[offset + 1]
     echo &"\tOpCode at offset: {name}, points to index {constant}"
-    printValue(chunk.consts.values[constant])
-    echo ""
+    let obj = chunk.consts.values[constant]
+    echo &"\tValue: {stringifyValue(obj)}\n\tKind: {obj.kind}\n"
     return offset + 2
 
 
@@ -37,9 +36,20 @@ proc disassembleInstruction*(chunk: Chunk, offset: int): int =
         result = constantInstruction("OP_CONSTANT", chunk, offset)
     elif opcode == OP_CONSTANT_LONG:
         result = constantLongInstruction("OP_CONSTANT_LONG", chunk, offset)
+    elif opcode == OP_NEGATE:
+        result = simpleInstruction("OP_NEGATE", offset)
+    elif opcode == OP_ADD:
+        result = simpleInstruction("OP_ADD", offset)
+    elif opcode == OP_MULTIPLY:
+        result = simpleInstruction("OP_MULTIPLY", offset)
+    elif opcode == OP_DIVIDE:
+        result = simpleInstruction("OP_DIVIDE", offset)
+    elif opcode == OP_SUBTRACT:
+        result = simpleInstruction("OP_SUBTRACT", offset)
     else:
         echo &"Unknown opcode {opcode} at index {offset}"
         result = offset + 1
+
 
 proc disassembleChunk*(chunk: Chunk, name: string) =
     echo &"==== JAPL VM Debugger - Chunk '{name}' ====\n"

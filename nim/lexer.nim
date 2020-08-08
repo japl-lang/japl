@@ -1,7 +1,6 @@
 import tables
 import meta/tokentype
 import meta/tokenobject
-import meta/exceptions
 import meta/valueobject
 import system
 import strutils
@@ -91,7 +90,7 @@ proc parseString(self: var Lexer, delimiter: char) =
             self.line = self.line + 1
         discard self.step()
     if self.done():
-        raise newException(ParseError, &"Unterminated string literal at {self.line}")
+        quit(&"Unterminated string literal at {self.line}")
     discard self.step()
     let value = Value(kind: ValueTypes.STRING, stringValue: self.source[self.start..<self.current - 1]) # Get the value between quotes
     let token = self.createToken(STR, value)
@@ -138,7 +137,7 @@ proc parseComment(self: var Lexer) =
             break
         discard self.step()
     if self.done() and not closed:
-        raise newException(ParseError, &"Unexpected EOF at line {self.line}")
+        quit(&"Unexpected EOF at line {self.line}")
 
 
 proc scanToken(self: var Lexer) =
@@ -172,7 +171,7 @@ proc scanToken(self: var Lexer) =
         else:
             self.tokens.add(self.createToken(TOKENS[single], Value(kind: ValueTypes.CHAR, charValue: single)))
     else:
-        raise newException(ParseError, &"Unexpected character '{single}' at {self.line}")
+        quit(&"Unexpected character '{single}' at {self.line}")
 
 
 proc lex*(self: var Lexer): seq[Token] =

@@ -1,31 +1,55 @@
 import vm
-import meta/chunk
-import util/debug
-import meta/valueobject
 import strformat
+import parseopt
+import os
 
 
-proc main() =
-    echo "Initializing the JAPL virtual machine"
-    var bytecodeVM = initVM()
-    echo "Creating arbitrary chunk"
-    var chunk: Chunk = initChunk()
-    var index: int = chunk.addConstant(Value(kind: FLOAT, floatValue: 1.2))
-    var index2: array[3, uint8] = chunk.writeConstant(Value(kind: INT, intValue: 56))
-    chunk.writeChunk(uint8 OP_CONSTANT, 1)
-    chunk.writeChunk(uint8 index, 1)
-    chunk.writeChunk(uint8 OP_CONSTANT_LONG, 1)
-    chunk.writeChunk(index2, 1)
-    chunk.writeChunk(uint8 OP_RETURN, 1)
-    echo "Disassembling chunk"
-    chunk.disassembleChunk("test chunk")
-    echo "Interpreting bytecode instructions"
-    echo fmt"Result: {bytecodeVM.interpret(chunk)}"
-    bytecodeVM.freeVM()
-    chunk.freeChunk()
+proc repl(debug: bool = false) =
+    return
 
+proc main(file: string = "", debug: bool = false) =
+    if file == "":
+        repl(debug)
+    else:
+        var sourceFile: File
+        try:
+            sourceFile = open(filename=file)
+        except IOError:
+            echo &"Error: '{file}' could not be opened, probably the file doesn't exist or you don't have permission to read it"
+            return
+        var source: string
+        try:
+            source = readAll(sourceFile)
+        except IOError:
+            echo &"Error: '{file}' could not be read, probably you don't have the permission to read it"
+        var bytecodeVM = initVM()
+        if debug:
+            echo "Debug mode is enabled, bytecode will be disassembled"
+        var result = bytecodeVM.interpret(source)
+        if debug:
+            echo &"Result: {result}"
 
 
 when isMainModule:
-    main()
+    var parser = initOptParser(commandLineParams())
+    var file: string = ""
+    var debug: bool = false
+    if paramCount() > 0:
+        if paramCount() notin 1..<3:
+            echo "usage: japl [filename] [--debug]"
+            quit()
+    for kind, key, value in parser.getopt():
+        case kind:
+            of cmdArgument:
+                file = key
+            of cmdLongOption:
+                if key == "debug":
+                    debug = true
+                else:
+                    echo &"Unkown option '{key}'"
+                    quit()
+            else:
+                echo "usage: japl [filename] [--debug]"
+                quit()
+    main(file, debug)
 

@@ -25,14 +25,14 @@ proc initValueArray*(): ValueArray =
 proc writeValueArray*(arr: var ValueArray, value: Value) =
     arr.values.add(value)
 
-proc printValue*(value: Value) =
+
+proc stringifyValue*(value: Value): string =
     case value.kind:
         of FLOAT:
-            echo &"\tValue: {value.floatValue}\n\tKind: {value.kind}"
+            result = $value.floatValue
         of STRING:
-            echo &"\tValue: {value.stringValue}\n\tKind: {value.kind}"
+            result = value.stringValue
         of INT:
-            echo &"\tValue: {value.intValue}\n\tKind: {value.kind}"
+            result = $value.intValue
         of CHAR:
-            echo &"\tValue: {value.charValue}\n\tKind: {value.kind}"
-
+            result = &"{value.charValue}"
