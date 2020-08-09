@@ -3,17 +3,25 @@ import strformat
 
 type
     ValueTypes* = enum
-        FLOAT, INT, CHAR, STRING
-    Value* = ref object of RootObj
-        case kind*: ValueTypes
-            of CHAR:
-                charValue*: char
+        FLOAT, INT, BOOL, NIL, OBJECT
+    ObjectTypes* = enum
+        STRING,
+    Obj* = ref object
+        case kind*: ObjectTypes
             of STRING:
-                stringValue*: string
+                str*: string
+    Value* = ref object
+        case kind*: ValueTypes
             of FLOAT:
                 floatValue*: float
             of INT:
                 intValue*: int
+            of BOOL:
+                boolValue*: bool
+            of NIL:
+                discard
+            of OBJECT:
+                obj*: Obj
     ValueArray* = ref object
         values*: seq[Value]
 
@@ -26,13 +34,22 @@ proc writeValueArray*(arr: var ValueArray, value: Value) =
     arr.values.add(value)
 
 
+proc stringifyObject(obj: Obj): string =
+    case obj.kind:
+        of STRING:
+            return obj.str
+
+
 proc stringifyValue*(value: Value): string =
     case value.kind:
         of FLOAT:
             result = $value.floatValue
-        of STRING:
-            result = value.stringValue
         of INT:
             result = $value.intValue
-        of CHAR:
-            result = &"{value.charValue}"
+        of BOOL:
+            result = $value.boolValue
+        of NIL:
+            result = "none"
+        of OBJECT:
+            result = stringifyObject(value.obj)
+

@@ -92,7 +92,7 @@ proc parseString(self: var Lexer, delimiter: char) =
     if self.done():
         quit(&"Unterminated string literal at {self.line}")
     discard self.step()
-    let value = Value(kind: ValueTypes.STRING, stringValue: self.source[self.start..<self.current - 1]) # Get the value between quotes
+    let value = Value(kind: ValueTypes.OBJECT, obj: Obj(kind: ObjectTypes.STRING, str: self.source[self.start..<self.current - 1])) # Get the value between quotes
     let token = self.createToken(STR, value)
     self.tokens.add(token)
 
@@ -117,9 +117,9 @@ proc parseIdentifier(self: var Lexer) =
     var text: string = self.source[self.start..<self.current]
     var keyword = text in RESERVED
     if keyword:
-        self.tokens.add(self.createToken(RESERVED[text], Value(kind: ValueTypes.STRING, stringValue: text)))
+        self.tokens.add(self.createToken(RESERVED[text], Value(kind: ValueTypes.OBJECT, obj: Obj(kind: ObjectTypes.STRING, str: text))))
     else:
-        self.tokens.add(self.createToken(ID, Value(kind: ValueTypes.STRING, stringValue: text)))
+        self.tokens.add(self.createToken(ID, Value(kind: ValueTypes.OBJECT, obj: Obj(kind:ObjectTypes.STRING, str: text))))
 
 
 proc parseComment(self: var Lexer) =
@@ -159,17 +159,17 @@ proc scanToken(self: var Lexer) =
         elif single == '/' and self.match('*'):
             self.parseComment()
         elif single == '=' and self.match('='):
-            self.tokens.add(self.createToken(DEQ, Value(kind: ValueTypes.STRING, stringValue: "==")))
+            self.tokens.add(self.createToken(DEQ, Value(kind: ValueTypes.OBJECT, obj: Obj(kind: ObjectTypes.STRING, str: "=="))))
         elif single == '>' and self.match('='):
-            self.tokens.add(self.createToken(GE, Value(kind: ValueTypes.STRING, stringValue: ">=")))
+            self.tokens.add(self.createToken(GE, Value(kind: ValueTypes.OBJECT, obj: Obj(kind: ObjectTypes.STRING, str: ">="))))
         elif single == '<' and self.match('='):
-            self.tokens.add(self.createToken(LE, Value(kind: ValueTypes.STRING, stringValue: "<=")))
+            self.tokens.add(self.createToken(LE, Value(kind: ValueTypes.OBJECT, obj: Obj(kind: ObjectTypes.STRING, str: "<="))))
         elif single == '!' and self.match('='):
-            self.tokens.add(self.createToken(NE, Value(kind: ValueTypes.STRING, stringValue: "!=")))
+            self.tokens.add(self.createToken(NE, Value(kind: ValueTypes.OBJECT, obj: Obj(kind: ObjectTypes.STRING, str: "!="))))
         elif single == '*' and self.match('*'):
-            self.tokens.add(self.createToken(POW, Value(kind: ValueTypes.STRING, stringValue: "**")))
+            self.tokens.add(self.createToken(POW, Value(kind: ValueTypes.OBJECT, obj: Obj(kind: ObjectTypes.STRING, str: "**"))))
         else:
-            self.tokens.add(self.createToken(TOKENS[single], Value(kind: ValueTypes.CHAR, charValue: single)))
+            self.tokens.add(self.createToken(TOKENS[single], Value(kind: ValueTypes.OBJECT, obj: Obj(kind: ObjectTypes.STRING, str: &"{single}"))))
     else:
         quit(&"Unexpected character '{single}' at {self.line}")
 
@@ -178,6 +178,6 @@ proc lex*(self: var Lexer): seq[Token] =
     while not self.done():
         self.start = self.current
         self.scanToken()
-    self.tokens.add(Token(kind: EOF, lexeme: "EOF", literal: Value(kind: CHAR, charValue: '\0'), line: self.line))
+    self.tokens.add(Token(kind: EOF, lexeme: "EOF", literal: Value(kind: ValueTypes.NIL), line: self.line))
     return self.tokens
 

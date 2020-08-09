@@ -5,7 +5,24 @@ import os
 
 
 proc repl(debug: bool = false) =
-    return
+    var bytecodeVM = initVM()
+    echo &"[JAPL 0.2.0 - Nim {NimVersion} - {CompileDate} {CompileTime}]"
+    var source: string = ""
+    while true:
+        try:
+            stdout.write(">>> ")
+            source = readLine(stdin)
+        except IOError:
+            break
+        if source == "":
+            continue
+        else:
+            if debug:
+                echo "Debug mode is enabled, bytecode will be disassembled"
+            var result = bytecodeVM.interpret(source, debug)
+            if debug:
+                echo &"Result: {result}"
+
 
 proc main(file: string = "", debug: bool = false) =
     if file == "":
@@ -25,7 +42,7 @@ proc main(file: string = "", debug: bool = false) =
         var bytecodeVM = initVM()
         if debug:
             echo "Debug mode is enabled, bytecode will be disassembled"
-        var result = bytecodeVM.interpret(source)
+        var result = bytecodeVM.interpret(source, debug)
         if debug:
             echo &"Result: {result}"
 

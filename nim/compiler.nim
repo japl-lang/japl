@@ -108,6 +108,7 @@ proc emitConstant(self: Compiler, value: Value) =
     else:
         self.emitBytes(OP_CONSTANT, self.makeConstant(value))
 
+
 proc getRule(kind: TokenType): ParseRule  # Forward declaration
 
 
@@ -116,7 +117,16 @@ proc endCompiler(self: Compiler) =
 
 
 proc parsePrecedence(self: Compiler, precedence: Precedence) =
-    return
+    discard self.parser.advance()
+    var prefixRule = getRule(self.parser.previous.kind).prefix
+    if prefixRule == nil:
+        self.parser.parseError(self.parser.peek, "Expecting expression")
+        return
+    self.prefixRule()
+    var precedence = int precedence
+    while precedence <= (int getRule(self.parser.peek.kind).precedence):
+        var infixRule = getRule(self.parser.previous().kind).infix
+        self.infixRule()
 
 
 proc expression(self: Compiler) =
@@ -166,7 +176,7 @@ proc grouping(self: Compiler) =
     self.parser.consume(RP, "Expecting ')' after parenthesized expression")
 
 
-var rules: array[39, ParseRule] = [
+var rules: array[TokenType, ParseRule] = [
   makeRule(grouping, nil, PREC_NONE), # LP
   makeRule(nil, nil, PREC_NONE), # RP
   makeRule(nil, nil, PREC_NONE), # LB
@@ -210,7 +220,7 @@ var rules: array[39, ParseRule] = [
 
 
 proc getRule(kind: TokenType): ParseRule =
-  return rules[int kind]
+    return rules[kind]
 
 
 proc compile*(self: Compiler, source: string, chunk: Chunk): bool =
