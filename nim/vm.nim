@@ -103,12 +103,12 @@ proc run(self: VM, debug: bool): InterpretResult =
 
 proc interpret*(self: var VM, source: string, debug: bool = false): InterpretResult =
     var chunk = initChunk()
-    var compiler = initCompiler()
+    var compiler = initCompiler(chunk)
     if not compiler.compile(source, chunk):
         return COMPILE_ERROR
     self.chunk = chunk
     self.ip = 0
-    result = vm.run(debug)
+    result = self.run(debug)
     chunk.freeChunk()
 
 
