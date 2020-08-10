@@ -36,10 +36,11 @@ type Lexer* = object
   line: int
   start: int
   current: int
+  errored*: bool
 
 
 proc initLexer*(source: string): Lexer =
-  result = Lexer(source: source, tokens: @[], line: 1, start: 0, current: 0)
+  result = Lexer(source: source, tokens: @[], line: 1, start: 0, current: 0, errored: false)
 
 
 proc done(self: Lexer): bool =
@@ -90,7 +91,8 @@ proc parseString(self: var Lexer, delimiter: char) =
             self.line = self.line + 1
         discard self.step()
     if self.done():
-        quit(&"Unterminated string literal at {self.line}")
+        echo &"SyntaxError: Unterminated string literal at line {self.line}"
+        self.errored = true
     discard self.step()
     let value = Value(kind: ValueTypes.OBJECT, obj: Obj(kind: ObjectTypes.STRING, str: self.source[self.start..<self.current - 1])) # Get the value between quotes
     let token = self.createToken(STR, value)
@@ -137,7 +139,8 @@ proc parseComment(self: var Lexer) =
             break
         discard self.step()
     if self.done() and not closed:
-        quit(&"Unexpected EOF at line {self.line}")
+        self.errored = true
+        echo &"SyntaxError: Unexpected EOF at line {self.line}"
 
 
 proc scanToken(self: var Lexer) =
@@ -171,7 +174,8 @@ proc scanToken(self: var Lexer) =
         else:
             self.tokens.add(self.createToken(TOKENS[single], Value(kind: ValueTypes.OBJECT, obj: Obj(kind: ObjectTypes.STRING, str: &"{single}"))))
     else:
-        quit(&"Unexpected character '{single}' at {self.line}")
+        self.errored = true
+        echo &"SyntaxError: Unexpected character '{single}' at {self.line}"
 
 
 proc lex*(self: var Lexer): seq[Token] =

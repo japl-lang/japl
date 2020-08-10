@@ -124,7 +124,8 @@ proc interpret*(self: var VM, source: string, debug: bool = false): InterpretRes
         return COMPILE_ERROR
     self.chunk = chunk
     self.ip = 0
-    result = self.run(debug)
+    if len(chunk.code) > 1:
+        result = self.run(debug)
     chunk.freeChunk()
 
 

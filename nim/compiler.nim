@@ -243,9 +243,10 @@ proc getRule(kind: TokenType): ParseRule =
 proc compile*(self: Compiler, source: string, chunk: Chunk): bool =
     var scanner = initLexer(source)
     var tokens = scanner.lex()
-    self.parser = initParser(tokens)
-    self.compilingChunk = chunk
-    self.expression()
-    self.parser.consume(EOF, "Expecting end of file")
-    self.endCompiler()
+    if len(tokens) > 1 and not scanner.errored:
+        self.parser = initParser(tokens)
+        self.compilingChunk = chunk
+        self.expression()
+        self.parser.consume(EOF, "Expecting end of file")
+        self.endCompiler()
     return not self.parser.hadError
