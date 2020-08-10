@@ -1,5 +1,4 @@
 import lexer
-import vm
 import strformat
 import meta/chunk
 import meta/tokenobject
@@ -120,12 +119,12 @@ proc parsePrecedence(self: Compiler, precedence: Precedence) =
     discard self.parser.advance()
     var prefixRule = getRule(self.parser.previous.kind).prefix
     if prefixRule == nil:
-        self.parser.parseError(self.parser.peek, "Expecting expression")
+        self.parser.parseError(self.parser.previous, "Expecting expression")
         return
     self.prefixRule()
     var precedence = int precedence
     while precedence <= (int getRule(self.parser.peek.kind).precedence):
-        var infixRule = getRule(self.parser.previous().kind).infix
+        var infixRule = getRule(self.parser.advance.kind).infix
         self.infixRule()
 
 
@@ -146,8 +145,13 @@ proc binary(self: Compiler) =
             self.emitByte(OP_DIVIDE)
         of STAR:
             self.emitByte(OP_MULTIPLY)
+        of MOD:
+            self.emitByte(OP_MOD)
+        of POW:
+            self.emitByte(OP_POW)
         else:
             return
+
 
 proc unary(self: Compiler) =
     var operator = self.parser.previous().kind
@@ -162,7 +166,15 @@ proc str(self: Compiler) =
     return
 
 
+proc bracket(self: Compiler) =
+    return
+
+
 proc literal(self: Compiler) =
+    return
+
+
+proc strVal(self: Compiler) =
     return
 
 
@@ -177,50 +189,55 @@ proc grouping(self: Compiler) =
 
 
 var rules: array[TokenType, ParseRule] = [
-  makeRule(grouping, nil, PREC_NONE), # LP
-  makeRule(nil, nil, PREC_NONE), # RP
-  makeRule(nil, nil, PREC_NONE), # LB
-  makeRule(nil, nil, PREC_NONE), # RB
-  makeRule(nil, nil, PREC_NONE), # COMMA
-  makeRule(nil, nil, PREC_NONE), # DOT
-  makeRule(unary, binary, PREC_TERM), # MINUS
-  makeRule(nil, binary, PREC_TERM), # PLUS
-  makeRule(nil, nil, PREC_NONE), # SEMICOLON
-  makeRule(nil, binary, PREC_FACTOR), # SLASH
-  makeRule(nil, binary, PREC_FACTOR), # STAR
-  makeRule(unary, nil, PREC_NONE), # NEG
-  makeRule(nil, binary, PREC_EQUALITY), # NE
-  makeRule(nil, nil, PREC_NONE), # EQ
-  makeRule(nil, binary, PREC_COMPARISON), # DEQ
-  makeRule(nil, binary, PREC_COMPARISON), # GT
-  makeRule(nil, binary, PREC_COMPARISON), # GE
-  makeRule(nil, binary, PREC_COMPARISON), # LT
-  makeRule(nil, binary, PREC_COMPARISON), # LE
-  makeRule(nil, nil, PREC_NONE), # ID
-  makeRule(str, nil, PREC_NONE), # STR
-  makeRule(number, nil, PREC_NONE), # INT
-  makeRule(number, nil, PREC_NONE), # FLOAT
-  makeRule(nil, nil, PREC_NONE), # AND
-  makeRule(nil, nil, PREC_NONE), # CLASS
-  makeRule(nil, nil, PREC_NONE), # ELSE
-  makeRule(literal, nil, PREC_NONE), # FALSE
-  makeRule(nil, nil, PREC_NONE), # FOR
-  makeRule(nil, nil, PREC_NONE), # FUN
-  makeRule(nil, nil, PREC_NONE), # IF
-  makeRule(literal, nil, PREC_NONE), # NIL
-  makeRule(nil, nil, PREC_NONE), # OR
-  makeRule(nil, nil, PREC_NONE), # RETURN
-  makeRule(nil, nil, PREC_NONE), # SUPER
-  makeRule(nil, nil, PREC_NONE), # THIS
-  makeRule(literal, nil, PREC_NONE), # TRUE
-  makeRule(nil, nil, PREC_NONE), # VAR
-  makeRule(nil, nil, PREC_NONE), # WHILE
-  makeRule(nil, nil, PREC_NONE), # EOF
+    makeRule(nil, binary, PREC_TERM), # PLUS
+    makeRule(unary, binary, PREC_TERM), # MINUS
+    makeRule(nil, binary, PREC_FACTOR), # SLASH
+    makeRule(nil, binary, PREC_FACTOR), # STAR
+    makeRule(unary, nil, PREC_NONE), # NEG
+    makeRule(nil, binary, PREC_EQUALITY), # NE
+    makeRule(nil, nil, PREC_NONE), # EQ
+    makeRule(nil, binary, PREC_COMPARISON), # DEQ
+    makeRule(nil, binary, PREC_COMPARISON), # LT
+    makeRule(nil, binary, PREC_COMPARISON), # GE
+    makeRule(nil, binary, PREC_COMPARISON), # LE
+    makeRule(nil, binary, PREC_FACTOR), # MOD
+    makeRule(nil, binary, PREC_FACTOR), # POW
+    makeRule(nil, binary, PREC_COMPARISON), # GT
+    makeRule(grouping, nil, PREC_NONE), # LP
+    makeRule(nil, nil, PREC_NONE), # RP
+    makeRule(nil, nil, PREC_NONE), # LS
+    makeRule(nil, nil, PREC_NONE), # LB
+    makeRule(nil, nil, PREC_NONE), # RB
+    makeRule(nil, nil, PREC_NONE), # COMMA
+    makeRule(nil, nil, PREC_NONE), # DOT
+    makeRule(nil, nil, PREC_NONE), # ID
+    makeRule(nil, bracket, PREC_CALL), # RS
+    makeRule(number, nil, PREC_NONE), # NUMBER
+    makeRule(strVal, nil, PREC_NONE), # STR
+    makeRule(nil, nil, PREC_NONE), # SEMICOLON
+    makeRule(nil, nil, PREC_NONE), # AND
+    makeRule(nil, nil, PREC_NONE), # CLASS
+    makeRule(nil, nil, PREC_NONE), # ELSE
+    makeRule(nil, nil, PREC_NONE), # FOR
+    makeRule(nil, nil, PREC_NONE), # FUN
+    makeRule(literal, nil, PREC_NONE), # FALSE
+    makeRule(nil, nil, PREC_NONE), # IF
+    makeRule(literal, nil, PREC_NONE), # NIL
+    makeRule(nil, nil, PREC_NONE), # RETURN
+    makeRule(nil, nil, PREC_NONE), # SUPER
+    makeRule(nil, nil, PREC_NONE), # THIS
+    makeRule(nil, nil, PREC_NONE), # OR
+    makeRule(literal, nil, PREC_NONE), # TRUE
+    makeRule(nil, nil, PREC_NONE), # VAR
+    makeRule(nil, nil, PREC_NONE), # WHILE
+    makeRule(nil, nil, PREC_NONE), # DEL
+    makeRule(nil, nil, PREC_NONE), # BREAK
+    makeRule(nil, nil, PREC_NONE), # EOF
 ]
 
 
 proc getRule(kind: TokenType): ParseRule =
-    return rules[kind]
+    result = rules[kind]
 
 
 proc compile*(self: Compiler, source: string, chunk: Chunk): bool =
@@ -228,7 +245,6 @@ proc compile*(self: Compiler, source: string, chunk: Chunk): bool =
     var tokens = scanner.lex()
     self.parser = initParser(tokens)
     self.compilingChunk = chunk
-    discard self.parser.advance()
     self.expression()
     self.parser.consume(EOF, "Expecting end of file")
     self.endCompiler()

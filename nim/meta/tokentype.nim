@@ -5,8 +5,8 @@ type
     PLUS, MINUS, SLASH, STAR,
     NEG, NE, EQ, DEQ, LT, GE,
     LE, MOD, POW, GT, LP, RP, LS
-    LB, RB, COMMA, DOT, ID, RS
-    INT, FLOAT, BOOL, STR,
+    LB, RB, COMMA, DOT,
+    ID, RS, NUMBER, STR,
     SEMICOLON, AND, CLASS,
     ELSE, FOR, FUN, FALSE,
     IF, NIL, RETURN, SUPER,

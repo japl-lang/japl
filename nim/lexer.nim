@@ -104,11 +104,11 @@ proc parseNumber(self: var Lexer) =
         discard self.step()
         while self.peek().isDigit():
             discard self.step()
-        var value = Value(kind: ValueTypes.FLOAT, floatValue: parseFloat(self.source[self.start..<self.current]))
-        self.tokens.add(self.createToken(TokenType.FLOAT, value))
+        var value = Value(kind: ValueTypes.DOUBLE, floatValue: parseFloat(self.source[self.start..<self.current]))
+        self.tokens.add(self.createToken(TokenType.NUMBER, value))
     else:
-        var value = Value(kind: ValueTypes.INT, intValue: parseInt(self.source[self.start..<self.current]))
-        self.tokens.add(self.createToken(TokenType.INT, value))
+        var value = Value(kind: ValueTypes.INTEGER, intValue: parseInt(self.source[self.start..<self.current]))
+        self.tokens.add(self.createToken(TokenType.NUMBER, value))
 
 
 proc parseIdentifier(self: var Lexer) =

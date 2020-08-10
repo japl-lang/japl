@@ -10,7 +10,9 @@ type
         OP_ADD,
         OP_SUBTRACT,
         OP_DIVIDE,
-        OP_MULTIPLY
+        OP_MULTIPLY,
+        OP_POW,
+        OP_MOD
     Chunk* = ref object
         consts*: ValueArray
         code*: seq[uint8]
@@ -18,7 +20,7 @@ type
 
 
 proc initChunk*(): Chunk =
-    result = Chunk(consts: initValueArray(), code: @[], lines: @[])
+    result = Chunk(consts: ValueArray(values: @[]), code: @[], lines: @[])
 
 
 proc writeChunk*(self: Chunk, byt: uint8, line: int) =

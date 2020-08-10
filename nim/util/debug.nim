@@ -46,6 +46,10 @@ proc disassembleInstruction*(chunk: Chunk, offset: int): int =
         result = simpleInstruction("OP_DIVIDE", offset)
     elif opcode == OP_SUBTRACT:
         result = simpleInstruction("OP_SUBTRACT", offset)
+    elif opcode == OP_MOD:
+        result = simpleInstruction("OP_MOD", offset)
+    elif opcode == OP_POW:
+        result = simpleInstruction("OP_POW", offset)
     else:
         echo &"Unknown opcode {opcode} at index {offset}"
         result = offset + 1

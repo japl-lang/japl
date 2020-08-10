@@ -1,9 +1,9 @@
-# Value objects
-import strformat
+# Value objects and types representation
+
 
 type
     ValueTypes* = enum
-        FLOAT, INT, BOOL, NIL, OBJECT
+        INTEGER, DOUBLE, BOOL, NIL, OBJECT
     ObjectTypes* = enum
         STRING,
     Obj* = ref object
@@ -12,10 +12,10 @@ type
                 str*: string
     Value* = ref object
         case kind*: ValueTypes
-            of FLOAT:
-                floatValue*: float
-            of INT:
+            of INTEGER:
                 intValue*: int
+            of DOUBLE:
+                floatValue*: float
             of BOOL:
                 boolValue*: bool
             of NIL:
@@ -42,10 +42,10 @@ proc stringifyObject(obj: Obj): string =
 
 proc stringifyValue*(value: Value): string =
     case value.kind:
-        of FLOAT:
-            result = $value.floatValue
-        of INT:
+        of INTEGER:
             result = $value.intValue
+        of DOUBLE:
+            result = $value.floatValue
         of BOOL:
             result = $value.boolValue
         of NIL:

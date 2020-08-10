@@ -13,6 +13,7 @@ proc repl(debug: bool = false) =
             stdout.write(">>> ")
             source = readLine(stdin)
         except IOError:
+            echo ""
             break
         if source == "":
             continue
