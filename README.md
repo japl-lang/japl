@@ -12,7 +12,7 @@ JAPL is born thanks to the amazing work of Bob Nystrom that wrote a book availab
 at [this](https://craftinginterpreters.com) link, where he describes the implementation of a simple language called Lox.
 
 
-### What has been added from Lox
+### What has been (or will be) added from Lox
 
 - Possibility to delete variables with the `del` statement
 - `break` statement
@@ -21,6 +21,10 @@ at [this](https://craftinginterpreters.com) link, where he describes the impleme
 - Nested comments
 - Generators (__Coming soon__)
 - A decent standard library with collections, I/O utilities and such (__Work in progress__)
+- Modulo division (`%`) and exponentiation (`**`)
+- `OP_CONSTANT_LONG` OpCode is implemented
+- Differentiation between integers and floating point numbers
+
 
 Other than that, JAPL features closures, function definitions, classes, inheritance and static scoping. You can check
 the provided example `.jpl` files in the repo to find out more about JAPL.
@@ -28,7 +32,7 @@ the provided example `.jpl` files in the repo to find out more about JAPL.
 ### Disclaimer
 
 This project is currently a WIP (Work in Progress) and is not optimized nor complete.
-The first version of the interpreter is written in Python, but there are plans to create a bytecode VM using nim in the near future.
+The first version of the interpreter is written in Python, but a bytecode stack-based VM written in nim is being developed right now.
 
 For other useful information, check the LICENSE file in this repo.
 
