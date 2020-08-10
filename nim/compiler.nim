@@ -43,8 +43,8 @@ proc makeRule(prefix, infix: ParseFn, precedence: Precedence): ParseRule =
 
 
 proc advance(self: var Parser): Token =
+    result = self.tokens[self.current]
     inc(self.current)
-    return self.tokens[self.current - 1]
 
 
 proc peek(self: Parser): Token =
