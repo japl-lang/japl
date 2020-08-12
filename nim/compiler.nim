@@ -122,10 +122,12 @@ proc parsePrecedence(self: Compiler, precedence: Precedence) =
         self.parser.parseError(self.parser.previous, "Expecting expression")
         return
     self.prefixRule()
-    var precedence = int precedence
-    while precedence <= (int getRule(self.parser.peek.kind).precedence):
+    while precedence <= (getRule(self.parser.peek.kind).precedence):
         var infixRule = getRule(self.parser.advance.kind).infix
-        self.infixRule()
+        if self.parser.peek.kind != EOF:
+            self.infixRule()
+        else:
+            self.parser.parseError(self.parser.previous, "Expecting expression, got EOF")
 
 
 proc expression(self: Compiler) =

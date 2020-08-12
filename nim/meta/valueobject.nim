@@ -49,7 +49,7 @@ proc stringifyValue*(value: Value): string =
         of BOOL:
             result = $value.boolValue
         of NIL:
-            result = "none"
+            result = "nil"
         of OBJECT:
             result = stringifyObject(value.obj)
 
