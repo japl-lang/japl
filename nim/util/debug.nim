@@ -3,6 +3,7 @@ import ../meta/valueobject
 import strformat
 
 
+
 proc simpleInstruction(name: string, index: int): int =
     echo &"\tOpCode at offset: {name}\n"
     return index + 1
@@ -15,7 +16,7 @@ proc constantLongInstruction(name: string, chunk: Chunk, offset: int): int =
     copyMem(constant.addr, unsafeAddr(constantArray), sizeof(constantArray))
     echo &"\tOpCode at offset: {name}, points to {constant}"
     let obj = chunk.consts.values[constant]
-    echo &"\tValue: {stringifyValue(obj)}\n\tKind: {obj.kind}\n"
+    echo &"\tValue: {stringify(obj)}\n\tKind: {obj.kind}\n"
     return offset + 4
 
 
@@ -23,7 +24,7 @@ proc constantInstruction(name: string, chunk: Chunk, offset: int): int =
     var constant = chunk.code[offset + 1]
     echo &"\tOpCode at offset: {name}, points to index {constant}"
     let obj = chunk.consts.values[constant]
-    echo &"\tValue: {stringifyValue(obj)}\n\tKind: {obj.kind}\n"
+    echo &"\tValue: {stringify(obj)}\n\tKind: {obj.kind}\n"
     return offset + 2
 
 

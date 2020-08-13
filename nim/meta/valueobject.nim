@@ -1,15 +1,10 @@
 # Value objects and types representation
+import ../types/objecttype
 
 
 type
     ValueTypes* = enum
         INTEGER, DOUBLE, BOOL, NIL, OBJECT
-    ObjectTypes* = enum
-        STRING,
-    Obj* = ref object of RootObj
-        case kind*: ObjectTypes
-            of STRING:
-                str*: string
     Value* = ref object
         case kind*: ValueTypes
             of INTEGER:
@@ -34,23 +29,77 @@ proc writeValueArray*(arr: var ValueArray, value: Value) =
     arr.values.add(value)
 
 
-proc stringifyObject*(obj: Obj): string =
-    case obj.kind:
-        of STRING:
-            return obj.str
+proc isNil*(value: Value): bool =
+    return value.kind == NIL
 
 
-proc stringifyValue*(value: Value): string =
+proc isBool*(value: Value): bool =
+    return value.kind == BOOL
+
+
+proc isInt*(value: Value): bool =
+    return value.kind == INTEGER
+
+
+proc isFloat*(value: Value): bool =
+    return value.kind == DOUBLE
+
+
+proc isNum*(value: Value): bool =
+    return isInt(value) or isFloat(value)
+
+
+proc toBool*(value: Value): bool =
+    return value.boolValue
+
+
+proc toInt*(value: Value): int =
+    return value.intValue
+
+
+proc toFloat*(value: Value): float =
+    return value.floatValue
+
+
+proc stringify*(value: Value): string =
     case value.kind:
         of INTEGER:
-            result = $value.intValue
+            result = $value.toInt()
         of DOUBLE:
-            result = $value.floatValue
+            result = $value.toFloat()
         of BOOL:
-            result = $value.boolValue
+            result = $value.toBool()
         of NIL:
             result = "nil"
         of OBJECT:
-            result = stringifyObject(value.obj)
+            result = stringify(value.obj)
 
 
+proc isFalsey*(value: Value): bool =
+    case value.kind:
+        of BOOL:
+            return not value.toBool()
+        of OBJECT:
+            return isFalsey(value.obj)
+        of INTEGER:
+            return value.toInt() > 0
+        of DOUBLE:
+            return value.toFloat() > 0.0
+        of NIL:
+            return true
+
+
+proc valuesEqual*(a: Value, b: Value): bool =
+    if a.kind != b.kind:
+        return false
+    case a.kind:
+        of BOOL:
+            return a.toBool() == b.toBool()
+        of NIL:
+            return true
+        of INTEGER:
+            return a.toInt() == b.toInt()
+        of DOUBLE:
+            return a.toFloat() == b.toFloat()
+        of OBJECT:
+            return valuesEqual(a.obj, b.obj)

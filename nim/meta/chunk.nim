@@ -15,7 +15,11 @@ type
         OP_MOD,
         OP_NIL,
         OP_TRUE,
-        OP_FALSE
+        OP_FALSE,
+        OP_GREATER,
+        OP_LESS,
+        OP_EQUAL,
+        OP_NOT
     Chunk* = ref object
         consts*: ValueArray
         code*: seq[uint8]

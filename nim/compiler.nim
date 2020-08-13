@@ -151,6 +151,18 @@ proc binary(self: Compiler) =
             self.emitByte(OP_MOD)
         of POW:
             self.emitByte(OP_POW)
+        of NE:
+            self.emitBytes(OP_EQUAL, OP_NOT)
+        of DEQ:
+            self.emitByte(OP_EQUAL)
+        of GT:
+            self.emitByte(OP_GREATER)
+        of GE:
+            self.emitBytes(OP_LESS, OP_NOT)
+        of LT:
+            self.emitByte(OP_LESS)
+        of LE:
+            self.emitBytes(OP_GREATER, OP_NOT)
         else:
             return
 
@@ -165,6 +177,8 @@ proc unary(self: Compiler) =
     case operator:
         of MINUS:
             self.emitByte(OP_NEGATE)
+        of NEG:
+            self.emitByte(OP_NOT)
         else:
             return
 

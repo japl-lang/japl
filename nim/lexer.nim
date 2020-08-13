@@ -2,6 +2,7 @@ import tables
 import meta/tokentype
 import meta/tokenobject
 import meta/valueobject
+import types/objecttype
 import system
 import strutils
 import strformat

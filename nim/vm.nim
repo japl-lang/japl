@@ -1,6 +1,7 @@
 import meta/chunk
 import meta/valueobject
-import meta/exceptions
+import types/exceptions
+import types/objecttype
 import util/debug
 import compiler
 import strutils
@@ -27,13 +28,10 @@ type VM = ref object
     stack*: seq[Value]
     stackTop*: int
 
-proc error*(self: VM, message: string, kind: JAPLException) =
-    echo &"{stringifyObject(kind.name)}: {message}"
+
+proc error*(self: VM, kind: JAPLException) =
+    echo &"{stringify(kind.errName)}: {stringify(kind.message)}"
     # Add code to raise an exception here
-
-
-proc numOperand(operand: Value): bool =
-    result = operand.kind in [DOUBLE, INTEGER]
 
 
 proc pop*(self: VM): Value =
@@ -58,31 +56,37 @@ proc run(self: VM, debug: bool): InterpretResult =
         copyMem(idx.addr, unsafeAddr(arr), sizeof(arr))
         self.chunk.consts.values[idx]
     template BinOp(op, check) =
-        var leftVal {.inject.} = self.pop()
         var rightVal {.inject.} = self.pop()
+        var leftVal {.inject.} = self.pop()
         if check(leftVal) and check(rightVal):
-            if leftVal.kind == INTEGER and rightVal.kind == INTEGER:
-                var left: int = leftVal.intValue
-                var right: int = rightVal.intValue
-                var res = `op`(right, left)
-                if res is int:
-                    self.push(Value(kind: INTEGER, intValue: int res))
+            if leftVal.isFloat() and rightVal.isInt():
+                var res = `op`(leftVal.toFloat(), float rightVal.toInt())
+                if res is bool:
+                    self.push(Value(kind: BOOL, boolValue: bool res))
                 else:
-                    self.push(Value(kind: DOUBLE, floatValue: float res))
-            elif leftVal.kind == DOUBLE and rightVal.kind == INTEGER:
-                var left = leftVal.floatValue
-                var right = float rightVal.intValue
-                self.push(Value(kind: DOUBLE, floatValue: `op`(right, left)))
-            elif leftVal.kind == INTEGER and rightVal.kind == DOUBLE:
-                var left = float leftVal.intValue
-                var right = rightVal.floatValue
-                self.push(Value(kind: DOUBLE, floatValue: `op`(right, left)))
+                   self.push(Value(kind: DOUBLE, floatValue: float res))
+            elif leftVal.isInt() and rightVal.isFloat():
+                var res = `op`(float leftVal.toInt(), rightVal.toFloat())
+                if res is bool:
+                    self.push(Value(kind: BOOL, boolValue: bool res))
+                else:
+                   self.push(Value(kind: DOUBLE, floatValue: float res))
+            elif leftVal.isFloat() and rightVal.isFloat():
+                var res = `op`(leftVal.toFloat(), rightVal.toFloat())
+                if res is bool:
+                    self.push(Value(kind: BOOL, boolValue: bool res))
+                else:
+                   self.push(Value(kind: DOUBLE, floatValue: float res))
             else:
-                var left = leftVal.floatValue
-                var right = rightVal.floatValue
-                self.push(Value(kind: DOUBLE, floatValue: `op`(right, left)))
+                var tmp = `op`(leftVal.toInt(), rightVal.toInt())
+                if tmp is int:
+                    self.push(Value(kind: INTEGER, intValue: int tmp))
+                elif tmp is bool:
+                    self.push(Value(kind: BOOL, boolValue: bool tmp))
+                else:
+                    self.push(Value(kind: DOUBLE, floatValue: float tmp))
         else:
-            self.error(&"Unsupported binary operand for objects of type '{toLowerAscii($(leftVal.kind))}' and '{toLowerAscii($(rightVal.kind))}'", newTypeError())
+            self.error(newTypeError(&"Unsupported binary operand for objects of type '{toLowerAscii($(leftVal.kind))}' and '{toLowerAscii($(rightVal.kind))}'"))
             return RUNTIME_ERROR
     var instruction: uint8
     var opcode: OpCode
@@ -93,7 +97,7 @@ proc run(self: VM, debug: bool): InterpretResult =
         if debug:
             stdout.write("Current stack status: [")
             for v in self.stack:
-                stdout.write(stringifyValue(v))
+                stdout.write(stringify(v))
                 stdout.write(", ")
             stdout.write("]\n")
             discard disassembleInstruction(self.chunk, self.ip - 1)
@@ -117,25 +121,35 @@ proc run(self: VM, debug: bool): InterpretResult =
                         echo &"Unsupported unary operator '-' for object of type '{toLowerAscii($cur.kind)}'"
                         return RUNTIME_ERROR
             of OP_ADD:
-                BinOp(`+`, numOperand)
+                BinOp(`+`, isNum)
             of OP_SUBTRACT:
-                BinOp(`-`, numOperand)
+                BinOp(`-`, isNum)
             of OP_DIVIDE:
-                BinOp(`/`, numOperand)
+                BinOp(`/`, isNum)
             of OP_MULTIPLY:
-                BinOp(`*`, numOperand)
+                BinOp(`*`, isNum)
             of OP_MOD:
-                BinOp(floorMod, numOperand)
+                BinOp(floorMod, isNum)
             of OP_POW:
-                BinOp(`**`, numOperand)
+                BinOp(`**`, isNum)
             of OP_TRUE:
                 self.push(Value(kind: BOOL, boolValue: true))
             of OP_FALSE:
                 self.push(Value(kind: BOOL, boolValue: false))
             of OP_NIL:
                 self.push(Value(kind: NIL))
+            of OP_NOT:
+                self.push(Value(kind: BOOL, boolValue: isFalsey(self.pop())))
+            of OP_EQUAL:
+                var a = self.pop()
+                var b = self.pop()
+                self.push(Value(kind: BOOL, boolValue: valuesEqual(a, b)))
+            of OP_LESS:
+                BinOp(`<`, isNum)
+            of OP_GREATER:
+                BinOp(`>`, isNum)
             of OP_RETURN:
-                echo stringifyValue(self.pop())
+                echo stringify(self.pop())
                 return OK
 
 
