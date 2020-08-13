@@ -50,6 +50,12 @@ proc disassembleInstruction*(chunk: Chunk, offset: int): int =
         result = simpleInstruction("OP_MOD", offset)
     elif opcode == OP_POW:
         result = simpleInstruction("OP_POW", offset)
+    elif opcode == OP_NIL:
+        result = simpleInstruction("OP_NIL", offset)
+    elif opcode == OP_TRUE:
+        result = simpleInstruction("OP_TRUE", offset)
+    elif opcode == OP_FALSE:
+        result = simpleInstruction("OP_FALSE", offset)
     else:
         echo &"Unknown opcode {opcode} at index {offset}"
         result = offset + 1
@@ -62,3 +68,4 @@ proc disassembleChunk*(chunk: Chunk, name: string) =
     while index < chunk.code.len:
         index = disassembleInstruction(chunk, index)
     echo &"==== Debug session ended - Chunk '{name}' ===="
+

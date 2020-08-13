@@ -1,5 +1,6 @@
 import meta/chunk
 import meta/valueobject
+import meta/exceptions
 import util/debug
 import compiler
 import strutils
@@ -7,9 +8,12 @@ import strformat
 import math
 import lenientops
 
+
 proc `**`(a, b: int): int = pow(a.float, b.float).int
 
+
 proc `**`(a, b: float): float = pow(a, b)
+
 
 type InterpretResult = enum
     OK,
@@ -23,8 +27,16 @@ type VM = ref object
     stack*: seq[Value]
     stackTop*: int
 
+proc error*(self: VM, message: string, kind: JAPLException) =
+    echo &"{stringifyObject(kind.name)}: {message}"
+    # Add code to raise an exception here
 
-proc pop(self: VM): Value =
+
+proc numOperand(operand: Value): bool =
+    result = operand.kind in [DOUBLE, INTEGER]
+
+
+proc pop*(self: VM): Value =
     result = self.stack.pop()
     self.stackTop = self.stackTop - 1
 
@@ -45,29 +57,33 @@ proc run(self: VM, debug: bool): InterpretResult =
         var idx: int
         copyMem(idx.addr, unsafeAddr(arr), sizeof(arr))
         self.chunk.consts.values[idx]
-    template BinOp(op) =
-        var leftVal = self.pop()
-        var rightVal = self.pop()
-        if leftVal.kind == INTEGER and rightVal.kind == INTEGER:
-            var left: int = leftVal.intValue
-            var right: int = rightVal.intValue
-            var res = `op`(right, left)
-            if res is int:
-                self.push(Value(kind: INTEGER, intValue: int res))
+    template BinOp(op, check) =
+        var leftVal {.inject.} = self.pop()
+        var rightVal {.inject.} = self.pop()
+        if check(leftVal) and check(rightVal):
+            if leftVal.kind == INTEGER and rightVal.kind == INTEGER:
+                var left: int = leftVal.intValue
+                var right: int = rightVal.intValue
+                var res = `op`(right, left)
+                if res is int:
+                    self.push(Value(kind: INTEGER, intValue: int res))
+                else:
+                    self.push(Value(kind: DOUBLE, floatValue: float res))
+            elif leftVal.kind == DOUBLE and rightVal.kind == INTEGER:
+                var left = leftVal.floatValue
+                var right = float rightVal.intValue
+                self.push(Value(kind: DOUBLE, floatValue: `op`(right, left)))
+            elif leftVal.kind == INTEGER and rightVal.kind == DOUBLE:
+                var left = float leftVal.intValue
+                var right = rightVal.floatValue
+                self.push(Value(kind: DOUBLE, floatValue: `op`(right, left)))
             else:
-                self.push(Value(kind: DOUBLE, floatValue: float res))
-        elif leftVal.kind == DOUBLE and rightVal.kind == INTEGER:
-            var left = leftVal.floatValue
-            var right = float rightVal.intValue
-            self.push(Value(kind: DOUBLE, floatValue: `op`(right, left)))
-        elif leftVal.kind == INTEGER and rightVal.kind == DOUBLE:
-            var left = float leftVal.intValue
-            var right = rightVal.floatValue
-            self.push(Value(kind: DOUBLE, floatValue: `op`(right, left)))
+                var left = leftVal.floatValue
+                var right = rightVal.floatValue
+                self.push(Value(kind: DOUBLE, floatValue: `op`(right, left)))
         else:
-            var left = leftVal.floatValue
-            var right = leftVal.floatValue
-            self.push(Value(kind: DOUBLE, floatValue: `op`(right, left)))
+            self.error(&"Unsupported binary operand for objects of type '{toLowerAscii($(leftVal.kind))}' and '{toLowerAscii($(rightVal.kind))}'", newTypeError())
+            return RUNTIME_ERROR
     var instruction: uint8
     var opcode: OpCode
     while true:
@@ -101,17 +117,23 @@ proc run(self: VM, debug: bool): InterpretResult =
                         echo &"Unsupported unary operator '-' for object of type '{toLowerAscii($cur.kind)}'"
                         return RUNTIME_ERROR
             of OP_ADD:
-                BinOp(`+`)
+                BinOp(`+`, numOperand)
             of OP_SUBTRACT:
-                BinOp(`-`)
+                BinOp(`-`, numOperand)
             of OP_DIVIDE:
-                BinOp(`/`)
+                BinOp(`/`, numOperand)
             of OP_MULTIPLY:
-                BinOp(`*`)
+                BinOp(`*`, numOperand)
             of OP_MOD:
-                BinOp(floorMod)
+                BinOp(floorMod, numOperand)
             of OP_POW:
-                BinOp(`**`)
+                BinOp(`**`, numOperand)
+            of OP_TRUE:
+                self.push(Value(kind: BOOL, boolValue: true))
+            of OP_FALSE:
+                self.push(Value(kind: BOOL, boolValue: false))
+            of OP_NIL:
+                self.push(Value(kind: NIL))
             of OP_RETURN:
                 echo stringifyValue(self.pop())
                 return OK

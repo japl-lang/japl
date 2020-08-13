@@ -6,7 +6,7 @@ type
         INTEGER, DOUBLE, BOOL, NIL, OBJECT
     ObjectTypes* = enum
         STRING,
-    Obj* = ref object
+    Obj* = ref object of RootObj
         case kind*: ObjectTypes
             of STRING:
                 str*: string
@@ -34,7 +34,7 @@ proc writeValueArray*(arr: var ValueArray, value: Value) =
     arr.values.add(value)
 
 
-proc stringifyObject(obj: Obj): string =
+proc stringifyObject*(obj: Obj): string =
     case obj.kind:
         of STRING:
             return obj.str
@@ -52,4 +52,5 @@ proc stringifyValue*(value: Value): string =
             result = "nil"
         of OBJECT:
             result = stringifyObject(value.obj)
+
 

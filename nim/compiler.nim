@@ -157,12 +157,17 @@ proc binary(self: Compiler) =
 
 proc unary(self: Compiler) =
     var operator = self.parser.previous().kind
-    self.parsePrecedence(PREC_UNARY)
+    if self.parser.peek().kind != EOF:
+        self.parsePrecedence(PREC_UNARY)
+    else:
+        self.parser.parseError(self.parser.previous, "Expecting expression, got EOF")
+        return
     case operator:
         of MINUS:
             self.emitByte(OP_NEGATE)
         else:
             return
+
 
 proc str(self: Compiler) =
     return
@@ -173,8 +178,15 @@ proc bracket(self: Compiler) =
 
 
 proc literal(self: Compiler) =
-    return
-
+    case self.parser.previous().kind:
+        of TRUE:
+            self.emitByte(OP_TRUE)
+        of FALSE:
+            self.emitByte(OP_FALSE)
+        of TokenType.NIL:
+            self.emitByte(OP_NIL)
+        else:
+            discard  # Unreachable
 
 proc strVal(self: Compiler) =
     return
@@ -187,7 +199,7 @@ proc number(self: Compiler) =
 
 proc grouping(self: Compiler) =
     self.expression()
-    self.parser.consume(RP, "Expecting ')' after parenthesized expression")
+    self.parser.consume(RP, "Expecting ')' after parentheszed expression")
 
 
 var rules: array[TokenType, ParseRule] = [

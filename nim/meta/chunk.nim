@@ -12,7 +12,10 @@ type
         OP_DIVIDE,
         OP_MULTIPLY,
         OP_POW,
-        OP_MOD
+        OP_MOD,
+        OP_NIL,
+        OP_TRUE,
+        OP_FALSE
     Chunk* = ref object
         consts*: ValueArray
         code*: seq[uint8]

@@ -7,6 +7,8 @@ import os
 proc repl(debug: bool = false) =
     var bytecodeVM = initVM()
     echo &"[JAPL 0.2.0 - Nim {NimVersion} - {CompileDate} {CompileTime}]"
+    if debug:
+        echo "Debug mode is enabled, bytecode will be disassembled"
     var source: string = ""
     while true:
         try:
@@ -18,8 +20,6 @@ proc repl(debug: bool = false) =
         if source == "":
             continue
         else:
-            if debug:
-                echo "Debug mode is enabled, bytecode will be disassembled"
             var result = bytecodeVM.interpret(source, debug)
             if debug:
                 echo &"Result: {result}"
