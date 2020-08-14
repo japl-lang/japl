@@ -95,7 +95,7 @@ proc parseString(self: var Lexer, delimiter: char) =
         echo &"SyntaxError: Unterminated string literal at line {self.line}"
         self.errored = true
     discard self.step()
-    let value = Value(kind: ValueTypes.OBJECT, obj: Obj(kind: ObjectTypes.STRING, str: self.source[self.start..<self.current - 1])) # Get the value between quotes
+    let value = Value(kind: ValueTypes.OBJECT, obj: Obj(kind: ObjectTypes.STRING, str: self.source[self.start..<self.current])) # Get the value between quotes
     let token = self.createToken(STR, value)
     self.tokens.add(token)
 

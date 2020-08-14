@@ -4,7 +4,7 @@ import meta/chunk
 import meta/tokenobject
 import meta/valueobject
 import meta/tokentype
-
+import types/objecttype
 
 
 type
@@ -183,8 +183,8 @@ proc unary(self: Compiler) =
             return
 
 
-proc str(self: Compiler) =
-    return
+proc strVal(self: Compiler) =
+    self.emitConstant(Value(kind: OBJECT, obj: Obj(kind: STRING, str: self.parser.previous().lexeme)))
 
 
 proc bracket(self: Compiler) =
@@ -201,9 +201,6 @@ proc literal(self: Compiler) =
             self.emitByte(OP_NIL)
         else:
             discard  # Unreachable
-
-proc strVal(self: Compiler) =
-    return
 
 
 proc number(self: Compiler) =

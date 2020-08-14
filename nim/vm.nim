@@ -44,6 +44,10 @@ proc push*(self: VM, value: Value) =
     self.stackTop = self.stackTop + 1
 
 
+proc peek*(self: VM, distance: int): Value =
+    return self.stack[len(self.stack) - distance - 1]
+
+
 proc run(self: VM, debug: bool): InterpretResult =
     template readByte: untyped =
         inc(self.ip)
@@ -121,13 +125,39 @@ proc run(self: VM, debug: bool): InterpretResult =
                         echo &"Unsupported unary operator '-' for object of type '{toLowerAscii($cur.kind)}'"
                         return RUNTIME_ERROR
             of OP_ADD:
-                BinOp(`+`, isNum)
+                if self.peek(0).kind == OBJECT and self.peek(1).kind == OBJECT:
+                    if self.peek(0).obj.kind == STRING and self.peek(1).obj.kind == STRING:
+                        var r = self.peek(0).obj.str
+                        var l = self.peek(1).obj.str
+                        self.push(Value(kind: OBJECT, obj: Obj(kind: STRING, str: l[0..len(l) - 2] & r[1..<len(r)])))
+                    else:
+                        self.error(newTypeError(&"Unsupported binary operand for objects of type '{toLowerAscii($(self.peek(0).kind))}' and '{toLowerAscii($(self.peek(1).kind))}'"))
+                        return RUNTIME_ERROR
+                else:
+                    BinOp(`+`, isNum)
             of OP_SUBTRACT:
                 BinOp(`-`, isNum)
             of OP_DIVIDE:
                 BinOp(`/`, isNum)
             of OP_MULTIPLY:
-                BinOp(`*`, isNum)
+                if self.peek(0).kind == INTEGER and self.peek(1).kind == OBJECT:
+                    if self.peek(1).obj.kind == STRING:
+                        var r = self.peek(0).intValue
+                        var l = self.peek(1).obj.str
+                        self.push(Value(kind: OBJECT, obj: Obj(kind: STRING, str: l[0] & l[1..len(l) - 2].repeat(r) & l[len(l) - 1])))
+                    else:
+                        self.error(newTypeError(&"Unsupported binary operand for objects of type '{toLowerAscii($(self.peek(0).kind))}' and '{toLowerAscii($(self.peek(1).kind))}'"))
+                        return RUNTIME_ERROR
+                elif self.peek(0).kind == OBJECT and self.peek(1).kind == INTEGER:
+                    if self.peek(0).obj.kind == STRING:
+                        var r = self.peek(0).obj.str
+                        var l = self.peek(1).intValue
+                        self.push(Value(kind: OBJECT, obj: Obj(kind: STRING, str: r[0] & r[1..len(r) - 2].repeat(l) & r[len(r) - 1])))
+                    else:
+                        self.error(newTypeError(&"Unsupported binary operand for objects of type '{toLowerAscii($(self.peek(0).kind))}' and '{toLowerAscii($(self.peek(1).kind))}'"))
+                        return RUNTIME_ERROR
+                else:
+                    BinOp(`*`, isNum)
             of OP_MOD:
                 BinOp(floorMod, isNum)
             of OP_POW:

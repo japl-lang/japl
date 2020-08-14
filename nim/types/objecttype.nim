@@ -18,6 +18,10 @@ proc isFalsey*(obj: Obj): bool =
             return false
 
 
+proc objType*(obj: Obj): ObjectTypes =
+    return obj.kind
+
+
 proc stringify*(obj: Obj): string =
     case obj.kind:
         of STRING:

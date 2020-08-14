@@ -49,6 +49,10 @@ proc isNum*(value: Value): bool =
     return isInt(value) or isFloat(value)
 
 
+proc isObj*(value: Value): bool =
+    return value.kind == OBJECT
+
+
 proc toBool*(value: Value): bool =
     return value.boolValue
 
