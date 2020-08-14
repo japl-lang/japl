@@ -190,6 +190,7 @@ proc strVal(self: Compiler) =
 proc bracket(self: Compiler) =
     self.parsePrecedence(PREC_TERM)
     if self.parser.peek.kind == COLON:
+        discard self.parser.advance()
         self.parsePrecedence(PREC_TERM)
         self.emitByte(OP_SLICE_RANGE)
     else:

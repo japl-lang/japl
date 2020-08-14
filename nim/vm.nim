@@ -48,7 +48,7 @@ proc peek*(self: VM, distance: int): Value =
     return self.stack[len(self.stack) - distance - 1]
 
 
-proc slice*(self: VM): bool =
+proc slice(self: VM): bool =
     var idx = self.pop()
     var peeked = self.pop()
     case peeked.kind:
@@ -74,6 +74,36 @@ proc slice*(self: VM): bool =
                     return false
         else:
             self.error(newTypeError(&"Unsupported slicing for object of type '{toLowerAscii($(peeked.kind))}'"))
+            return false
+
+
+proc sliceRange(self: VM): bool =
+    var sliceEnd = self.pop()
+    var sliceStart = self.pop()
+    var popped = self.pop()
+    case popped.kind:
+        of OBJECT:
+            case popped.obj.kind:
+                of STRING:
+                    var delimiter = popped.obj.str[0]
+                    var str = popped.obj.str[1..len(popped.obj.str) - 2]
+                    if sliceStart.kind != INTEGER or sliceEnd.kind != INTEGER:
+                        self.error(newTypeError("string indeces must be integers!"))
+                        return false
+                    elif sliceStart.intValue - 1 > len(str) - 1 or sliceEnd.intValue - 1 > len(str) - 1:
+                        self.error(newIndexError("string index out of bounds"))
+                        return false
+                    elif sliceStart.intValue < 0 or sliceEnd.intValue < 0:
+                        self.error(newIndexError("string index out of bounds"))
+                        return false
+                    self.push(Value(kind: OBJECT, obj: Obj(kind: STRING, str: delimiter & str[sliceStart.intValue..sliceEnd.intValue] & delimiter)))
+                    return true
+
+                else:
+                    self.error(newTypeError(&"Unsupported slicing for object of type '{toLowerAscii($(popped.kind))}'"))
+                    return false
+        else:
+            self.error(newTypeError(&"Unsupported slicing for object of type '{toLowerAscii($(popped.kind))}'"))
             return false
 
 
@@ -215,7 +245,8 @@ proc run(self: VM, debug: bool): InterpretResult =
                 if not self.slice():
                     return RUNTIME_ERROR
             of OP_SLICE_RANGE:
-                return OK
+                if not self.sliceRange():
+                    return RUNTIME_ERROR
             of OP_RETURN:
                 echo stringify(self.pop())
                 return OK
