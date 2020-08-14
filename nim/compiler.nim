@@ -188,7 +188,13 @@ proc strVal(self: Compiler) =
 
 
 proc bracket(self: Compiler) =
-    return
+    self.parsePrecedence(PREC_TERM)
+    if self.parser.peek.kind == COLON:
+        self.parsePrecedence(PREC_TERM)
+        self.emitByte(OP_SLICE_RANGE)
+    else:
+        self.emitByte(OP_SLICE)
+    self.parser.consume(TokenType.RS, "Expecting ']' after slice expression")
 
 
 proc literal(self: Compiler) =
@@ -230,13 +236,13 @@ var rules: array[TokenType, ParseRule] = [
     makeRule(nil, binary, PREC_COMPARISON), # GT
     makeRule(grouping, nil, PREC_NONE), # LP
     makeRule(nil, nil, PREC_NONE), # RP
-    makeRule(nil, nil, PREC_NONE), # LS
+    makeRule(nil, bracket, PREC_CALL), # LS
     makeRule(nil, nil, PREC_NONE), # LB
     makeRule(nil, nil, PREC_NONE), # RB
     makeRule(nil, nil, PREC_NONE), # COMMA
     makeRule(nil, nil, PREC_NONE), # DOT
     makeRule(nil, nil, PREC_NONE), # ID
-    makeRule(nil, bracket, PREC_CALL), # RS
+    makeRule(nil, nil, PREC_NONE), # RS
     makeRule(number, nil, PREC_NONE), # NUMBER
     makeRule(strVal, nil, PREC_NONE), # STR
     makeRule(nil, nil, PREC_NONE), # SEMICOLON
@@ -258,6 +264,7 @@ var rules: array[TokenType, ParseRule] = [
     makeRule(nil, nil, PREC_NONE), # DEL
     makeRule(nil, nil, PREC_NONE), # BREAK
     makeRule(nil, nil, PREC_NONE), # EOF
+    makeRule(nil, nil, PREC_NONE), # COLON
 ]
 
 

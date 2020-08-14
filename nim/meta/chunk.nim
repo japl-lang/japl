@@ -19,7 +19,9 @@ type
         OP_GREATER,
         OP_LESS,
         OP_EQUAL,
-        OP_NOT
+        OP_NOT,
+        OP_SLICE,
+        OP_SLICE_RANGE
     Chunk* = ref object
         consts*: ValueArray
         code*: seq[uint8]

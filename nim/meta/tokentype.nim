@@ -11,4 +11,5 @@ type
     ELSE, FOR, FUN, FALSE,
     IF, NIL, RETURN, SUPER,
     THIS, OR, TRUE, VAR,
-    WHILE, DEL, BREAK, EOF
+    WHILE, DEL, BREAK, EOF,
+    COLON

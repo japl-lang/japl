@@ -48,6 +48,35 @@ proc peek*(self: VM, distance: int): Value =
     return self.stack[len(self.stack) - distance - 1]
 
 
+proc slice*(self: VM): bool =
+    var idx = self.pop()
+    var peeked = self.pop()
+    case peeked.kind:
+        of OBJECT:
+            case peeked.obj.kind:
+                of STRING:
+                    var delimiter = peeked.obj.str[0]
+                    var str = peeked.obj.str[1..len(peeked.obj.str) - 2]
+                    if idx.kind != INTEGER:
+                        self.error(newTypeError("string indeces must be integers!"))
+                        return false
+                    elif idx.intValue - 1 > len(str) - 1:
+                        self.error(newIndexError("string index out of bounds"))
+                        return false
+                    elif idx.intValue < 0:
+                        self.error(newIndexError("string index out of bounds"))
+                        return false
+                    self.push(Value(kind: OBJECT, obj: Obj(kind: STRING, str: delimiter & str[idx.intValue] & delimiter)))
+                    return true
+
+                else:
+                    self.error(newTypeError(&"Unsupported slicing for object of type '{toLowerAscii($(peeked.kind))}'"))
+                    return false
+        else:
+            self.error(newTypeError(&"Unsupported slicing for object of type '{toLowerAscii($(peeked.kind))}'"))
+            return false
+
+
 proc run(self: VM, debug: bool): InterpretResult =
     template readByte: untyped =
         inc(self.ip)
@@ -173,11 +202,20 @@ proc run(self: VM, debug: bool): InterpretResult =
             of OP_EQUAL:
                 var a = self.pop()
                 var b = self.pop()
+                if a.kind == DOUBLE and b.kind == INTEGER:
+                    b = Value(kind: DOUBLE, floatValue: float b.intValue)
+                elif b.kind == DOUBLE and a.kind == INTEGER:
+                    a = Value(kind: DOUBLE, floatValue: float a.intValue)
                 self.push(Value(kind: BOOL, boolValue: valuesEqual(a, b)))
             of OP_LESS:
                 BinOp(`<`, isNum)
             of OP_GREATER:
                 BinOp(`>`, isNum)
+            of OP_SLICE:
+                if not self.slice():
+                    return RUNTIME_ERROR
+            of OP_SLICE_RANGE:
+                return OK
             of OP_RETURN:
                 echo stringify(self.pop())
                 return OK

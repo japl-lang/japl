@@ -17,7 +17,8 @@ const TOKENS = to_table({
               '>': TokenType.GT, '<': TokenType.LT,
               '=': TokenType.EQ, '!': TokenType.NEG,
               '/': TokenType.SLASH, '%': TokenType.MOD,
-               '[': TokenType.LS, ']': TokenType.RS})
+              '[': TokenType.LS, ']': TokenType.RS,
+              ':': TokenType.COLON})
 
 const RESERVED = to_table({
                 "or": TokenType.OR, "and": TokenType.AND,
