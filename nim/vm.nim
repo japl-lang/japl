@@ -33,8 +33,8 @@ type VM = ref object
     globals*: Table[string, Value]
 
 
-proc error*(self: VM, kind: JAPLException) =
-    echo &"{stringify(kind.errName)}: {stringify(kind.message)}"
+proc error*(self: VM, error: JAPLException) =
+    echo stringify(error)
     # Add code to raise an exception here
 
 
@@ -113,7 +113,7 @@ proc sliceRange(self: VM): bool =
             return false
 
 
-proc run(self: VM, debug: bool): InterpretResult =
+proc run(self: VM, debug, repl: bool): InterpretResult =
     template readByte: untyped =
         inc(self.ip)
         self.chunk.code[self.ip - 1]
@@ -215,7 +215,7 @@ proc run(self: VM, debug: bool): InterpretResult =
                     if self.peek(1).obj.kind == STRING:
                         var r = self.peek(0).intValue
                         var l = self.peek(1).obj.str
-                        self.push(Value(kind: OBJECT, obj: Obj(kind: STRING, str: l[0] & l[1..len(l) - 2].repeat(r) & l[len(l) - 1])))
+                        self.push(Value(kind: OBJECT, obj: Obj(kind: STRING, str: l.repeat(r))))
                     else:
                         self.error(newTypeError(&"Unsupported binary operand for objects of type '{toLowerAscii($(self.peek(0).kind))}' and '{toLowerAscii($(self.peek(1).kind))}'"))
                         return RUNTIME_ERROR
@@ -223,7 +223,7 @@ proc run(self: VM, debug: bool): InterpretResult =
                     if self.peek(0).obj.kind == STRING:
                         var r = self.peek(0).obj.str
                         var l = self.peek(1).intValue
-                        self.push(Value(kind: OBJECT, obj: Obj(kind: STRING, str: r[0] & r[1..len(r) - 2].repeat(l) & r[len(r) - 1])))
+                        self.push(Value(kind: OBJECT, obj: Obj(kind: STRING, str: r.repeat(l))))
                     else:
                         self.error(newTypeError(&"Unsupported binary operand for objects of type '{toLowerAscii($(self.peek(0).kind))}' and '{toLowerAscii($(self.peek(1).kind))}'"))
                         return RUNTIME_ERROR
@@ -267,13 +267,45 @@ proc run(self: VM, debug: bool): InterpretResult =
                     var constant = readConstant().obj.str
                     self.globals[constant] = self.peek(0)
                 discard self.pop()   # This will help when we have a custom GC
+            of OP_GET_GLOBAL:
+                if self.chunk.consts.values.len > 255:
+                    var constant = readLongConstant().obj.str
+                    if constant notin self.globals:
+                        self.error(newReferenceError(&"undefined name '{constant}'"))
+                        return RUNTIME_ERROR
+                    else:
+                        self.push(self.globals[constant])
+                else:
+                    var constant = readConstant().obj.str
+                    if constant notin self.globals:
+                        self.error(newReferenceError(&"undefined name '{constant}'"))
+                        return RUNTIME_ERROR
+                    else:
+                        self.push(self.globals[constant])
+            of OP_SET_GLOBAL:
+                if self.chunk.consts.values.len > 255:
+                    var constant = readLongConstant().obj.str
+                    if constant notin self.globals:
+                        self.error(newReferenceError(&"assignment to undeclared name '{constant}'"))
+                        return RUNTIME_ERROR
+                    else:
+                        self.globals[constant] = self.peek(0)
+                else:
+                    var constant = readConstant().obj.str
+                    if constant notin self.globals:
+                        self.error(newReferenceError(&"assignment to undeclared name '{constant}'"))
+                        return RUNTIME_ERROR
+                    else:
+                        self.globals[constant] = self.peek(0)
             of OP_POP:
-                discard self.pop()
+                var popped = self.pop()
+                if repl:
+                    echo stringify(popped)
             of OP_RETURN:
                 return OK
 
 
-proc interpret*(self: var VM, source: string, debug: bool = false): InterpretResult =
+proc interpret*(self: var VM, source: string, debug: bool = false, repl: bool = false): InterpretResult =
     var chunk = initChunk()
     var compiler = initCompiler(chunk)
     if not compiler.compile(source, chunk):
@@ -281,7 +313,7 @@ proc interpret*(self: var VM, source: string, debug: bool = false): InterpretRes
     self.chunk = chunk
     self.ip = 0
     if len(chunk.code) > 1:
-        result = self.run(debug)
+        result = self.run(debug, repl)
     chunk.freeChunk()
 
 

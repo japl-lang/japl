@@ -11,3 +11,7 @@ func newTypeError*(message: string): JAPLException =
 func newIndexError*(message: string): JAPLException =
     result = JAPLException(kind: ObjectTypes.EXCEPTION, errName: Obj(kind: STRING, str: "IndexError"), message: Obj(kind: ObjectTypes.STRING, str: message))
 
+
+func newReferenceError*(message: string): JAPLException =
+    result = JAPLException(kind: ObjectTypes.EXCEPTION, errName: Obj(kind: STRING, str: "ReferenceError"), message: Obj(kind: STRING, str: message))
+

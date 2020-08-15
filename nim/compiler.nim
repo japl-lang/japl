@@ -275,6 +275,19 @@ proc defineVariable(self: Compiler, idx: uint8) =
     self.emitBytes(OP_DEFINE_GLOBAL, idx)
 
 
+proc namedVariable(self: Compiler, tok: Token) =
+    var name = self.identifierConstant(tok)
+    if self.parser.match(EQ):
+        self.expression()
+        self.emitBytes(OP_SET_GLOBAL, name)
+    else:
+        self.emitBytes(OP_GET_GLOBAL, name)
+
+
+proc variable(self: Compiler) =
+    self.namedVariable(self.parser.previous())
+
+
 proc varDeclaration(self: Compiler) =
     var name = self.parseVariable("Expecting variable name")
     if self.parser.match(EQ):
@@ -326,7 +339,7 @@ var rules: array[TokenType, ParseRule] = [
     makeRule(nil, nil, PREC_NONE), # RB
     makeRule(nil, nil, PREC_NONE), # COMMA
     makeRule(nil, nil, PREC_NONE), # DOT
-    makeRule(nil, nil, PREC_NONE), # ID
+    makeRule(variable, nil, PREC_NONE), # ID
     makeRule(nil, nil, PREC_NONE), # RS
     makeRule(number, nil, PREC_NONE), # NUMBER
     makeRule(strVal, nil, PREC_NONE), # STR

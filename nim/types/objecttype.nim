@@ -1,3 +1,6 @@
+import strutils
+import strformat
+
 type
     ObjectTypes* = enum
         STRING, EXCEPTION
@@ -25,9 +28,9 @@ proc objType*(obj: Obj): ObjectTypes =
 proc stringify*(obj: Obj): string =
     case obj.kind:
         of STRING:
-            return obj.str
+            return strutils.escape(obj.str)
         of ObjectTypes.EXCEPTION:
-            return stringify(obj.message)
+            return &"{obj.errName.str}: {obj.message.str}"
 
 
 proc valuesEqual*(a: Obj, b: Obj): bool =

@@ -20,7 +20,7 @@ proc repl(debug: bool = false) =
         if source == "":
             continue
         else:
-            var result = bytecodeVM.interpret(source, debug)
+            var result = bytecodeVM.interpret(source, debug, true)
             if debug:
                 echo &"Result: {result}"
 
