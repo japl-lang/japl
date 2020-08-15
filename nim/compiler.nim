@@ -5,6 +5,8 @@ import meta/tokenobject
 import meta/valueobject
 import meta/tokentype
 import types/objecttype
+import strutils
+import strformat
 
 
 type
@@ -53,6 +55,16 @@ proc peek(self: Parser): Token =
 
 proc previous(self: Parser): Token =
     return self.tokens[self.current - 1]
+
+
+proc check(self: Parser, kind: TokenType): bool =
+    return self.peek().kind == kind
+
+
+proc match(self: var Parser, kind: TokenType): bool =
+    if not self.check(kind): return false
+    discard self.advance()
+    return true
 
 
 proc parseError(self: var Parser, token: Token, message: string) =
@@ -109,6 +121,8 @@ proc emitConstant(self: Compiler, value: Value) =
 
 
 proc getRule(kind: TokenType): ParseRule  # Forward declaration
+proc statement(self: Compiler)
+proc declaration(self: Compiler)
 
 
 proc endCompiler(self: Compiler) =
@@ -184,17 +198,32 @@ proc unary(self: Compiler) =
 
 
 proc strVal(self: Compiler) =
-    self.emitConstant(Value(kind: OBJECT, obj: Obj(kind: STRING, str: self.parser.previous().lexeme)))
+    var str = self.parser.previous().lexeme
+    var delimiter = &"{str[0]}"
+    str = str.unescape(delimiter, delimiter)
+    self.emitConstant(Value(kind: OBJECT, obj: Obj(kind: STRING, str: str)))
 
 
 proc bracket(self: Compiler) =
-    self.parsePrecedence(PREC_TERM)
     if self.parser.peek.kind == COLON:
+        self.emitByte(OP_NIL)
         discard self.parser.advance()
-        self.parsePrecedence(PREC_TERM)
+        if self.parser.peek.kind == RS:
+            self.emitByte(OP_NIL)
+        else:
+            self.parsePrecedence(PREC_TERM)
         self.emitByte(OP_SLICE_RANGE)
     else:
-        self.emitByte(OP_SLICE)
+        self.parsePrecedence(PREC_TERM)
+        if self.parser.peek.kind == RS:
+            self.emitByte(OP_SLICE)
+        elif self.parser.peek.kind == COLON:
+            discard self.parser.advance()
+            if self.parser.peek.kind == RS:
+                self.emitByte(OP_NIL)
+            else:
+                self.parsePrecedence(PREC_TERM)
+            self.emitByte(OP_SLICE_RANGE)
     self.parser.consume(TokenType.RS, "Expecting ']' after slice expression")
 
 
@@ -218,6 +247,61 @@ proc number(self: Compiler) =
 proc grouping(self: Compiler) =
     self.expression()
     self.parser.consume(RP, "Expecting ')' after parentheszed expression")
+
+
+proc synchronize(self: Compiler) =
+    self.parser.panicMode = false
+    while self.parser.peek.kind != EOF:
+        if self.parser.previous().kind == SEMICOLON:
+            return
+        case self.parser.peek.kind:
+            of CLASS, FUN, VAR, FOR, IF, WHILE, RETURN:
+                return
+            else:
+                discard
+        discard self.parser.advance()
+
+
+proc identifierConstant(self: Compiler, tok: Token): uint8 =
+    return self.makeConstant(Value(kind: OBJECT, obj: Obj(kind: STRING, str: tok.lexeme)))
+
+
+proc parseVariable(self: Compiler, message: string): uint8 =
+    self.parser.consume(ID, message)
+    return self.identifierConstant(self.parser.previous)
+
+
+proc defineVariable(self: Compiler, idx: uint8) =
+    self.emitBytes(OP_DEFINE_GLOBAL, idx)
+
+
+proc varDeclaration(self: Compiler) =
+    var name = self.parseVariable("Expecting variable name")
+    if self.parser.match(EQ):
+        self.expression()
+    else:
+        self.emitByte(OP_NIL)
+    self.parser.consume(SEMICOLON, "Missing semicolon after var declaration")
+    self.defineVariable(name)
+
+
+proc expressionStatement(self: Compiler) =
+    self.expression()
+    self.parser.consume(SEMICOLON, "Missing semicolon after expression")
+    self.emitByte(OP_POP)
+
+
+proc statement(self: Compiler) =
+    self.expressionStatement()
+
+
+proc declaration(self: Compiler) =
+    if self.parser.match(VAR):
+        self.varDeclaration()
+    else:
+        self.statement()
+    if self.parser.panicMode:
+        self.synchronize()
 
 
 var rules: array[TokenType, ParseRule] = [
@@ -273,13 +357,13 @@ proc getRule(kind: TokenType): ParseRule =
     result = rules[kind]
 
 
-proc compile*(self: Compiler, source: string, chunk: Chunk): bool =
+proc compile*(self: var Compiler, source: string, chunk: Chunk): bool =
     var scanner = initLexer(source)
     var tokens = scanner.lex()
     if len(tokens) > 1 and not scanner.errored:
         self.parser = initParser(tokens)
         self.compilingChunk = chunk
-        self.expression()
-        self.parser.consume(EOF, "Expecting end of file")
+        while not self.parser.match(EOF):
+            self.declaration()
         self.endCompiler()
     return not self.parser.hadError

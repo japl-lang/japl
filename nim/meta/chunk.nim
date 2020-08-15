@@ -21,7 +21,9 @@ type
         OP_EQUAL,
         OP_NOT,
         OP_SLICE,
-        OP_SLICE_RANGE
+        OP_SLICE_RANGE,
+        OP_POP,
+        OP_DEFINE_GLOBAL,
     Chunk* = ref object
         consts*: ValueArray
         code*: seq[uint8]

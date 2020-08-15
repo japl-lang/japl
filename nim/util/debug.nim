@@ -69,6 +69,10 @@ proc disassembleInstruction*(chunk: Chunk, offset: int): int =
         result = simpleInstruction("OP_SLICE", offset)
     elif opcode == OP_SLICE_RANGE:
         result = simpleInstruction("OP_SLICE_RANGE", offset)
+    elif opcode == OP_POP:
+        result = simpleInstruction("OP_POP", offset)
+    elif opcode == OP_DEFINE_GLOBAL:
+        result = simpleInstruction("OP_DEFINE_GLOBAL", offset)
     else:
         echo &"Unknown opcode {opcode} at index {offset}"
         result = offset + 1

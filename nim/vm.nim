@@ -8,6 +8,8 @@ import strutils
 import strformat
 import math
 import lenientops
+import lists
+import tables
 
 
 proc `**`(a, b: int): int = pow(a.float, b.float).int
@@ -27,6 +29,8 @@ type VM = ref object
     ip: int
     stack*: seq[Value]
     stackTop*: int
+    objects*: SinglyLinkedList[Obj]  # Unused for now
+    globals*: Table[string, Value]
 
 
 proc error*(self: VM, kind: JAPLException) =
@@ -55,8 +59,7 @@ proc slice(self: VM): bool =
         of OBJECT:
             case peeked.obj.kind:
                 of STRING:
-                    var delimiter = peeked.obj.str[0]
-                    var str = peeked.obj.str[1..len(peeked.obj.str) - 2]
+                    var str = peeked.obj.str
                     if idx.kind != INTEGER:
                         self.error(newTypeError("string indeces must be integers!"))
                         return false
@@ -66,7 +69,7 @@ proc slice(self: VM): bool =
                     elif idx.intValue < 0:
                         self.error(newIndexError("string index out of bounds"))
                         return false
-                    self.push(Value(kind: OBJECT, obj: Obj(kind: STRING, str: delimiter & str[idx.intValue] & delimiter)))
+                    self.push(Value(kind: OBJECT, obj: Obj(kind: STRING, str: &"{str[idx.intValue]}")))
                     return true
 
                 else:
@@ -85,8 +88,11 @@ proc sliceRange(self: VM): bool =
         of OBJECT:
             case popped.obj.kind:
                 of STRING:
-                    var delimiter = popped.obj.str[0]
-                    var str = popped.obj.str[1..len(popped.obj.str) - 2]
+                    var str = popped.obj.str
+                    if sliceEnd.kind == NIL:
+                        sliceEnd = Value(kind: INTEGER, intValue: len(str) - 1)
+                    if sliceStart.kind == NIL:
+                        sliceStart = Value(kind: INTEGER, intValue: 0)
                     if sliceStart.kind != INTEGER or sliceEnd.kind != INTEGER:
                         self.error(newTypeError("string indeces must be integers!"))
                         return false
@@ -96,7 +102,7 @@ proc sliceRange(self: VM): bool =
                     elif sliceStart.intValue < 0 or sliceEnd.intValue < 0:
                         self.error(newIndexError("string index out of bounds"))
                         return false
-                    self.push(Value(kind: OBJECT, obj: Obj(kind: STRING, str: delimiter & str[sliceStart.intValue..sliceEnd.intValue] & delimiter)))
+                    self.push(Value(kind: OBJECT, obj: Obj(kind: STRING, str: str[sliceStart.intValue..sliceEnd.intValue])))
                     return true
 
                 else:
@@ -163,6 +169,12 @@ proc run(self: VM, debug: bool): InterpretResult =
                 stdout.write(stringify(v))
                 stdout.write(", ")
             stdout.write("]\n")
+            stdout.write("Global scope status: {")
+            for k, v in self.globals.pairs():
+                stdout.write(k)
+                stdout.write(": ")
+                stdout.write(stringify(v))
+            echo "}\n"
             discard disassembleInstruction(self.chunk, self.ip - 1)
         case opcode:
             of OP_CONSTANT:
@@ -247,8 +259,17 @@ proc run(self: VM, debug: bool): InterpretResult =
             of OP_SLICE_RANGE:
                 if not self.sliceRange():
                     return RUNTIME_ERROR
+            of OP_DEFINE_GLOBAL:
+                if self.chunk.consts.values.len > 255:
+                    var constant = readLongConstant().obj.str
+                    self.globals[constant] = self.peek(0)
+                else:
+                    var constant = readConstant().obj.str
+                    self.globals[constant] = self.peek(0)
+                discard self.pop()   # This will help when we have a custom GC
+            of OP_POP:
+                discard self.pop()
             of OP_RETURN:
-                echo stringify(self.pop())
                 return OK
 
 
@@ -269,7 +290,7 @@ proc resetStack*(self: VM) =
 
 
 proc initVM*(): VM =
-    result = VM(chunk: initChunk(), ip: 0, stack: @[], stackTop: 0)
+    result = VM(chunk: initChunk(), ip: 0, stack: @[], stackTop: 0, objects: initSinglyLinkedList[Obj](), globals: initTable[string, Value]())
 
 
 proc freeVM*(self: VM) =
