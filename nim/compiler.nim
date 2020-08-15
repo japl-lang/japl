@@ -304,6 +304,12 @@ proc expressionStatement(self: Compiler) =
     self.emitByte(OP_POP)
 
 
+proc deleteVariable(self: Compiler) =
+    self.expression()
+    var name = self.identifierConstant(self.parser.previous())
+    self.emitBytes(OP_DELETE_GLOBAL, name)
+
+
 proc statement(self: Compiler) =
     self.expressionStatement()
 
@@ -359,7 +365,7 @@ var rules: array[TokenType, ParseRule] = [
     makeRule(literal, nil, PREC_NONE), # TRUE
     makeRule(nil, nil, PREC_NONE), # VAR
     makeRule(nil, nil, PREC_NONE), # WHILE
-    makeRule(nil, nil, PREC_NONE), # DEL
+    makeRule(deleteVariable, nil, PREC_NONE), # DEL
     makeRule(nil, nil, PREC_NONE), # BREAK
     makeRule(nil, nil, PREC_NONE), # EOF
     makeRule(nil, nil, PREC_NONE), # COLON

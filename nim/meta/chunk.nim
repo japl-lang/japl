@@ -25,7 +25,8 @@ type
         OP_POP,
         OP_DEFINE_GLOBAL,
         OP_GET_GLOBAL,
-        OP_SET_GLOBAL
+        OP_SET_GLOBAL,
+        OP_DELETE_GLOBAL
     Chunk* = ref object
         consts*: ValueArray
         code*: seq[uint8]

@@ -297,6 +297,22 @@ proc run(self: VM, debug, repl: bool): InterpretResult =
                         return RUNTIME_ERROR
                     else:
                         self.globals[constant] = self.peek(0)
+            of OP_DELETE_GLOBAL:
+                if self.chunk.consts.values.len > 255:
+                    var constant = readLongConstant().obj.str
+                    if constant notin self.globals:
+                        self.error(newReferenceError(&"undefined name '{constant}'"))
+                        return RUNTIME_ERROR
+                    else:
+                        self.globals.del(constant)
+                else:
+                    var constant = readConstant().obj.str
+                    if constant notin self.globals:
+                        self.error(newReferenceError(&"undefined name '{constant}'"))
+                        return RUNTIME_ERROR
+                    else:
+                        self.globals.del(constant)
+
             of OP_POP:
                 var popped = self.pop()
                 if repl:
