@@ -33,7 +33,7 @@ type
         PREC_CALL,
         PREC_PRIMARY
 
-    ParseFn = proc(self: Compiler): void
+    ParseFn = proc(self: Compiler, canAssign: bool): void
 
     ParseRule = ref object
         prefix, infix: ParseFn
@@ -135,20 +135,23 @@ proc parsePrecedence(self: Compiler, precedence: Precedence) =
     if prefixRule == nil:
         self.parser.parseError(self.parser.previous, "Expecting expression")
         return
-    self.prefixRule()
+    var canAssign = precedence <= PREC_ASSIGNMENT
+    self.prefixRule(canAssign)
     while precedence <= (getRule(self.parser.peek.kind).precedence):
         var infixRule = getRule(self.parser.advance.kind).infix
         if self.parser.peek.kind != EOF:
-            self.infixRule()
+            self.infixRule(canAssign)
         else:
             self.parser.parseError(self.parser.previous, "Expecting expression, got EOF")
+    if canAssign and self.parser.match(EQ):
+        self.parser.parseError(self.parser.peek, "Invalid assignment target")
 
 
 proc expression(self: Compiler) =
     self.parsePrecedence(PREC_ASSIGNMENT)
 
 
-proc binary(self: Compiler) =
+proc binary(self: Compiler, canAssign: bool) =
     var operator = self.parser.previous.kind
     var rule = getRule(operator)
     self.parsePrecedence(Precedence((int rule.precedence) + 1))
@@ -181,7 +184,7 @@ proc binary(self: Compiler) =
             return
 
 
-proc unary(self: Compiler) =
+proc unary(self: Compiler, canAssign: bool) =
     var operator = self.parser.previous().kind
     if self.parser.peek().kind != EOF:
         self.parsePrecedence(PREC_UNARY)
@@ -197,14 +200,14 @@ proc unary(self: Compiler) =
             return
 
 
-proc strVal(self: Compiler) =
+proc strVal(self: Compiler, canAssign: bool) =
     var str = self.parser.previous().lexeme
     var delimiter = &"{str[0]}"
     str = str.unescape(delimiter, delimiter)
     self.emitConstant(Value(kind: OBJECT, obj: Obj(kind: STRING, str: str)))
 
 
-proc bracket(self: Compiler) =
+proc bracket(self: Compiler, canAssign: bool) =
     if self.parser.peek.kind == COLON:
         self.emitByte(OP_NIL)
         discard self.parser.advance()
@@ -227,7 +230,7 @@ proc bracket(self: Compiler) =
     self.parser.consume(TokenType.RS, "Expecting ']' after slice expression")
 
 
-proc literal(self: Compiler) =
+proc literal(self: Compiler, canAssign: bool) =
     case self.parser.previous().kind:
         of TRUE:
             self.emitByte(OP_TRUE)
@@ -239,12 +242,12 @@ proc literal(self: Compiler) =
             discard  # Unreachable
 
 
-proc number(self: Compiler) =
+proc number(self: Compiler, canAssign: bool) =
     var value = self.parser.previous().literal
     self.emitConstant(value)
 
 
-proc grouping(self: Compiler) =
+proc grouping(self: Compiler, canAssign: bool) =
     self.expression()
     self.parser.consume(RP, "Expecting ')' after parentheszed expression")
 
@@ -275,17 +278,17 @@ proc defineVariable(self: Compiler, idx: uint8) =
     self.emitBytes(OP_DEFINE_GLOBAL, idx)
 
 
-proc namedVariable(self: Compiler, tok: Token) =
+proc namedVariable(self: Compiler, tok: Token, canAssign: bool) =
     var name = self.identifierConstant(tok)
-    if self.parser.match(EQ):
+    if self.parser.match(EQ) and canAssign:
         self.expression()
         self.emitBytes(OP_SET_GLOBAL, name)
     else:
         self.emitBytes(OP_GET_GLOBAL, name)
 
 
-proc variable(self: Compiler) =
-    self.namedVariable(self.parser.previous())
+proc variable(self: Compiler, canAssign: bool) =
+    self.namedVariable(self.parser.previous(), canAssign)
 
 
 proc varDeclaration(self: Compiler) =
@@ -304,10 +307,11 @@ proc expressionStatement(self: Compiler) =
     self.emitByte(OP_POP)
 
 
-proc deleteVariable(self: Compiler) =
-    self.expression()
-    var name = self.identifierConstant(self.parser.previous())
-    self.emitBytes(OP_DELETE_GLOBAL, name)
+proc deleteVariable(self: Compiler, canAssign: bool) =
+    if not canAssign:
+        self.expression()
+        var name = self.identifierConstant(self.parser.previous())
+        self.emitBytes(OP_DELETE_GLOBAL, name)
 
 
 proc statement(self: Compiler) =

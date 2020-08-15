@@ -200,7 +200,7 @@ proc run(self: VM, debug, repl: bool): InterpretResult =
                     if self.peek(0).obj.kind == STRING and self.peek(1).obj.kind == STRING:
                         var r = self.peek(0).obj.str
                         var l = self.peek(1).obj.str
-                        self.push(Value(kind: OBJECT, obj: Obj(kind: STRING, str: l[0..len(l) - 2] & r[1..<len(r)])))
+                        self.push(Value(kind: OBJECT, obj: Obj(kind: STRING, str: l & r)))
                     else:
                         self.error(newTypeError(&"Unsupported binary operand for objects of type '{toLowerAscii($(self.peek(0).kind))}' and '{toLowerAscii($(self.peek(1).kind))}'"))
                         return RUNTIME_ERROR
