@@ -61,7 +61,7 @@ proc slice(self: VM): bool =
                 of STRING:
                     var str = peeked.obj.str
                     if idx.kind != INTEGER:
-                        self.error(newTypeError("string indeces must be integers!"))
+                        self.error(newTypeError("string indeces must be integers"))
                         return false
                     elif idx.intValue - 1 > len(str) - 1:
                         self.error(newIndexError("string index out of bounds"))
@@ -94,7 +94,7 @@ proc sliceRange(self: VM): bool =
                     if sliceStart.kind == NIL:
                         sliceStart = Value(kind: INTEGER, intValue: 0)
                     if sliceStart.kind != INTEGER or sliceEnd.kind != INTEGER:
-                        self.error(newTypeError("string indeces must be integers!"))
+                        self.error(newTypeError("string indeces must be integers"))
                         return false
                     elif sliceStart.intValue - 1 > len(str) - 1 or sliceEnd.intValue - 1 > len(str) - 1:
                         self.error(newIndexError("string index out of bounds"))
@@ -117,6 +117,11 @@ proc run(self: VM, debug, repl: bool): InterpretResult =
     template readByte: untyped =
         inc(self.ip)
         self.chunk.code[self.ip - 1]
+    template readBytes: untyped =
+        var arr = [readByte(), readByte(), readByte()]
+        var index: int
+        copyMem(index.addr, unsafeAddr(arr), sizeof(arr))
+        index
     template readConstant: Value =
         self.chunk.consts.values[int(readByte())]
     template readLongConstant: Value =
@@ -312,7 +317,27 @@ proc run(self: VM, debug, repl: bool): InterpretResult =
                         return RUNTIME_ERROR
                     else:
                         self.globals.del(constant)
-
+            of OP_GET_LOCAL:
+                if self.chunk.consts.values.len > 255:
+                    var slot = readBytes()
+                    self.push(self.stack[slot])
+                else:
+                    var slot = readByte()
+                    self.push(self.stack[slot])
+            of OP_SET_LOCAL:
+                if self.chunk.consts.values.len > 255:
+                    var slot = readBytes()
+                    self.stack[slot] = self.peek(0)
+                else:
+                    var slot = readByte()
+                    self.stack[slot] = self.peek(0)
+            of OP_DELETE_LOCAL:
+                if self.chunk.consts.values.len > 255:
+                    var slot = readBytes()
+                    self.stack.delete(slot)
+                else:
+                    var slot = readByte()
+                    self.stack.delete(slot)
             of OP_POP:
                 var popped = self.pop()
                 if repl:

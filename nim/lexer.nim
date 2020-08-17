@@ -155,7 +155,7 @@ proc scanToken(self: var Lexer) =
         self.parseString(single)
     elif single.isDigit():
         self.parseNumber()
-    elif single.isAlphaNumeric():
+    elif single.isAlphaNumeric() or single == '_':
         self.parseIdentifier()
     elif single in TOKENS:
         if single == '/' and self.match('/'):

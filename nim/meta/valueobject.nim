@@ -78,6 +78,9 @@ proc stringify*(value: Value): string =
         of OBJECT:
             result = stringify(value.obj)
 
+proc `$`*(value: Value): string =
+    result = stringify(value)
+
 
 proc isFalsey*(value: Value): bool =
     case value.kind:
@@ -86,7 +89,7 @@ proc isFalsey*(value: Value): bool =
         of OBJECT:
             return isFalsey(value.obj)
         of INTEGER:
-            return value.toInt() > 0
+            return value.toInt() == 0
         of DOUBLE:
             return value.toFloat() > 0.0
         of NIL:

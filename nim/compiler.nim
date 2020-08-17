@@ -7,10 +7,17 @@ import meta/tokentype
 import types/objecttype
 import strutils
 import strformat
+import algorithm
 
 
 type
+    Local = ref object
+       name: Token
+       depth: int
     Compiler = ref object
+        locals: seq[Local]
+        localCount: int
+        scopeDepth: int
         compilingChunk: Chunk
         parser: Parser
 
@@ -92,7 +99,7 @@ proc initParser(tokens: seq[Token]): Parser =
 
 
 proc initCompiler*(chunk: Chunk): Compiler =
-    result = Compiler(parser: initParser(@[]), compilingChunk: chunk)
+    result = Compiler(parser: initParser(@[]), compilingChunk: chunk, locals: @[], scopeDepth: 0, localCount: 0)
 
 
 proc emitByte(self: Compiler, byt: OpCode|uint8) =
@@ -104,25 +111,30 @@ proc emitBytes(self: Compiler, byt1: OpCode|uint8, byt2: OpCode|uint8) =
     self.emitByte(uint8 byt2)
 
 
+proc emitBytes(self: Compiler, bytarr: array[3, uint8]) =
+    self.emitBytes(bytarr[0], bytarr[1])
+    self.emitByte(bytarr[2])
+
+
 proc makeConstant(self: Compiler, val: Value): uint8 =
     result = uint8 self.compilingChunk.addConstant(val)
-    if result > uint8.high:
-        self.compileError("Too many constants in one chunk")
+
+
+proc makeLongConstant(self: Compiler, val: Value): array[3, uint8] =
+    result = self.compilingChunk.writeConstant(val)
 
 
 proc emitConstant(self: Compiler, value: Value) =
     if self.compilingChunk.consts.values.len > 255:
         self.emitByte(OP_CONSTANT_LONG)
-        var arr = self.compilingChunk.writeConstant(value)
-        self.emitBytes(arr[0], arr[1])
-        self.emitByte(arr[2])
+        self.emitBytes(self.makeLongConstant(value))
     else:
         self.emitBytes(OP_CONSTANT, self.makeConstant(value))
 
 
-proc getRule(kind: TokenType): ParseRule  # Forward declaration
-proc statement(self: Compiler)
-proc declaration(self: Compiler)
+proc getRule(kind: TokenType): ParseRule  # Forward declarations
+proc statement(self: var Compiler)
+proc declaration(self: var Compiler)
 
 
 proc endCompiler(self: Compiler) =
@@ -269,36 +281,100 @@ proc identifierConstant(self: Compiler, tok: Token): uint8 =
     return self.makeConstant(Value(kind: OBJECT, obj: Obj(kind: STRING, str: tok.lexeme)))
 
 
-proc parseVariable(self: Compiler, message: string): uint8 =
+proc identifierLongConstant(self: Compiler, tok: Token): array[3, uint8] =
+    return self.makeLongConstant(Value(kind: OBJECT, obj: Obj(kind: STRING, str: tok.lexeme)))
+
+
+proc addLocal(self: var Compiler, name: Token) =
+    var local = Local(name: name, depth: self.scopeDepth)
+    inc(self.localCount)
+    self.locals.add(local)
+
+
+proc declareVariable(self: var Compiler) =
+    if self.scopeDepth == 0:
+        return
+    var name = self.parser.previous()
+    self.addLocal(name)
+
+
+proc parseVariable(self: var Compiler, message: string): uint8 =
     self.parser.consume(ID, message)
+    self.declareVariable()
+    if self.scopeDepth > 0:
+        return uint8 0
     return self.identifierConstant(self.parser.previous)
 
 
-proc defineVariable(self: Compiler, idx: uint8) =
+proc parseLongVariable(self: var Compiler, message: string): array[3, uint8] =
+    self.parser.consume(ID, message)
+    self.declareVariable()
+    if self.scopeDepth > 0:
+        return [uint8 0, uint8 0, uint8 0]
+    return self.identifierLongConstant(self.parser.previous)
+
+
+proc defineVariable(self: var Compiler, idx: uint8) =
+    if self.scopeDepth > 0:
+        return
     self.emitBytes(OP_DEFINE_GLOBAL, idx)
 
 
+proc defineVariable(self: var Compiler, idx: array[3, uint8]) =
+    if self.scopeDepth > 0:
+        return
+    self.emitByte(OP_DEFINE_GLOBAL)
+    self.emitBytes(idx)
+
+
+proc resolveLocal(self: Compiler, name: Token): int =
+    for i, local in pairs(reversed(self.locals)):
+        if local.name.lexeme == name.lexeme:
+            return i
+    return -1
+
+
 proc namedVariable(self: Compiler, tok: Token, canAssign: bool) =
-    var name = self.identifierConstant(tok)
+    var arg = self.resolveLocal(tok)
+    var
+        get: OpCode
+        set: OpCode
+    if arg != -1:
+        get = OP_GET_LOCAL
+        set = OP_SET_LOCAL
+    else:
+        get = OP_GET_GLOBAL
+        set = OP_GET_GLOBAL
+        arg = int self.identifierConstant(tok)
     if self.parser.match(EQ) and canAssign:
         self.expression()
-        self.emitBytes(OP_SET_GLOBAL, name)
+        self.emitBytes(set, uint8 arg)
     else:
-        self.emitBytes(OP_GET_GLOBAL, name)
+        self.emitBytes(get, uint8 arg)
 
 
 proc variable(self: Compiler, canAssign: bool) =
     self.namedVariable(self.parser.previous(), canAssign)
 
 
-proc varDeclaration(self: Compiler) =
-    var name = self.parseVariable("Expecting variable name")
+proc varDeclaration(self: var Compiler) =
+    var shortName: uint8
+    var longName: array[3, uint8]
+    var useShort: bool = true
+    if self.compilingChunk.consts.values.len < 255:
+        shortName = self.parseVariable("Expecting variable name")
+    else:
+        useShort = false
+        longName = self.parseLongVariable("Expecting variable name")
     if self.parser.match(EQ):
         self.expression()
     else:
         self.emitByte(OP_NIL)
     self.parser.consume(SEMICOLON, "Missing semicolon after var declaration")
-    self.defineVariable(name)
+    if useShort:
+        self.defineVariable(shortName)
+    else:
+        self.defineVariable(longName)
 
 
 proc expressionStatement(self: Compiler) =
@@ -310,19 +386,51 @@ proc expressionStatement(self: Compiler) =
 proc deleteVariable(self: Compiler, canAssign: bool) =
     if not canAssign:
         self.expression()
-        var name = self.identifierConstant(self.parser.previous())
-        self.emitBytes(OP_DELETE_GLOBAL, name)
+        var code: OpCode
+        if self.scopeDepth == 0:
+            code = OP_DELETE_GLOBAL
+        else:
+            code = OP_DELETE_LOCAL
+        if self.compilingChunk.consts.values.len < 255:
+            var name = self.identifierConstant(self.parser.previous())
+            self.emitBytes(code, name)
+        else:
+            var name = self.identifierLongConstant(self.parser.previous())
+            self.emitBytes(code, name[0])
+            self.emitBytes(name[1], name[2])
 
 
-proc statement(self: Compiler) =
-    self.expressionStatement()
+proc parseBlock(self: var Compiler) =
+    while not self.parser.check(RB) and not self.parser.check(EOF):
+        self.declaration()
+    self.parser.consume(RB, "Expecting '}' after block statement")
 
 
-proc declaration(self: Compiler) =
+proc beginScope(self: var Compiler) =
+    inc(self.scopeDepth)
+
+
+proc endScope(self: var Compiler) =
+    self.scopeDepth = self.scopeDepth - 1
+    while self.localCount > 0 and self.locals[self.localCount - 1].depth > self.scopeDepth:
+        self.emitByte(OP_POP)
+        self.localCount = self.localCount - 1
+
+
+proc statement(self: var Compiler) =
     if self.parser.match(VAR):
         self.varDeclaration()
+    elif self.parser.match(LB):
+        self.beginScope()
+        self.parseBlock()
+        self.endScope()
     else:
-        self.statement()
+        self.expressionStatement()
+
+
+
+proc declaration(self: var Compiler) =
+    self.statement()
     if self.parser.panicMode:
         self.synchronize()
 
