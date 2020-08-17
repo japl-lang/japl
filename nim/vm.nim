@@ -341,7 +341,8 @@ proc run(self: VM, debug, repl: bool): InterpretResult =
             of OP_POP:
                 var popped = self.pop()
                 if repl:
-                    echo stringify(popped)
+                    if popped.kind != NIL:
+                        echo stringify(popped)
             of OP_RETURN:
                 return OK
 

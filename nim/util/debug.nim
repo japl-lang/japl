@@ -9,6 +9,12 @@ proc simpleInstruction(name: string, index: int): int =
     return index + 1
 
 
+proc byteInstruction(name: string, chunk: Chunk, offset: int): int =
+    var slot = chunk.code[offset + 1]
+    echo &"\tOpCode at offset: {name}, points to slot {slot}\n"
+    return offset + 1
+
+
 proc constantLongInstruction(name: string, chunk: Chunk, offset: int): int =
     # Rebuild the index
     var constantArray: array[3, uint8] = [chunk.code[offset + 1], chunk.code[offset + 2], chunk.code[offset + 3]]
@@ -78,9 +84,13 @@ proc disassembleInstruction*(chunk: Chunk, offset: int): int =
     elif opcode == OP_SET_GLOBAL:
         result = simpleInstruction("OP_SET_GLOBAL", offset)
     elif opcode == OP_SET_LOCAL:
-        result = simpleInstruction("OP_SET_LOCAL", offset)
+        result = byteInstruction("OP_SET_LOCAL", chunk, offset)
     elif opcode == OP_GET_LOCAL:
-        result = simpleInstruction("OP_GET_LOCAL", offset)
+        result = byteInstruction("OP_GET_LOCAL", chunk, offset)
+    elif opcode == OP_DELETE_LOCAL:
+        result = byteInstruction("OP_DELETE_LOCAL", chunk, offset)
+    elif opcode == OP_DELETE_GLOBAL:
+        result = simpleInstruction("OP_DELETE_GLOBAL", offset)
     else:
         echo &"Unknown opcode {opcode} at index {offset}"
         result = offset + 1

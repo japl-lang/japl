@@ -14,6 +14,7 @@ type
     Local = ref object
        name: Token
        depth: int
+
     Compiler = ref object
         locals: seq[Local]
         localCount: int
@@ -91,8 +92,7 @@ proc consume(self: var Parser, expected: TokenType, message: string) =
 
 proc compileError(self: Compiler, message: string) =
     echo &"CompileError at line {self.parser.peek().line}: {message}"
-    quit()
-
+    self.parser.hadError = true
 
 proc initParser(tokens: seq[Token]): Parser =
     result = Parser(current: 0, tokens: tokens, hadError: false, panicMode: false)
@@ -384,20 +384,23 @@ proc expressionStatement(self: Compiler) =
 
 
 proc deleteVariable(self: Compiler, canAssign: bool) =
-    if not canAssign:
-        self.expression()
-        var code: OpCode
-        if self.scopeDepth == 0:
-            code = OP_DELETE_GLOBAL
-        else:
-            code = OP_DELETE_LOCAL
-        if self.compilingChunk.consts.values.len < 255:
-            var name = self.identifierConstant(self.parser.previous())
-            self.emitBytes(code, name)
-        else:
-            var name = self.identifierLongConstant(self.parser.previous())
-            self.emitBytes(code, name[0])
-            self.emitBytes(name[1], name[2])
+    self.expression()
+    if self.parser.previous().kind in [NUMBER, STR]:
+        self.compileError("cannot delete a literal")
+    var code: OpCode
+    if self.scopeDepth == 0:
+        code = OP_DELETE_GLOBAL
+    else:
+        code = OP_DELETE_LOCAL
+    self.localCount = self.localCount - 1
+    if self.compilingChunk.consts.values.len < 255:
+        var name = self.identifierConstant(self.parser.previous())
+        self.locals.delete(name)
+        self.emitBytes(code, name)
+    else:
+        var name = self.identifierLongConstant(self.parser.previous())
+        self.emitBytes(code, name[0])
+        self.emitBytes(name[1], name[2])
 
 
 proc parseBlock(self: var Compiler) =
