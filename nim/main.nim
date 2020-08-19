@@ -24,7 +24,6 @@ proc repl(debug: bool = false) =
             if debug:
                 echo &"Result: {result}"
 
-
 proc main(file: string = "", debug: bool = false) =
     if file == "":
         repl(debug)

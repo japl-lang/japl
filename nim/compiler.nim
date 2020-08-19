@@ -524,6 +524,54 @@ proc whileStatement(self: var Compiler) =
         self.parser.parseError(self.parser.previous, "The loop condition must be parenthesized")
 
 
+proc forStatement(self: var Compiler) =
+    self.beginScope()
+    self.parser.consume(LP, "The loop condition must be parenthesized")
+    if self.parser.peek.kind != EOF:
+        if self.parser.match(SEMICOLON):
+            discard
+        elif self.parser.match(VAR):
+            self.varDeclaration()
+        else:
+            self.expressionStatement()
+        var loopStart = self.compilingChunk.code.len
+        var exitJump = -1
+        if not self.parser.match(SEMICOLON):
+            self.expression()
+            if self.parser.previous.kind != EOF:
+                self.parser.consume(SEMICOLON, "Expecting ';'")
+                exitJump = self.emitJump(OP_JUMP_IF_FALSE)
+                self.emitByte(OP_POP)
+            else:
+                self.parser.current -= 1
+                self.parser.parseError(self.parser.previous, "Invalid syntax")
+                return
+        if not self.parser.match(RP):
+            var bodyJump = self.emitJump(OP_JUMP)
+            var incrementStart = self.compilingChunk.code.len
+            if self.parser.peek.kind != EOF:
+                self.expression()
+                self.emitByte(OP_POP)
+                self.parser.consume(RP, "The loop condition must be parenthesized")
+                self.emitLoop(loopStart)
+                loopStart = incrementStart
+                self.patchJump(bodyJump)
+        if self.parser.peek.kind != EOF:
+            self.statement()
+            self.emitLoop(loopStart)
+        else:
+            self.parser.current -= 1
+            self.parser.parseError(self.parser.previous, "Invalid syntax")
+            return
+        if exitJump != -1:
+            self.patchJump(exitJump)
+            self.emitByte(OP_POP)
+        self.endScope()
+    else:
+        self.parser.parseError(self.parser.previous, "The loop condition must be parenthesized")
+
+
+
 proc parseAnd(self: Compiler, canAssign: bool) =
     var jump = self.emitJump(OP_JUMP_IF_FALSE)
     self.emitByte(OP_POP)
@@ -544,6 +592,8 @@ proc parseOr(self: Compiler, canAssign: bool) =
 proc statement(self: var Compiler) =
     if self.parser.match(VAR):
         self.varDeclaration()
+    elif self.parser.match(FOR):
+        self.forStatement()
     elif self.parser.match(IF):
         self.ifStatement()
     elif self.parser.match(WHILE):
