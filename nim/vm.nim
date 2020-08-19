@@ -379,7 +379,11 @@ proc interpret*(self: var VM, source: string, debug: bool = false, repl: bool = 
     self.chunk = chunk
     self.ip = 0
     if len(chunk.code) > 1:
-        result = self.run(debug, repl)
+        try:
+            result = self.run(debug, repl)
+        except KeyboardInterrupt:
+            self.error(newInterruptedError(""))
+            return RUNTIME_ERROR
     chunk.freeChunk()
     self.freeVM()
 

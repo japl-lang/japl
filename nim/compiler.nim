@@ -575,6 +575,19 @@ proc forStatement(self: Compiler) =
     self.loopType = NONE
 
 
+proc parseBreak(self: Compiler) =
+    if self.loopType == NONE:
+        self.parser.parseError(self.parser.previous, "'break' outside loop")
+    else:
+        self.parser.consume(SEMICOLON, "missing semicolon after statement")
+        var jmp = self.emitJump(OP_JUMP)
+        if self.parser.peek.kind != EOF:
+            self.declaration()
+            self.emitByte(OP_POP)
+        else:
+            self.emitByte(OP_RETURN)
+        self.patchJump(jmp)
+
 
 proc parseAnd(self: Compiler, canAssign: bool) =
     var jump = self.emitJump(OP_JUMP_IF_FALSE)
@@ -590,17 +603,6 @@ proc parseOr(self: Compiler, canAssign: bool) =
     self.emitByte(OP_POP)
     self.parsePrecedence(PREC_OR)
     self.patchJump(endJump)
-
-
-proc parseBreak(self: Compiler) =
-    if self.loopType == NONE:
-        self.parser.parseError(self.parser.previous, "'break' outside loop")
-    else:
-        self.parser.consume(SEMICOLON, "missing semicolon after statement")
-        var jmp = self.emitJump(OP_JUMP)
-        self.emitByte(OP_POP)
-#        self.declaration()
-        self.patchJump(jmp)
 
 
 proc statement(self: Compiler) =

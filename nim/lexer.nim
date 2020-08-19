@@ -150,7 +150,7 @@ proc scanToken(self: var Lexer) =
     if single in [' ', '\t', '\r']:
         return
     elif single == '\n':
-        self.current = self.current + 1
+        self.line += 1
     elif single in ['"', '\'']:
         self.parseString(single)
     elif single.isDigit():
