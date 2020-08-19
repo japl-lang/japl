@@ -122,6 +122,10 @@ proc run(self: VM, debug, repl: bool): InterpretResult =
         var index: int
         copyMem(index.addr, unsafeAddr(arr), sizeof(arr))
         index
+    template readShort: untyped =
+        inc(self.ip)
+        inc(self.ip)
+        cast[uint16]((self.chunk.code[self.ip - 2] shl 8) or self.chunk.code[self.ip - 1])
     template readConstant: Value =
         self.chunk.consts.values[int(readByte())]
     template readLongConstant: Value =
@@ -318,21 +322,21 @@ proc run(self: VM, debug, repl: bool): InterpretResult =
                     else:
                         self.globals.del(constant)
             of OP_GET_LOCAL:
-                if self.chunk.consts.values.len > 255:
+                if self.stack.len > 255:
                     var slot = readBytes()
                     self.push(self.stack[slot])
                 else:
                     var slot = readByte()
                     self.push(self.stack[slot])
             of OP_SET_LOCAL:
-                if self.chunk.consts.values.len > 255:
+                if self.stack.len > 255:
                     var slot = readBytes()
                     self.stack[slot] = self.peek(0)
                 else:
                     var slot = readByte()
                     self.stack[slot] = self.peek(0)
             of OP_DELETE_LOCAL:
-                if self.chunk.consts.values.len > 255:
+                if self.stack.len > 255:
                     var slot = readBytes()
                     self.stack.delete(slot)
                 else:
@@ -343,6 +347,13 @@ proc run(self: VM, debug, repl: bool): InterpretResult =
                 if repl:
                     if popped.kind != NIL:
                         echo stringify(popped)
+            of OP_JUMP_IF_FALSE:
+                var offset = readShort()
+                if isFalsey(self.peek(0)):
+                    self.ip += int offset
+            of OP_JUMP:
+                var offset = readShort()
+                self.ip += int offset
             of OP_RETURN:
                 return OK
 
@@ -350,7 +361,7 @@ proc run(self: VM, debug, repl: bool): InterpretResult =
 proc interpret*(self: var VM, source: string, debug: bool = false, repl: bool = false): InterpretResult =
     var chunk = initChunk()
     var compiler = initCompiler(chunk)
-    if not compiler.compile(source, chunk):
+    if not compiler.compile(source, chunk) or compiler.parser.hadError:
         return COMPILE_ERROR
     self.chunk = chunk
     self.ip = 0

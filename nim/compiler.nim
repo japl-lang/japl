@@ -1,13 +1,13 @@
-import lexer
+import strutils
+import algorithm
+import bitops
 import strformat
+import lexer
 import meta/chunk
 import meta/tokenobject
 import meta/valueobject
 import meta/tokentype
 import types/objecttype
-import strutils
-import strformat
-import algorithm
 
 
 type
@@ -20,12 +20,12 @@ type
         localCount: int
         scopeDepth: int
         compilingChunk: Chunk
-        parser: Parser
+        parser*: Parser
 
     Parser = ref object
         current: int
         tokens: seq[Token]
-        hadError: bool
+        hadError*: bool
         panicMode: bool
 
     Precedence = enum
@@ -94,6 +94,7 @@ proc compileError(self: Compiler, message: string) =
     echo &"CompileError at line {self.parser.peek().line}: {message}"
     self.parser.hadError = true
 
+
 proc initParser(tokens: seq[Token]): Parser =
     result = Parser(current: 0, tokens: tokens, hadError: false, panicMode: false)
 
@@ -149,6 +150,9 @@ proc parsePrecedence(self: Compiler, precedence: Precedence) =
         return
     var canAssign = precedence <= PREC_ASSIGNMENT
     self.prefixRule(canAssign)
+    if self.parser.previous.kind == EOF:
+        self.parser.current -= 1
+        return
     while precedence <= (getRule(self.parser.peek.kind).precedence):
         var infixRule = getRule(self.parser.advance.kind).infix
         if self.parser.peek.kind != EOF:
@@ -260,8 +264,13 @@ proc number(self: Compiler, canAssign: bool) =
 
 
 proc grouping(self: Compiler, canAssign: bool) =
-    self.expression()
-    self.parser.consume(RP, "Expecting ')' after parentheszed expression")
+    if self.parser.match(EOF):
+        self.parser.parseError(self.parser.previous, "Expecting ')'")
+    elif self.parser.match(RP):
+        self.emitByte(OP_NIL)
+    else:
+        self.expression()
+        self.parser.consume(RP, "Expecting ')' after parentheszed expression")
 
 
 proc synchronize(self: Compiler) =
@@ -328,9 +337,11 @@ proc defineVariable(self: var Compiler, idx: array[3, uint8]) =
 
 
 proc resolveLocal(self: Compiler, name: Token): int =
-    for i, local in pairs(reversed(self.locals)):
+    var i = self.localCount - 1
+    for local in reversed(self.locals):
         if local.name.lexeme == name.lexeme:
             return i
+        i = i - 1
     return -1
 
 
@@ -344,7 +355,7 @@ proc namedVariable(self: Compiler, tok: Token, canAssign: bool) =
         set = OP_SET_LOCAL
     else:
         get = OP_GET_GLOBAL
-        set = OP_GET_GLOBAL
+        set = OP_SET_GLOBAL
         arg = int self.identifierConstant(tok)
     if self.parser.match(EQ) and canAssign:
         self.expression()
@@ -353,8 +364,34 @@ proc namedVariable(self: Compiler, tok: Token, canAssign: bool) =
         self.emitBytes(get, uint8 arg)
 
 
+proc namedLongVariable(self: Compiler, tok: Token, canAssign: bool) =
+    var arg = self.resolveLocal(tok)
+    var casted = cast[array[3, uint8]](arg)
+    var
+        get: OpCode
+        set: OpCode
+    if arg != -1:
+        get = OP_GET_LOCAL
+        set = OP_SET_LOCAL
+    else:
+        get = OP_GET_GLOBAL
+        set = OP_SET_GLOBAL
+        casted = self.identifierLongConstant(tok)
+    if self.parser.match(EQ) and canAssign:
+        self.expression()
+        self.emitByte(set)
+        self.emitBytes(casted)
+    else:
+        self.emitByte(get)
+        self.emitBytes(casted)
+
+
+
 proc variable(self: Compiler, canAssign: bool) =
-    self.namedVariable(self.parser.previous(), canAssign)
+    if self.locals.len < 255:
+        self.namedVariable(self.parser.previous(), canAssign)
+    else:
+        self.namedLongVariable(self.parser.previous(), canAssign)
 
 
 proc varDeclaration(self: var Compiler) =
@@ -420,9 +457,37 @@ proc endScope(self: var Compiler) =
         self.localCount = self.localCount - 1
 
 
+proc emitJump(self: Compiler, opcode: OpCode): int =
+    self.emitByte(opcode)
+    self.emitByte(0xff)
+    self.emitByte(0xff)
+    return self.compilingChunk.code.len - 2
+
+
+proc patchJump(self: Compiler, offset: int) =
+    var jump = self.compilingChunk.code.len - offset - 2
+    self.compilingChunk.code[offset] = uint8 (jump shr 8) and 0xff
+    self.compilingChunk.code[offset + 1] = uint8 jump and 0xff
+
+
+proc ifStatement(self: var Compiler) =
+    self.parser.consume(LP, "The if condition must be parenthesized")
+    self.expression()
+    self.parser.consume(RP, "The if condition must be parenthesized")
+    var jump: int = self.emitJump(OP_JUMP_IF_FALSE)
+    self.statement()
+    var elseJump = self.emitJump(OP_JUMP)
+    self.patchJump(jump)
+    if self.parser.match(ELSE):
+        self.statement()
+    self.patchJump(elseJump)
+
+
 proc statement(self: var Compiler) =
     if self.parser.match(VAR):
         self.varDeclaration()
+    elif self.parser.match(IF):
+        self.ifStatement()
     elif self.parser.match(LB):
         self.beginScope()
         self.parseBlock()

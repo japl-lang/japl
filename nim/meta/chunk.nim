@@ -30,6 +30,8 @@ type
         OP_SET_LOCAL,
         OP_GET_LOCAL,
         OP_DELETE_LOCAL,
+        OP_JUMP_IF_FALSE,
+        OP_JUMP
     Chunk* = ref object
         consts*: ValueArray
         code*: seq[uint8]
