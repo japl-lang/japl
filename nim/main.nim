@@ -17,6 +17,9 @@ proc repl(debug: bool = false) =
         except IOError:
             echo ""
             break
+        except KeyboardInterrupt:
+            echo ""
+            break
         if source == "":
             continue
         else:

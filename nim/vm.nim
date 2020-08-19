@@ -18,10 +18,16 @@ proc `**`(a, b: int): int = pow(a.float, b.float).int
 proc `**`(a, b: float): float = pow(a, b)
 
 
+type KeyboardInterrupt* = object of CatchableError
+
+
 type InterpretResult = enum
     OK,
     COMPILE_ERROR,
     RUNTIME_ERROR
+
+func handleInterrupt() {.noconv.} =
+    raise newException(KeyboardInterrupt, "Ctrl+C")
 
 
 type VM = ref object
@@ -204,7 +210,6 @@ proc run(self: VM, debug, repl: bool): InterpretResult =
                         self.push(cur)
                     else:
                         echo &"Unsupported unary operator '-' for object of type '{toLowerAscii($cur.kind)}'"
-                        return RUNTIME_ERROR
             of OP_ADD:
                 if self.peek(0).kind == OBJECT and self.peek(1).kind == OBJECT:
                     if self.peek(0).obj.kind == STRING and self.peek(1).obj.kind == STRING:
@@ -362,6 +367,9 @@ proc run(self: VM, debug, repl: bool): InterpretResult =
                         echo stringify(popped)
                 return OK
 
+proc freeVM*(self: VM) =
+    unsetControlCHook()
+
 
 proc interpret*(self: var VM, source: string, debug: bool = false, repl: bool = false): InterpretResult =
     var chunk = initChunk()
@@ -373,6 +381,7 @@ proc interpret*(self: var VM, source: string, debug: bool = false, repl: bool = 
     if len(chunk.code) > 1:
         result = self.run(debug, repl)
     chunk.freeChunk()
+    self.freeVM()
 
 
 proc resetStack*(self: VM) =
@@ -381,7 +390,6 @@ proc resetStack*(self: VM) =
 
 proc initVM*(): VM =
     result = VM(chunk: initChunk(), ip: 0, stack: @[], stackTop: 0, objects: initSinglyLinkedList[Obj](), globals: initTable[string, Value](), lastPop: Value(kind: NIL))
+    setControlCHook(handleInterrupt)
 
 
-proc freeVM*(self: VM) =
-    return

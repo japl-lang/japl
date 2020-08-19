@@ -7,6 +7,7 @@ import meta/tokenobject
 import meta/valueobject
 import meta/tokentype
 import types/objecttype
+import meta/looptype
 
 
 type
@@ -20,6 +21,7 @@ type
         scopeDepth: int
         compilingChunk: Chunk
         parser*: Parser
+        loopType: LoopType
 
     Parser = ref object
         current: int
@@ -99,7 +101,7 @@ proc initParser(tokens: seq[Token]): Parser =
 
 
 proc initCompiler*(chunk: Chunk): Compiler =
-    result = Compiler(parser: initParser(@[]), compilingChunk: chunk, locals: @[], scopeDepth: 0, localCount: 0)
+    result = Compiler(parser: initParser(@[]), compilingChunk: chunk, locals: @[], scopeDepth: 0, localCount: 0, loopType: looptype.NONE)
 
 
 proc emitByte(self: Compiler, byt: OpCode|uint8) =
@@ -133,8 +135,8 @@ proc emitConstant(self: Compiler, value: Value) =
 
 
 proc getRule(kind: TokenType): ParseRule  # Forward declarations
-proc statement(self: var Compiler)
-proc declaration(self: var Compiler)
+proc statement(self: Compiler)
+proc declaration(self: Compiler)
 
 
 proc endCompiler(self: Compiler) =
@@ -278,7 +280,7 @@ proc synchronize(self: Compiler) =
         if self.parser.previous().kind == SEMICOLON:
             return
         case self.parser.peek.kind:
-            of CLASS, FUN, VAR, FOR, IF, WHILE, RETURN:
+            of CLASS, FUN, VAR, TokenType.FOR, IF, TokenType.WHILE, RETURN:
                 return
             else:
                 discard
@@ -293,20 +295,20 @@ proc identifierLongConstant(self: Compiler, tok: Token): array[3, uint8] =
     return self.makeLongConstant(Value(kind: OBJECT, obj: Obj(kind: STRING, str: tok.lexeme)))
 
 
-proc addLocal(self: var Compiler, name: Token) =
+proc addLocal(self: Compiler, name: Token) =
     var local = Local(name: name, depth: self.scopeDepth)
     inc(self.localCount)
     self.locals.add(local)
 
 
-proc declareVariable(self: var Compiler) =
+proc declareVariable(self: Compiler) =
     if self.scopeDepth == 0:
         return
     var name = self.parser.previous()
     self.addLocal(name)
 
 
-proc parseVariable(self: var Compiler, message: string): uint8 =
+proc parseVariable(self: Compiler, message: string): uint8 =
     self.parser.consume(ID, message)
     self.declareVariable()
     if self.scopeDepth > 0:
@@ -314,7 +316,7 @@ proc parseVariable(self: var Compiler, message: string): uint8 =
     return self.identifierConstant(self.parser.previous)
 
 
-proc parseLongVariable(self: var Compiler, message: string): array[3, uint8] =
+proc parseLongVariable(self: Compiler, message: string): array[3, uint8] =
     self.parser.consume(ID, message)
     self.declareVariable()
     if self.scopeDepth > 0:
@@ -322,13 +324,13 @@ proc parseLongVariable(self: var Compiler, message: string): array[3, uint8] =
     return self.identifierLongConstant(self.parser.previous)
 
 
-proc defineVariable(self: var Compiler, idx: uint8) =
+proc defineVariable(self: Compiler, idx: uint8) =
     if self.scopeDepth > 0:
         return
     self.emitBytes(OP_DEFINE_GLOBAL, idx)
 
 
-proc defineVariable(self: var Compiler, idx: array[3, uint8]) =
+proc defineVariable(self: Compiler, idx: array[3, uint8]) =
     if self.scopeDepth > 0:
         return
     self.emitByte(OP_DEFINE_GLOBAL)
@@ -393,7 +395,7 @@ proc variable(self: Compiler, canAssign: bool) =
         self.namedLongVariable(self.parser.previous(), canAssign)
 
 
-proc varDeclaration(self: var Compiler) =
+proc varDeclaration(self: Compiler) =
     var shortName: uint8
     var longName: array[3, uint8]
     var useShort: bool = true
@@ -439,17 +441,17 @@ proc deleteVariable(self: Compiler, canAssign: bool) =
         self.emitBytes(name[1], name[2])
 
 
-proc parseBlock(self: var Compiler) =
+proc parseBlock(self: Compiler) =
     while not self.parser.check(RB) and not self.parser.check(EOF):
         self.declaration()
     self.parser.consume(RB, "Expecting '}' after block statement")
 
 
-proc beginScope(self: var Compiler) =
+proc beginScope(self: Compiler) =
     inc(self.scopeDepth)
 
 
-proc endScope(self: var Compiler) =
+proc endScope(self: Compiler) =
     self.scopeDepth = self.scopeDepth - 1
     while self.localCount > 0 and self.locals[self.localCount - 1].depth > self.scopeDepth:
         self.emitByte(OP_POP)
@@ -472,7 +474,7 @@ proc patchJump(self: Compiler, offset: int) =
         self.compilingChunk.code[offset + 1] = uint8 jump and 0xff
 
 
-proc ifStatement(self: var Compiler) =
+proc ifStatement(self: Compiler) =
     self.parser.consume(LP, "The if condition must be parenthesized")
     if self.parser.peek.kind != EOF:
         self.expression()
@@ -494,7 +496,7 @@ proc ifStatement(self: var Compiler) =
         self.parser.parseError(self.parser.previous, "The if condition must be parenthesized")
 
 
-proc emitLoop(self: var Compiler, start: int) =
+proc emitLoop(self: Compiler, start: int) =
     self.emitByte(OP_LOOP)
     var offset = self.compilingChunk.code.len - start + 2
     if offset > (int uint16.high):
@@ -504,8 +506,9 @@ proc emitLoop(self: var Compiler, start: int) =
         self.emitByte(uint8 offset and 0xff)
 
 
-proc whileStatement(self: var Compiler) =
+proc whileStatement(self: Compiler) =
     var loopStart = self.compilingChunk.code.len
+    self.loopType = LoopType.WHILE
     self.parser.consume(LP, "The loop condition must be parenthesized")
     if self.parser.peek.kind != EOF:
         self.expression()
@@ -522,11 +525,13 @@ proc whileStatement(self: var Compiler) =
             self.parser.parseError(self.parser.previous, "Invalid syntax")
     else:
         self.parser.parseError(self.parser.previous, "The loop condition must be parenthesized")
+    self.loopType = NONE
 
 
-proc forStatement(self: var Compiler) =
+proc forStatement(self: Compiler) =
     self.beginScope()
     self.parser.consume(LP, "The loop condition must be parenthesized")
+    self.loopType = LoopType.FOR
     if self.parser.peek.kind != EOF:
         if self.parser.match(SEMICOLON):
             discard
@@ -545,7 +550,6 @@ proc forStatement(self: var Compiler) =
             else:
                 self.parser.current -= 1
                 self.parser.parseError(self.parser.previous, "Invalid syntax")
-                return
         if not self.parser.match(RP):
             var bodyJump = self.emitJump(OP_JUMP)
             var incrementStart = self.compilingChunk.code.len
@@ -562,13 +566,13 @@ proc forStatement(self: var Compiler) =
         else:
             self.parser.current -= 1
             self.parser.parseError(self.parser.previous, "Invalid syntax")
-            return
         if exitJump != -1:
             self.patchJump(exitJump)
             self.emitByte(OP_POP)
         self.endScope()
     else:
         self.parser.parseError(self.parser.previous, "The loop condition must be parenthesized")
+    self.loopType = NONE
 
 
 
@@ -588,16 +592,28 @@ proc parseOr(self: Compiler, canAssign: bool) =
     self.patchJump(endJump)
 
 
+proc parseBreak(self: Compiler) =
+    if self.loopType == NONE:
+        self.parser.parseError(self.parser.previous, "'break' outside loop")
+    else:
+        self.parser.consume(SEMICOLON, "missing semicolon after statement")
+        var jmp = self.emitJump(OP_JUMP)
+        self.emitByte(OP_POP)
+#        self.declaration()
+        self.patchJump(jmp)
 
-proc statement(self: var Compiler) =
+
+proc statement(self: Compiler) =
     if self.parser.match(VAR):
         self.varDeclaration()
-    elif self.parser.match(FOR):
+    elif self.parser.match(TokenType.FOR):
         self.forStatement()
     elif self.parser.match(IF):
         self.ifStatement()
-    elif self.parser.match(WHILE):
+    elif self.parser.match(TokenType.WHILE):
         self.whileStatement()
+    elif self.parser.match(BREAK):
+        self.parseBreak()
     elif self.parser.match(LB):
         self.beginScope()
         self.parseBlock()
@@ -607,7 +623,7 @@ proc statement(self: var Compiler) =
 
 
 
-proc declaration(self: var Compiler) =
+proc declaration(self: Compiler) =
     self.statement()
     if self.parser.panicMode:
         self.synchronize()
