@@ -465,23 +465,63 @@ proc emitJump(self: Compiler, opcode: OpCode): int =
 
 proc patchJump(self: Compiler, offset: int) =
     var jump = self.compilingChunk.code.len - offset - 2
-    self.compilingChunk.code[offset] = uint8 (jump shr 8) and 0xff
-    self.compilingChunk.code[offset + 1] = uint8 jump and 0xff
+    if jump > (int uint16.high):
+        self.compileError("too much code to jump over")
+    else:
+        self.compilingChunk.code[offset] = uint8 (jump shr 8) and 0xff
+        self.compilingChunk.code[offset + 1] = uint8 jump and 0xff
 
 
 proc ifStatement(self: var Compiler) =
     self.parser.consume(LP, "The if condition must be parenthesized")
-    self.expression()
-    self.parser.consume(RP, "The if condition must be parenthesized")
-    var jump: int = self.emitJump(OP_JUMP_IF_FALSE)
-    self.emitByte(OP_POP)
-    self.statement()
-    var elseJump = self.emitJump(OP_JUMP)
-    self.patchJump(jump)
-    self.emitByte(OP_POP)
-    if self.parser.match(ELSE):
-        self.statement()
-    self.patchJump(elseJump)
+    if self.parser.peek.kind != EOF:
+        self.expression()
+        if self.parser.peek.kind != EOF:
+            self.parser.consume(RP, "The if condition must be parenthesized")
+        if self.parser.peek.kind != EOF:
+            var jump: int = self.emitJump(OP_JUMP_IF_FALSE)
+            self.emitByte(OP_POP)
+            self.statement()
+            var elseJump = self.emitJump(OP_JUMP)
+            self.patchJump(jump)
+            self.emitByte(OP_POP)
+            if self.parser.match(ELSE):
+                self.statement()
+            self.patchJump(elseJump)
+        else:
+            self.parser.parseError(self.parser.previous, "Invalid syntax")
+    else:
+        self.parser.parseError(self.parser.previous, "The if condition must be parenthesized")
+
+
+proc emitLoop(self: var Compiler, start: int) =
+    self.emitByte(OP_LOOP)
+    var offset = self.compilingChunk.code.len - start + 2
+    if offset > (int uint16.high):
+        self.compileError("loop body is too large")
+    else:
+        self.emitByte(uint8 (offset shr 8) and 0xff)
+        self.emitByte(uint8 offset and 0xff)
+
+
+proc whileStatement(self: var Compiler) =
+    var loopStart = self.compilingChunk.code.len
+    self.parser.consume(LP, "The loop condition must be parenthesized")
+    if self.parser.peek.kind != EOF:
+        self.expression()
+        if self.parser.peek.kind != EOF:
+            self.parser.consume(RP, "The loop condition must be parenthesized")
+        if self.parser.peek.kind != EOF:
+            var exitJump = self.emitJump(OP_JUMP_IF_FALSE)
+            self.emitByte(OP_POP)
+            self.statement()
+            self.emitLoop(loopStart)
+            self.patchJump(exitJump)
+            self.emitByte(OP_POP)
+        else:
+            self.parser.parseError(self.parser.previous, "Invalid syntax")
+    else:
+        self.parser.parseError(self.parser.previous, "The loop condition must be parenthesized")
 
 
 proc parseAnd(self: Compiler, canAssign: bool) =
@@ -500,11 +540,14 @@ proc parseOr(self: Compiler, canAssign: bool) =
     self.patchJump(endJump)
 
 
+
 proc statement(self: var Compiler) =
     if self.parser.match(VAR):
         self.varDeclaration()
     elif self.parser.match(IF):
         self.ifStatement()
+    elif self.parser.match(WHILE):
+        self.whileStatement()
     elif self.parser.match(LB):
         self.beginScope()
         self.parseBlock()

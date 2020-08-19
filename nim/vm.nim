@@ -352,6 +352,9 @@ proc run(self: VM, debug, repl: bool): InterpretResult =
             of OP_JUMP:
                 var offset = readShort()
                 self.ip += int offset
+            of OP_LOOP:
+                var offset = readShort()
+                self.ip -= int offset
             of OP_RETURN:
                 var popped = self.lastPop
                 if repl:

@@ -34,7 +34,7 @@ proc constantInstruction(name: string, chunk: Chunk, offset: int): int =
     return offset + 2
 
 
-proc jumpInstruction(name: string, sign: int, chunk: Chunk, offset: int): int =
+proc jumpInstruction(name: string, chunk: Chunk, offset: int): int =
     var jump = uint16 (chunk.code[offset + 1] shr 8)
     jump = jump or chunk.code[offset + 2]
     echo &"\tOpCode at offset: {name}\n\tJump size: {jump}\n"
@@ -98,9 +98,11 @@ proc disassembleInstruction*(chunk: Chunk, offset: int): int =
     elif opcode == OP_DELETE_GLOBAL:
         result = simpleInstruction("OP_DELETE_GLOBAL", offset)
     elif opcode == OP_JUMP_IF_FALSE:
-        result = jumpInstruction("OP_JUMP_IF_FALSE", 1, chunk, offset)
+        result = jumpInstruction("OP_JUMP_IF_FALSE", chunk, offset)
     elif opcode == OP_JUMP:
-        result = jumpInstruction("OP_JUMP", 1, chunk, offset)
+        result = jumpInstruction("OP_JUMP", chunk, offset)
+    elif opcode == OP_LOOP:
+        result = jumpInstruction("OP_LOOP", chunk, offset)
     else:
         echo &"Unknown opcode {opcode} at index {offset}"
         result = offset + 1
