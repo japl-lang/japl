@@ -1,6 +1,5 @@
 import strutils
 import algorithm
-import bitops
 import strformat
 import lexer
 import meta/chunk
@@ -475,9 +474,11 @@ proc ifStatement(self: var Compiler) =
     self.expression()
     self.parser.consume(RP, "The if condition must be parenthesized")
     var jump: int = self.emitJump(OP_JUMP_IF_FALSE)
+    self.emitByte(OP_POP)
     self.statement()
     var elseJump = self.emitJump(OP_JUMP)
     self.patchJump(jump)
+    self.emitByte(OP_POP)
     if self.parser.match(ELSE):
         self.statement()
     self.patchJump(elseJump)
