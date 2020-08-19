@@ -484,6 +484,22 @@ proc ifStatement(self: var Compiler) =
     self.patchJump(elseJump)
 
 
+proc parseAnd(self: Compiler, canAssign: bool) =
+    var jump = self.emitJump(OP_JUMP_IF_FALSE)
+    self.emitByte(OP_POP)
+    self.parsePrecedence(PREC_AND)
+    self.patchJump(jump)
+
+
+proc parseOr(self: Compiler, canAssign: bool) =
+    var elseJump = self.emitJump(OP_JUMP_IF_FALSE)
+    var endJump = self.emitJump(OP_JUMP)
+    self.patchJump(elseJump)
+    self.emitByte(OP_POP)
+    self.parsePrecedence(PREC_OR)
+    self.patchJump(endJump)
+
+
 proc statement(self: var Compiler) =
     if self.parser.match(VAR):
         self.varDeclaration()
@@ -531,7 +547,7 @@ var rules: array[TokenType, ParseRule] = [
     makeRule(number, nil, PREC_NONE), # NUMBER
     makeRule(strVal, nil, PREC_NONE), # STR
     makeRule(nil, nil, PREC_NONE), # SEMICOLON
-    makeRule(nil, nil, PREC_NONE), # AND
+    makeRule(nil, parseAnd, PREC_AND), # AND
     makeRule(nil, nil, PREC_NONE), # CLASS
     makeRule(nil, nil, PREC_NONE), # ELSE
     makeRule(nil, nil, PREC_NONE), # FOR
@@ -542,7 +558,7 @@ var rules: array[TokenType, ParseRule] = [
     makeRule(nil, nil, PREC_NONE), # RETURN
     makeRule(nil, nil, PREC_NONE), # SUPER
     makeRule(nil, nil, PREC_NONE), # THIS
-    makeRule(nil, nil, PREC_NONE), # OR
+    makeRule(nil, parseOr, PREC_OR), # OR
     makeRule(literal, nil, PREC_NONE), # TRUE
     makeRule(nil, nil, PREC_NONE), # VAR
     makeRule(nil, nil, PREC_NONE), # WHILE

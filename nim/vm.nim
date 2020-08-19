@@ -31,6 +31,7 @@ type VM = ref object
     stackTop*: int
     objects*: SinglyLinkedList[Obj]  # Unused for now
     globals*: Table[string, Value]
+    lastPop: Value
 
 
 proc error*(self: VM, error: JAPLException) =
@@ -343,10 +344,7 @@ proc run(self: VM, debug, repl: bool): InterpretResult =
                     var slot = readByte()
                     self.stack.delete(slot)
             of OP_POP:
-                var popped = self.pop()
-                if repl:
-                    if popped.kind != NIL:
-                        echo stringify(popped)
+                self.lastPop = self.pop()
             of OP_JUMP_IF_FALSE:
                 var offset = readShort()
                 if isFalsey(self.peek(0)):
@@ -355,6 +353,10 @@ proc run(self: VM, debug, repl: bool): InterpretResult =
                 var offset = readShort()
                 self.ip += int offset
             of OP_RETURN:
+                var popped = self.lastPop
+                if repl:
+                    if popped.kind != NIL:
+                        echo stringify(popped)
                 return OK
 
 
@@ -375,7 +377,7 @@ proc resetStack*(self: VM) =
 
 
 proc initVM*(): VM =
-    result = VM(chunk: initChunk(), ip: 0, stack: @[], stackTop: 0, objects: initSinglyLinkedList[Obj](), globals: initTable[string, Value]())
+    result = VM(chunk: initChunk(), ip: 0, stack: @[], stackTop: 0, objects: initSinglyLinkedList[Obj](), globals: initTable[string, Value](), lastPop: Value(kind: NIL))
 
 
 proc freeVM*(self: VM) =
