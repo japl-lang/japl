@@ -29,7 +29,8 @@ const RESERVED = to_table({
                 "true": TokenType.TRUE, "false": TokenType.FALSE,
                 "return": TokenType.RETURN,
                 "this": TokenType.THIS, "super": TokenType.SUPER,
-                "del": TokenType.DEL, "break": TokenType.BREAK})
+                "del": TokenType.DEL, "break": TokenType.BREAK,
+                "continue": TokenType.CONTINUE})
 
 
 type Lexer* = object

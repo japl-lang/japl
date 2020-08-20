@@ -12,4 +12,4 @@ type
     IF, NIL, RETURN, SUPER,
     THIS, OR, TRUE, VAR,
     WHILE, DEL, BREAK, EOF,
-    COLON
+    COLON, CONTINUE
