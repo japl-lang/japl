@@ -101,7 +101,7 @@ proc initParser(tokens: seq[Token]): Parser =
 
 
 proc initCompiler*(chunk: Chunk): Compiler =
-    result = Compiler(parser: initParser(@[]), compilingChunk: chunk, locals: @[], scopeDepth: 0, localCount: 0, loopType: looptype.NONE)
+    result = Compiler(parser: initParser(@[]), compilingChunk: chunk, locals: @[], scopeDepth: 0, localCount: 0, loopType: LoopType.NONE)
 
 
 proc emitByte(self: Compiler, byt: OpCode|uint8) =
@@ -508,6 +508,7 @@ proc emitLoop(self: Compiler, start: int) =
 
 proc whileStatement(self: Compiler) =
     var loopStart = self.compilingChunk.code.len
+    var old = self.loopType
     self.loopType = LoopType.WHILE
     self.parser.consume(LP, "The loop condition must be parenthesized")
     if self.parser.peek.kind != EOF:
@@ -525,12 +526,13 @@ proc whileStatement(self: Compiler) =
             self.parser.parseError(self.parser.previous, "Invalid syntax")
     else:
         self.parser.parseError(self.parser.previous, "The loop condition must be parenthesized")
-    self.loopType = NONE
+    self.loopType = old
 
 
 proc forStatement(self: Compiler) =
     self.beginScope()
     self.parser.consume(LP, "The loop condition must be parenthesized")
+    var old = self.loopType
     self.loopType = LoopType.FOR
     if self.parser.peek.kind != EOF:
         if self.parser.match(SEMICOLON):
@@ -572,7 +574,7 @@ proc forStatement(self: Compiler) =
         self.endScope()
     else:
         self.parser.parseError(self.parser.previous, "The loop condition must be parenthesized")
-    self.loopType = NONE
+    self.loopType = old
 
 
 proc parseBreak(self: Compiler) =
