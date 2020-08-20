@@ -22,6 +22,7 @@ type
         parser*: Parser
         loopStart: int
         loopDepth: int
+        loopEnd: int
 
     Parser = ref object
         current: int
@@ -101,7 +102,7 @@ proc initParser(tokens: seq[Token]): Parser =
 
 
 proc initCompiler*(chunk: Chunk): Compiler =
-    result = Compiler(parser: initParser(@[]), compilingChunk: chunk, locals: @[], scopeDepth: 0, localCount: 0, loopStart: -1, loopDepth: 0)
+    result = Compiler(parser: initParser(@[]), compilingChunk: chunk, locals: @[], scopeDepth: 0, localCount: 0, loopStart: -1, loopDepth: 0, loopEnd: 0)
 
 
 proc emitByte(self: Compiler, byt: OpCode|uint8) =
@@ -504,6 +505,7 @@ proc emitLoop(self: Compiler, start: int) =
     else:
         self.emitByte(uint8 (offset shr 8) and 0xff)
         self.emitByte(uint8 offset and 0xff)
+        self.loopEnd = offset
 
 
 proc whileStatement(self: Compiler) =
@@ -519,8 +521,8 @@ proc whileStatement(self: Compiler) =
         if self.parser.peek.kind != EOF:
             var exitJump = self.emitJump(OP_JUMP_IF_FALSE)
             self.emitByte(OP_POP)
-            self.statement()
             self.emitLoop(self.loopStart)
+            self.statement()
             self.patchJump(exitJump)
             self.emitByte(OP_POP)
         else:
@@ -581,6 +583,13 @@ proc forStatement(self: Compiler) =
     self.loopDepth = surroundingDepth
 
 
+proc jumpTo(self: Compiler, offset: int) =
+    self.emitByte(OP_JUMP)
+    var offset = uint16 offset
+    self.emitByte(uint8 (offset shr 8) and 0xff)
+    self.emitByte(uint8 offset and 0xff)
+
+
 proc parseBreak(self: Compiler) =
     if self.loopStart == -1:
         self.parser.parseError(self.parser.previous, "'break' outside loop")
@@ -590,7 +599,8 @@ proc parseBreak(self: Compiler) =
         while i >= 0 and self.locals[i].depth > self.loopDepth:
             self.emitByte(OP_POP)
             i -= 1
-        # Where to jump?
+        self.jumpTo(self.loopEnd)
+        self.emitByte(OP_POP)
 
 
 proc parseAnd(self: Compiler, canAssign: bool) =

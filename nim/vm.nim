@@ -374,6 +374,7 @@ proc freeVM*(self: VM) =
 proc interpret*(self: var VM, source: string, debug: bool = false, repl: bool = false): InterpretResult =
     var chunk = initChunk()
     var compiler = initCompiler(chunk)
+    setControlCHook(handleInterrupt)
     if not compiler.compile(source, chunk) or compiler.parser.hadError:
         return COMPILE_ERROR
     self.chunk = chunk
@@ -394,6 +395,5 @@ proc resetStack*(self: VM) =
 
 proc initVM*(): VM =
     result = VM(chunk: initChunk(), ip: 0, stack: @[], stackTop: 0, objects: initSinglyLinkedList[Obj](), globals: initTable[string, Value](), lastPop: Value(kind: NIL))
-    setControlCHook(handleInterrupt)
 
 

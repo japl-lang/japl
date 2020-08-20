@@ -16,7 +16,7 @@ type
 proc isFalsey*(obj: Obj): bool =
     case obj.kind:
         of STRING:
-            return len(obj.str) > 0
+            return len(obj.str) == 0
         else:
             return false
 
