@@ -33,6 +33,7 @@ type
         OP_JUMP_IF_FALSE,
         OP_JUMP,
         OP_LOOP,
+        OP_BREAK,
     Chunk* = ref object
         consts*: ValueArray
         code*: seq[uint8]

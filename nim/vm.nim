@@ -38,6 +38,7 @@ type VM = ref object
     objects*: SinglyLinkedList[Obj]  # Unused for now
     globals*: Table[string, Value]
     lastPop: Value
+    exitLoop: bool
 
 
 proc error*(self: VM, error: JAPLException) =
@@ -358,14 +359,20 @@ proc run(self: VM, debug, repl: bool): InterpretResult =
                 var offset = readShort()
                 self.ip += int offset
             of OP_LOOP:
-                var offset = readShort()
-                self.ip -= int offset
+                if self.exitLoop:
+                    self.exitLoop = false
+                else:
+                    var offset = readShort()
+                    self.ip -= int offset
+            of OP_BREAK:
+                self.exitLoop = true
             of OP_RETURN:
                 var popped = self.lastPop
                 if repl:
                     if popped.kind != NIL:
                         echo stringify(popped)
                 return OK
+
 
 proc freeVM*(self: VM) =
     unsetControlCHook()
@@ -394,6 +401,6 @@ proc resetStack*(self: VM) =
 
 
 proc initVM*(): VM =
-    result = VM(chunk: initChunk(), ip: 0, stack: @[], stackTop: 0, objects: initSinglyLinkedList[Obj](), globals: initTable[string, Value](), lastPop: Value(kind: NIL))
+    result = VM(chunk: initChunk(), ip: 0, stack: @[], stackTop: 0, objects: initSinglyLinkedList[Obj](), globals: initTable[string, Value](), lastPop: Value(kind: NIL), exitLoop: false)
 
 

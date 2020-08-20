@@ -6,6 +6,7 @@ import meta/chunk
 import meta/tokenobject
 import meta/valueobject
 import meta/tokentype
+import meta/looptype
 import types/objecttype
 
 
@@ -20,8 +21,7 @@ type
         scopeDepth: int
         compilingChunk: Chunk
         parser*: Parser
-        loopStart: int
-        loopDepth: int
+        loop: Loop
 
     Parser = ref object
         current: int
@@ -101,7 +101,7 @@ proc initParser(tokens: seq[Token]): Parser =
 
 
 proc initCompiler*(chunk: Chunk): Compiler =
-    result = Compiler(parser: initParser(@[]), compilingChunk: chunk, locals: @[], scopeDepth: 0, localCount: 0, loopStart: -1, loopDepth: 0)
+    result = Compiler(parser: initParser(@[]), compilingChunk: chunk, locals: @[], scopeDepth: 0, localCount: 0, loop: Loop(alive: false, loopEnd: -1))
 
 
 proc emitByte(self: Compiler, byt: OpCode|uint8) =
@@ -506,38 +506,47 @@ proc emitLoop(self: Compiler, start: int) =
         self.emitByte(uint8 offset and 0xff)
 
 
+proc endLooping(self: Compiler) =
+    if self.loop.loopEnd != -1:
+        self.patchJump(self.loop.loopEnd)
+        self.emitByte(OP_POP)
+    var i = self.loop.body
+    while i < self.compilingChunk.code.len:
+        if self.compilingChunk.code[i] == uint OP_BREAK:
+            self.compilingChunk.code[i] = uint8 OP_JUMP
+            self.patchJump(i + 1)
+            i += 3
+        else:
+            i += 1
+    self.loop = self.loop.outer
+
+
 proc whileStatement(self: Compiler) =
-    var surroundingLoop = self.loopStart
-    var surroundingDepth = self.loopDepth
-    self.loopStart = self.compilingChunk.code.len
-    self.loopDepth = self.scopeDepth
+    var loop = Loop(depth: self.scopeDepth, outer: self.loop, start: self.compilingChunk.code.len, alive: true, loopEnd: -1)
+    self.loop = loop
     self.parser.consume(LP, "The loop condition must be parenthesized")
     if self.parser.peek.kind != EOF:
         self.expression()
         if self.parser.peek.kind != EOF:
             self.parser.consume(RP, "The loop condition must be parenthesized")
         if self.parser.peek.kind != EOF:
-            var exitJump = self.emitJump(OP_JUMP_IF_FALSE)
+            self.loop.loopEnd = self.emitJump(OP_JUMP_IF_FALSE)
             self.emitByte(OP_POP)
+            self.loop.body = self.compilingChunk.code.len
             self.statement()
-            self.emitLoop(self.loopStart)
-            self.patchJump(exitJump)
+            self.emitLoop(self.loop.start)
+            self.patchJump(self.loop.loopEnd)
             self.emitByte(OP_POP)
         else:
             self.parser.parseError(self.parser.previous, "Invalid syntax")
     else:
         self.parser.parseError(self.parser.previous, "The loop condition must be parenthesized")
-    self.loopStart = surroundingLoop
-    self.loopDepth = surroundingDepth
+    self.endLooping()
 
 
 proc forStatement(self: Compiler) =
     self.beginScope()
     self.parser.consume(LP, "The loop condition must be parenthesized")
-    var surroundingLoop = self.loopStart
-    var surroundingDepth = self.loopDepth
-    self.loopStart = self.compilingChunk.code.len
-    self.loopDepth = self.scopeDepth
     if self.parser.peek.kind != EOF:
         if self.parser.match(SEMICOLON):
             discard
@@ -545,12 +554,13 @@ proc forStatement(self: Compiler) =
             self.varDeclaration()
         else:
             self.expressionStatement()
-        var exitJump = -1
+        var loop = Loop(depth: self.scopeDepth, outer: self.loop, start: self.compilingChunk.code.len, alive: true, loopEnd: -1)
+        self.loop = loop
         if not self.parser.match(SEMICOLON):
             self.expression()
             if self.parser.previous.kind != EOF:
                 self.parser.consume(SEMICOLON, "Expecting ';'")
-                exitJump = self.emitJump(OP_JUMP_IF_FALSE)
+                self.loop.loopEnd = self.emitJump(OP_JUMP_IF_FALSE)
                 self.emitByte(OP_POP)
             else:
                 self.parser.current -= 1
@@ -562,34 +572,35 @@ proc forStatement(self: Compiler) =
                 self.expression()
                 self.emitByte(OP_POP)
                 self.parser.consume(RP, "The loop condition must be parenthesized")
-                self.emitLoop(self.loopStart)
-                self.loopStart = incrementStart
+                self.emitLoop(self.loop.start)
+                self.loop.start = incrementStart
                 self.patchJump(bodyJump)
         if self.parser.peek.kind != EOF:
+            self.loop.body = self.compilingChunk.code.len
             self.statement()
-            self.emitLoop(self.loopStart)
+            self.emitLoop(self.loop.start)
         else:
             self.parser.current -= 1
             self.parser.parseError(self.parser.previous, "Invalid syntax")
-        if exitJump != -1:
-            self.patchJump(exitJump)
+        if self.loop.loopEnd != -1:
+            self.patchJump(self.loop.loopEnd)
             self.emitByte(OP_POP)
-        self.endScope()
     else:
         self.parser.parseError(self.parser.previous, "The loop condition must be parenthesized")
-    self.loopStart = surroundingLoop
-    self.loopDepth = surroundingDepth
+    self.endLooping()
+    self.endScope()
 
 
 proc parseBreak(self: Compiler) =
-    if self.loopStart == -1:
+    if not self.loop.alive:
         self.parser.parseError(self.parser.previous, "'break' outside loop")
     else:
         self.parser.consume(SEMICOLON, "missing semicolon after statement")
         var i = self.localCount - 1
-        while i >= 0 and self.locals[i].depth > self.loopDepth:
+        while i >= 0 and self.locals[i].depth > self.loop.depth:
             self.emitByte(OP_POP)
             i -= 1
+        discard self.emitJump(OP_BREAK)
         # What to do here?
 
 proc parseAnd(self: Compiler, canAssign: bool) =
@@ -608,16 +619,17 @@ proc parseOr(self: Compiler, canAssign: bool) =
     self.patchJump(endJump)
 
 
+
 proc continueStatement(self: Compiler) =
-    if self.loopStart == -1:
+    if not self.loop.alive:
         self.parser.parseError(self.parser.previous, "'continue' outside loop")
     else:
         self.parser.consume(SEMICOLON, "missing semicolon after statement")
         var i = self.localCount - 1
-        while i >= 0 and self.locals[i].depth > self.loopDepth:
+        while i >= 0 and self.locals[i].depth > self.loop.depth:
             self.emitByte(OP_POP)
             i -= 1
-        self.emitLoop(self.loopStart)
+        self.emitLoop(self.loop.start)
 
 
 proc statement(self: Compiler) =
