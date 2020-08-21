@@ -1,9 +1,16 @@
-# Value objects and types representation
-import ../types/objecttype
+# This module represents the generic interface that JAPL uses internally
+# to represent types. Small-sized entities such as numbers and booleans are
+# treated differently with respect to bigger and more complex ones such as
+# strings and functions. That is because, at least when we have our own GC,
+# those more complex entities will be allocated on the heap, while the simpler
+# ones will live on the stack
+
+import ../types/stringtype
+import ../types/functiontype
 
 
 type
-    ValueTypes* = enum
+    ValueTypes* = enum   # All possible value types (this is the VM's notion of 'type', not the end user's)
         INTEGER, DOUBLE, BOOL, NIL, OBJECT
     Value* = ref object
         case kind*: ValueTypes
@@ -21,51 +28,63 @@ type
         values*: seq[Value]
 
 
-proc initValueArray*(): ValueArray =
+func initValueArray*(): ValueArray =
     result = ValueArray(values: @[])
 
 
-proc writeValueArray*(arr: var ValueArray, value: Value) =
+func writeValueArray*(arr: var ValueArray, value: Value) =
     arr.values.add(value)
 
 
-proc isNil*(value: Value): bool =
-    return value.kind == NIL
+func isNil*(value: Value): bool =
+    result = value.kind == NIL
 
 
-proc isBool*(value: Value): bool =
-    return value.kind == BOOL
+func isBool*(value: Value): bool =
+    result = value.kind == BOOL
 
 
-proc isInt*(value: Value): bool =
-    return value.kind == INTEGER
+func isInt*(value: Value): bool =
+    result = value.kind == INTEGER
 
 
-proc isFloat*(value: Value): bool =
-    return value.kind == DOUBLE
+func isFloat*(value: Value): bool =
+    result = value.kind == DOUBLE
 
 
-proc isNum*(value: Value): bool =
-    return isInt(value) or isFloat(value)
+func isNum*(value: Value): bool =
+    result = isInt(value) or isFloat(value)
 
 
-proc isObj*(value: Value): bool =
-    return value.kind == OBJECT
+func isObj*(value: Value): bool =
+    result = value.kind == OBJECT
 
 
-proc toBool*(value: Value): bool =
-    return value.boolValue
+func toBool*(value: Value): bool =
+    result = value.boolValue
 
 
-proc toInt*(value: Value): int =
-    return value.intValue
+func toInt*(value: Value): int =
+    result = value.intValue
 
 
-proc toFloat*(value: Value): float =
-    return value.floatValue
+func toFloat*(value: Value): float =
+    result = value.floatValue
 
 
-proc stringify*(value: Value): string =
+func asInt*(n: int): Value =
+    result = Value(kind: INTEGER, intValue: n)
+
+
+func asFloat*(n: float): Value =
+    result = Value(kind: DOUBLE, floatValue: n)
+
+
+func asBool*(b: bool): Value =
+    result = Value(kind: BOOL, boolValue: b)
+
+
+func stringify*(value: Value): string =
     case value.kind:
         of INTEGER:
             result = $value.toInt()
@@ -78,35 +97,32 @@ proc stringify*(value: Value): string =
         of OBJECT:
             result = stringify(value.obj)
 
-proc `$`*(value: Value): string =
-    result = stringify(value)
 
-
-proc isFalsey*(value: Value): bool =
+func isFalsey*(value: Value): bool =
     case value.kind:
         of BOOL:
-            return not value.toBool()
+            result = not value.toBool()
         of OBJECT:
-            return isFalsey(value.obj)
+            result = isFalsey(value.obj)
         of INTEGER:
-            return value.toInt() == 0
+            result = value.toInt() == 0
         of DOUBLE:
-            return value.toFloat() > 0.0
+            result = value.toFloat() > 0.0
         of NIL:
-            return true
+            result = true
 
 
-proc valuesEqual*(a: Value, b: Value): bool =
+func valuesEqual*(a: Value, b: Value): bool =
     if a.kind != b.kind:
-        return false
+        result = false
     case a.kind:
         of BOOL:
-            return a.toBool() == b.toBool()
+            result = a.toBool() == b.toBool()
         of NIL:
-            return true
+            result = true
         of INTEGER:
-            return a.toInt() == b.toInt()
+            result = a.toInt() == b.toInt()
         of DOUBLE:
-            return a.toFloat() == b.toFloat()
+            result = a.toFloat() == b.toFloat()
         of OBJECT:
-            return valuesEqual(a.obj, b.obj)
+            result = valuesEqual(a.obj, b.obj)

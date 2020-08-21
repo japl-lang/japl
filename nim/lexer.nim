@@ -1,11 +1,20 @@
+# A simple tokenizer implementation with one character of lookahead.
+# This module has been designed to be easily extendible in its functionality
+# given that JAPL is in a state of high activity and many features are
+# being added along the way. To add support for a new keyword, just create
+# an appropriate TokenType entry in the enum in the file at meta/tokenotype.nim
+# and then add it to the constant RESERVED table. A similar approach applies for
+# other tokens, but multi-character ones require more tweaking
+
+import system
+import strutils
+import strformat
 import tables
 import meta/tokentype
 import meta/tokenobject
 import meta/valueobject
-import types/objecttype
-import system
-import strutils
-import strformat
+import types/stringtype
+
 
 
 const TOKENS = to_table({
@@ -97,7 +106,7 @@ proc parseString(self: var Lexer, delimiter: char) =
         echo &"SyntaxError: Unterminated string literal at line {self.line}"
         self.errored = true
     discard self.step()
-    let value = Value(kind: ValueTypes.OBJECT, obj: Obj(kind: ObjectTypes.STRING, str: self.source[self.start..<self.current])) # Get the value between quotes
+    let value = Value(kind: ValueTypes.OBJECT, obj: newString(self.source[self.start..<self.current])) # Get the value between quotes
     let token = self.createToken(STR, value)
     self.tokens.add(token)
 

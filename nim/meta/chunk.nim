@@ -35,6 +35,7 @@ type
         OP_LOOP,
         OP_BREAK,
     Chunk* = ref object
+        code: ptr uint8
         consts*: ValueArray
         code*: seq[uint8]
         lines*: seq[int]
