@@ -1,4 +1,4 @@
-# This module implements the interface for strings in JAPL.
+# This module implements the interface for strings in JAPL.ob
 # Strings are natively utf-8 encoded, and for now we are using
 # Nim's own garbage collected string type to represent them. In
 # the future, when a proper custom GC is in place, the implementation
@@ -27,9 +27,16 @@ method valuesEqual*(a: String, b: String): bool =
         result = a.str == b.str
 
 
-proc newString*(str: string): String =
-    var strObj = allocateObj(String, ObjectTypes.STRING)
-    strObj.str = cast[ptr UncheckedArray[char]](reallocate(nil, 0, sizeof(char) * len(str)))
-    strObj.len = len(str)
+proc newString*(str: string): ptr String =
+    result = cast[ptr String](allocateObject(sizeof(String), ObjectTypes.STRING))
+    var arrStr = cast[ptr UncheckedArray[char]](reallocate(nil, 0, sizeof(char) * len(str)))
+    var length = len(str)
     for i in 0..len(str) - 1:
-        strObj.str[i] = str[i]
+        arrStr[i] = str[i]
+    result.str = arrStr
+    result.len = length
+
+
+let s = newString("o")
+echo s.len
+echo $s.str

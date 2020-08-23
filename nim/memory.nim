@@ -34,14 +34,10 @@ template growCapacity*(cap: int): untyped =
 
 
 proc allocateObject*(size: int, kind: ObjectTypes): ptr Obj =
-   var obj = cast[ptr Obj](reallocate(nil, 0, size))
-   obj.kind = kind
-   result = obj
+    var obj = cast[Obj](reallocate(nil, 0, size))
+    obj.kind = kind
+    result = addr obj
 
 
 template allocate*(kind: untyped, count: int): untyped =
     cast[ptr kind](reallocate(nil, 0, sizeof(kind) * count))
-
-
-template allocateObj*(kind: untyped, objectType: ObjectTypes): untyped =
-    cast[ptr kind](allocateObject(sizeof(type), objectType))
