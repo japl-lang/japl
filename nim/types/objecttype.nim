@@ -3,8 +3,6 @@
 # be needed in the future when more and more default methods are added
 # to objects, without having to add a (possibly redundant) implementation
 # into each specific file in the types directory
-import strutils
-import strformat
 
 
 type
@@ -24,7 +22,7 @@ method stringify*(obj: Obj): string {.base.} =
 
 
 method typeName*(obj: Obj): string {.base.} =
-    result = &"<class '{($obj.kind).toLowerAscii()}'>"
+    result = "object"
 
 
 method isFalsey*(obj: Obj): bool {.base.} =

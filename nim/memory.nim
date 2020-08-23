@@ -11,7 +11,7 @@ import types/objecttype
 
 
 proc reallocate*(pointer: pointer, oldSize: int, newSize: int): pointer =
-    if newSize == 0:
+    if newSize == 0 and pointer != nil:
         dealloc(pointer)
         return nil
     var res = realloc(pointer, newSize)

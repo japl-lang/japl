@@ -67,25 +67,24 @@ proc slice(self: VM): bool =
     case peeked.kind:
         of OBJECT:
             case peeked.obj.kind:
-                of STRING:
-                    var str = peeked.obj.str
-                    if idx.kind != INTEGER:
+                of ObjectTypes.STRING:
+                    var str = peeked.toStr()
+                    if not idx.isInt():
                         self.error(newTypeError("string indeces must be integers"))
                         return false
-                    elif idx.intValue - 1 > len(str) - 1:
+                    elif idx.toInt() < 0:
+                        idx.intValue = (len(str) - 1) - (-idx.toInt())
+                    if idx.toInt() - 1 > len(str) - 1:
                         self.error(newIndexError("string index out of bounds"))
                         return false
-                    elif idx.intValue < 0:
-                        self.error(newIndexError("string index out of bounds"))
-                        return false
-                    self.push(Value(kind: OBJECT, obj: Obj(kind: STRING, str: &"{str[idx.intValue]}")))
+                    self.push(Value(kind: OBJECT, obj: newString(&"{str[idx.toInt()]}")))
                     return true
 
                 else:
-                    self.error(newTypeError(&"Unsupported slicing for object of type '{toLowerAscii($(peeked.kind))}'"))
+                    self.error(newTypeError(&"Unsupported slicing for object of type '{peeked.typeName()}'"))
                     return false
         else:
-            self.error(newTypeError(&"Unsupported slicing for object of type '{toLowerAscii($(peeked.kind))}'"))
+            self.error(newTypeError(&"Unsupported slicing for object of type '{peeked.typeName()}'"))
             return false
 
 
@@ -96,29 +95,29 @@ proc sliceRange(self: VM): bool =
     case popped.kind:
         of OBJECT:
             case popped.obj.kind:
-                of STRING:
-                    var str = popped.obj.str
-                    if sliceEnd.kind == NIL:
-                        sliceEnd = Value(kind: INTEGER, intValue: len(str) - 1)
-                    if sliceStart.kind == NIL:
+                of ObjectTypes.STRING:
+                    var str = popped.toStr()
+                    if sliceEnd.isNil():
+                        sliceEnd = Value(kind: INTEGER, intValue: len(str))
+                    if sliceStart.isNil():
                         sliceStart = Value(kind: INTEGER, intValue: 0)
-                    if sliceStart.kind != INTEGER or sliceEnd.kind != INTEGER:
+                    if not sliceStart.isInt() or not sliceEnd.isInt():
                         self.error(newTypeError("string indeces must be integers"))
                         return false
-                    elif sliceStart.intValue - 1 > len(str) - 1 or sliceEnd.intValue - 1 > len(str) - 1:
+                    elif sliceStart.toInt() - 1 > len(str) - 1 or sliceEnd.toInt() - 1 > len(str) - 1:
                         self.error(newIndexError("string index out of bounds"))
                         return false
-                    elif sliceStart.intValue < 0 or sliceEnd.intValue < 0:
+                    elif sliceStart.toInt() < 0 or sliceEnd.toInt() < 0:
                         self.error(newIndexError("string index out of bounds"))
                         return false
-                    self.push(Value(kind: OBJECT, obj: Obj(kind: STRING, str: str[sliceStart.intValue..sliceEnd.intValue])))
+                    self.push(Value(kind: OBJECT, obj: newString(str[sliceStart.toInt()..<sliceEnd.toInt()])))
                     return true
 
                 else:
-                    self.error(newTypeError(&"Unsupported slicing for object of type '{toLowerAscii($(popped.kind))}'"))
+                    self.error(newTypeError(&"Unsupported slicing for object of type '{popped.typeName()}'"))
                     return false
         else:
-            self.error(newTypeError(&"Unsupported slicing for object of type '{toLowerAscii($(popped.kind))}'"))
+            self.error(newTypeError(&"Unsupported slicing for object of type '{popped.typeName()}'"))
             return false
 
 
@@ -173,7 +172,7 @@ proc run(self: VM, debug, repl: bool): InterpretResult =
                 else:
                     self.push(Value(kind: DOUBLE, floatValue: float tmp))
         else:
-            self.error(newTypeError(&"Unsupported binary operand for objects of type '{toLowerAscii($(leftVal.kind))}' and '{toLowerAscii($(rightVal.kind))}'"))
+            self.error(newTypeError(&"Unsupported binary operator for objects of type '{leftVal.typeName()}' and '{rightVal.typeName()}'"))
             return RUNTIME_ERROR
     var instruction: uint8
     var opcode: OpCode
@@ -205,21 +204,21 @@ proc run(self: VM, debug, repl: bool): InterpretResult =
                 var cur = self.pop()
                 case cur.kind:
                     of DOUBLE:
-                        cur.floatValue = -cur.floatValue
+                        cur.floatValue = -cur.toFloat()
                         self.push(cur)
                     of INTEGER:
-                        cur.intValue = -cur.intValue
+                        cur.intValue = -cur.toInt()
                         self.push(cur)
                     else:
-                        echo &"Unsupported unary operator '-' for object of type '{toLowerAscii($cur.kind)}'"
+                        self.error(newTypeError(&"Unsupported unary operator '-' for object of type '{cur.typeName()}'"))
             of OP_ADD:
-                if self.peek(0).kind == OBJECT and self.peek(1).kind == OBJECT:
-                    if self.peek(0).obj.kind == STRING and self.peek(1).obj.kind == STRING:
-                        var r = self.peek(0).obj.str
-                        var l = self.peek(1).obj.str
-                        self.push(Value(kind: OBJECT, obj: Obj(kind: STRING, str: l & r)))
+                if self.peek(0).isObj() and self.peek(1).isObj():
+                    if self.peek(0).isStr() and self.peek(1).isStr():
+                        var r = self.peek(0).toStr()
+                        var l = self.peek(1).toStr()
+                        self.push(Value(kind: OBJECT, obj: newString(l & r)))
                     else:
-                        self.error(newTypeError(&"Unsupported binary operand for objects of type '{toLowerAscii($(self.peek(0).kind))}' and '{toLowerAscii($(self.peek(1).kind))}'"))
+                        self.error(newTypeError(&"Unsupported binary operator for objects of type '{self.peek(0).typeName()}' and '{self.peek(1).typeName()}"))
                         return RUNTIME_ERROR
                 else:
                     BinOp(`+`, isNum)
@@ -228,21 +227,21 @@ proc run(self: VM, debug, repl: bool): InterpretResult =
             of OP_DIVIDE:
                 BinOp(`/`, isNum)
             of OP_MULTIPLY:
-                if self.peek(0).kind == INTEGER and self.peek(1).kind == OBJECT:
-                    if self.peek(1).obj.kind == STRING:
-                        var r = self.peek(0).intValue
-                        var l = self.peek(1).obj.str
-                        self.push(Value(kind: OBJECT, obj: Obj(kind: STRING, str: l.repeat(r))))
+                if self.peek(0).isInt() and self.peek(1).isObj():
+                    if self.peek(1).isStr():
+                        var r = self.peek(0).toInt()
+                        var l = self.peek(1).toStr()
+                        self.push(Value(kind: OBJECT, obj: newString(l.repeat(r))))
                     else:
-                        self.error(newTypeError(&"Unsupported binary operand for objects of type '{toLowerAscii($(self.peek(0).kind))}' and '{toLowerAscii($(self.peek(1).kind))}'"))
+                        self.error(newTypeError(&"Unsupported binary operator for objects of type '{self.peek(0).typeName()}' and '{self.peek(1).typeName()}"))
                         return RUNTIME_ERROR
-                elif self.peek(0).kind == OBJECT and self.peek(1).kind == INTEGER:
-                    if self.peek(0).obj.kind == STRING:
-                        var r = self.peek(0).obj.str
-                        var l = self.peek(1).intValue
-                        self.push(Value(kind: OBJECT, obj: Obj(kind: STRING, str: r.repeat(l))))
+                elif self.peek(0).isObj() and self.peek(1).isInt():
+                    if self.peek(0).isStr():
+                        var r = self.peek(0).toStr()
+                        var l = self.peek(1).toInt()
+                        self.push(Value(kind: OBJECT, obj: newString(r.repeat(l))))
                     else:
-                        self.error(newTypeError(&"Unsupported binary operand for objects of type '{toLowerAscii($(self.peek(0).kind))}' and '{toLowerAscii($(self.peek(1).kind))}'"))
+                        self.error(newTypeError(&"Unsupported binary operator for objects of type '{self.peek(0).typeName()}' and '{self.peek(1).typeName()}"))
                         return RUNTIME_ERROR
                 else:
                     BinOp(`*`, isNum)
@@ -261,10 +260,10 @@ proc run(self: VM, debug, repl: bool): InterpretResult =
             of OP_EQUAL:
                 var a = self.pop()
                 var b = self.pop()
-                if a.kind == DOUBLE and b.kind == INTEGER:
-                    b = Value(kind: DOUBLE, floatValue: float b.intValue)
-                elif b.kind == DOUBLE and a.kind == INTEGER:
-                    a = Value(kind: DOUBLE, floatValue: float a.intValue)
+                if a.isFloat() and b.isInt():
+                    b = Value(kind: DOUBLE, floatValue: float b.toInt())
+                elif b.isFloat() and a.isInt():
+                    a = Value(kind: DOUBLE, floatValue: float a.toInt())
                 self.push(Value(kind: BOOL, boolValue: valuesEqual(a, b)))
             of OP_LESS:
                 BinOp(`<`, isNum)
@@ -278,22 +277,22 @@ proc run(self: VM, debug, repl: bool): InterpretResult =
                     return RUNTIME_ERROR
             of OP_DEFINE_GLOBAL:
                 if self.chunk.consts.values.len > 255:
-                    var constant = readLongConstant().obj.str
+                    var constant = readLongConstant().toStr()
                     self.globals[constant] = self.peek(0)
                 else:
-                    var constant = readConstant().obj.str
+                    var constant = readConstant().toStr()
                     self.globals[constant] = self.peek(0)
                 discard self.pop()   # This will help when we have a custom GC
             of OP_GET_GLOBAL:
                 if self.chunk.consts.values.len > 255:
-                    var constant = readLongConstant().obj.str
+                    var constant = readLongConstant().toStr()
                     if constant notin self.globals:
                         self.error(newReferenceError(&"undefined name '{constant}'"))
                         return RUNTIME_ERROR
                     else:
                         self.push(self.globals[constant])
                 else:
-                    var constant = readConstant().obj.str
+                    var constant = readConstant().toStr()
                     if constant notin self.globals:
                         self.error(newReferenceError(&"undefined name '{constant}'"))
                         return RUNTIME_ERROR
@@ -301,14 +300,14 @@ proc run(self: VM, debug, repl: bool): InterpretResult =
                         self.push(self.globals[constant])
             of OP_SET_GLOBAL:
                 if self.chunk.consts.values.len > 255:
-                    var constant = readLongConstant().obj.str
+                    var constant = readLongConstant().toStr()
                     if constant notin self.globals:
                         self.error(newReferenceError(&"assignment to undeclared name '{constant}'"))
                         return RUNTIME_ERROR
                     else:
                         self.globals[constant] = self.peek(0)
                 else:
-                    var constant = readConstant().obj.str
+                    var constant = readConstant().toStr()
                     if constant notin self.globals:
                         self.error(newReferenceError(&"assignment to undeclared name '{constant}'"))
                         return RUNTIME_ERROR
@@ -316,14 +315,14 @@ proc run(self: VM, debug, repl: bool): InterpretResult =
                         self.globals[constant] = self.peek(0)
             of OP_DELETE_GLOBAL:
                 if self.chunk.consts.values.len > 255:
-                    var constant = readLongConstant().obj.str
+                    var constant = readLongConstant().toStr()
                     if constant notin self.globals:
                         self.error(newReferenceError(&"undefined name '{constant}'"))
                         return RUNTIME_ERROR
                     else:
                         self.globals.del(constant)
                 else:
-                    var constant = readConstant().obj.str
+                    var constant = readConstant().toStr()
                     if constant notin self.globals:
                         self.error(newReferenceError(&"undefined name '{constant}'"))
                         return RUNTIME_ERROR
@@ -399,6 +398,6 @@ proc resetStack*(self: VM) =
 
 
 proc initVM*(): VM =
-    result = VM(chunk: initChunk(), ip: 0, stack: @[], stackTop: 0, objects: initSinglyLinkedList[Obj](), globals: initTable[string, Value](), lastPop: Value(kind: NIL), exitLoop: false)
+    result = VM(chunk: initChunk(), ip: 0, stack: @[], stackTop: 0, objects: initSinglyLinkedList[Obj](), globals: initTable[string, Value](), lastPop: Value(kind: NIL))
 
 

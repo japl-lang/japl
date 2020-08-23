@@ -14,7 +14,6 @@ import meta/tokentype
 import meta/tokenobject
 import meta/valueobject
 import types/stringtype
-import types/objecttype
 
 
 const TOKENS = to_table({
@@ -114,15 +113,19 @@ proc parseString(self: var Lexer, delimiter: char) =
 proc parseNumber(self: var Lexer) =
     while isDigit(self.peek()):
         discard self.step()
-    if self.peek() == '.':
-        discard self.step()
-        while self.peek().isDigit():
+    try:
+        if self.peek() == '.':
             discard self.step()
-        var value = Value(kind: ValueTypes.DOUBLE, floatValue: parseFloat(self.source[self.start..<self.current]))
-        self.tokens.add(self.createToken(TokenType.NUMBER, value))
-    else:
-        var value = Value(kind: ValueTypes.INTEGER, intValue: parseInt(self.source[self.start..<self.current]))
-        self.tokens.add(self.createToken(TokenType.NUMBER, value))
+            while self.peek().isDigit():
+                discard self.step()
+            var value = Value(kind: ValueTypes.DOUBLE, floatValue: parseFloat(self.source[self.start..<self.current]))
+            self.tokens.add(self.createToken(TokenType.NUMBER, value))
+        else:
+            var value = Value(kind: ValueTypes.INTEGER, intValue: parseInt(self.source[self.start..<self.current]))
+            self.tokens.add(self.createToken(TokenType.NUMBER, value))
+    except ValueError:
+        echo "OverflowError: integer is too big"
+        self.errored = true
 
 
 proc parseIdentifier(self: var Lexer) =
@@ -187,7 +190,7 @@ proc scanToken(self: var Lexer) =
             self.tokens.add(self.createToken(TOKENS[single], Value(kind: ValueTypes.OBJECT, obj: newString(&"{single}"))))
     else:
         self.errored = true
-        echo &"SyntaxError: Unexpected character '{single}' at {self.line}"
+        echo &"SyntaxError: Unexpected character '{single}' at line {self.line}"
 
 
 proc lex*(self: var Lexer): seq[Token] =

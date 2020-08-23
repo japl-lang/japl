@@ -8,6 +8,7 @@
 import ../types/objecttype
 import ../types/stringtype
 import strformat
+import strutils
 
 
 type
@@ -61,6 +62,9 @@ func isObj*(value: Value): bool =
     result = value.kind == OBJECT
 
 
+func isStr*(value: Value): bool =
+    result = isObj(value) and value.obj.kind == ObjectTypes.STRING
+
 func toBool*(value: Value): bool =
     result = value.boolValue
 
@@ -71,6 +75,18 @@ func toInt*(value: Value): int =
 
 func toFloat*(value: Value): float =
     result = value.floatValue
+
+
+func typeName*(value: Value): string =
+    case value.kind:
+        of BOOL, NIL, DOUBLE, INTEGER:
+            result = ($value.kind).toLowerAscii()
+        of OBJECT:
+            case value.obj.kind:
+                of ObjectTypes.STRING:
+                    result = cast[String](value.obj).typeName()
+                else:
+                    result = value.obj.typeName()
 
 
 func toStr*(value: Value): string =
@@ -122,17 +138,24 @@ func isFalsey*(value: Value): bool =
             result = true
 
 
-func valuesEqual*(a: Value, b: Value): bool =
+proc valuesEqual*(a: Value, b: Value): bool =
     if a.kind != b.kind:
         result = false
-    case a.kind:
-        of BOOL:
-            result = a.toBool() == b.toBool()
-        of NIL:
-            result = true
-        of INTEGER:
-            result = a.toInt() == b.toInt()
-        of DOUBLE:
-            result = a.toFloat() == b.toFloat()
-        of OBJECT:
-            result = valuesEqual(a.obj, b.obj)
+    else:
+        case a.kind:
+            of BOOL:
+                result = a.toBool() == b.toBool()
+            of NIL:
+                result = true
+            of INTEGER:
+                result = a.toInt() == b.toInt()
+            of DOUBLE:
+                result = a.toFloat() == b.toFloat()
+            of OBJECT:
+                case a.obj.kind:
+                    of ObjectTypes.STRING:
+                        var a = cast[String](a.obj)
+                        var b = cast[String](b.obj)
+                        result = valuesEqual(a, b)
+                    else:
+                        result = valuesEqual(a.obj, b.obj)

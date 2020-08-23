@@ -7,7 +7,6 @@ import meta/tokenobject
 import meta/valueobject
 import meta/tokentype
 import meta/looptype
-import types/objecttype
 import types/stringtype
 import types/functiontype
 
