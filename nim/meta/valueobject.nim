@@ -5,8 +5,9 @@
 # those more complex entities will be allocated on the heap, while the simpler
 # ones will live on the stack
 
+import ../types/objecttype
 import ../types/stringtype
-import ../types/functiontype
+import strformat
 
 
 type
@@ -70,6 +71,15 @@ func toInt*(value: Value): int =
 
 func toFloat*(value: Value): float =
     result = value.floatValue
+
+
+func toStr*(value: Value): string =
+    var strObj = cast[String](value.obj)
+    var c = ""
+    result = ""
+    for i in 0..strObj.str.len - 1:
+        c = &"{strObj.str[i]}"
+        result = result & c
 
 
 func asInt*(n: int): Value =

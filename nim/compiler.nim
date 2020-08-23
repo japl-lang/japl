@@ -8,6 +8,8 @@ import meta/valueobject
 import meta/tokentype
 import meta/looptype
 import types/objecttype
+import types/stringtype
+import types/functiontype
 
 
 type
@@ -221,7 +223,7 @@ proc strVal(self: Compiler, canAssign: bool) =
     var str = self.parser.previous().lexeme
     var delimiter = &"{str[0]}"
     str = str.unescape(delimiter, delimiter)
-    self.emitConstant(Value(kind: OBJECT, obj: Obj(kind: STRING, str: str)))
+    self.emitConstant(Value(kind: OBJECT, obj: newString(str)))
 
 
 proc bracket(self: Compiler, canAssign: bool) =
@@ -280,7 +282,7 @@ proc synchronize(self: Compiler) =
         if self.parser.previous().kind == SEMICOLON:
             return
         case self.parser.peek.kind:
-            of CLASS, FUN, VAR, TokenType.FOR, IF, TokenType.WHILE, RETURN:
+            of TokenType.CLASS, FUN, VAR, TokenType.FOR, IF, TokenType.WHILE, RETURN:
                 return
             else:
                 discard
@@ -288,11 +290,11 @@ proc synchronize(self: Compiler) =
 
 
 proc identifierConstant(self: Compiler, tok: Token): uint8 =
-    return self.makeConstant(Value(kind: OBJECT, obj: Obj(kind: STRING, str: tok.lexeme)))
+    return self.makeConstant(Value(kind: OBJECT, obj: newString(tok.lexeme)))
 
 
 proc identifierLongConstant(self: Compiler, tok: Token): array[3, uint8] =
-    return self.makeLongConstant(Value(kind: OBJECT, obj: Obj(kind: STRING, str: tok.lexeme)))
+    return self.makeLongConstant(Value(kind: OBJECT, obj: newString(tok.lexeme)))
 
 
 proc addLocal(self: Compiler, name: Token) =

@@ -18,8 +18,10 @@ type Function* = ref object of Obj
     chunk*: Chunk
 
 
-func newFunction*(name: string = "", chunk: Chunk = initChunk(), arity: int = 0): Function =
-    result = Function(name, arity, chunk)
+proc newFunction*(name: string = "", chunk: Chunk = initChunk(), arity: int = 0): Function =
+    result.name = newString(name)
+    result.arity = arity
+    result.chunk = chunk
 
 
 method isFalsey*(fn: Function): bool =

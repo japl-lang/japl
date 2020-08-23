@@ -1,15 +1,16 @@
-import meta/chunk
-import meta/valueobject
-import types/exceptions
-import types/objecttype
-import util/debug
-import compiler
 import strutils
 import strformat
 import math
 import lenientops
 import lists
 import tables
+import compiler
+import util/debug
+import meta/chunk
+import meta/valueobject
+import types/exceptions
+import types/objecttype
+import types/stringtype
 
 
 proc `**`(a, b: int): int = pow(a.float, b.float).int
@@ -26,6 +27,7 @@ type InterpretResult = enum
     COMPILE_ERROR,
     RUNTIME_ERROR
 
+
 func handleInterrupt() {.noconv.} =
     raise newException(KeyboardInterrupt, "Ctrl+C")
 
@@ -38,7 +40,6 @@ type VM = ref object
     objects*: SinglyLinkedList[Obj]  # Unused for now
     globals*: Table[string, Value]
     lastPop: Value
-    exitLoop: bool
 
 
 proc error*(self: VM, error: JAPLException) =
@@ -359,13 +360,10 @@ proc run(self: VM, debug, repl: bool): InterpretResult =
                 var offset = readShort()
                 self.ip += int offset
             of OP_LOOP:
-                if self.exitLoop:
-                    self.exitLoop = false
-                else:
-                    var offset = readShort()
-                    self.ip -= int offset
+                var offset = readShort()
+                self.ip -= int offset
             of OP_BREAK:
-                self.exitLoop = true
+                discard
             of OP_RETURN:
                 var popped = self.lastPop
                 if repl:

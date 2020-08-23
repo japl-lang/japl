@@ -14,7 +14,7 @@ import meta/tokentype
 import meta/tokenobject
 import meta/valueobject
 import types/stringtype
-
+import types/objecttype
 
 
 const TOKENS = to_table({
@@ -131,9 +131,9 @@ proc parseIdentifier(self: var Lexer) =
     var text: string = self.source[self.start..<self.current]
     var keyword = text in RESERVED
     if keyword:
-        self.tokens.add(self.createToken(RESERVED[text], Value(kind: ValueTypes.OBJECT, obj: Obj(kind: ObjectTypes.STRING, str: text))))
+        self.tokens.add(self.createToken(RESERVED[text], Value(kind: ValueTypes.OBJECT, obj: newString(text))))
     else:
-        self.tokens.add(self.createToken(ID, Value(kind: ValueTypes.OBJECT, obj: Obj(kind:ObjectTypes.STRING, str: text))))
+        self.tokens.add(self.createToken(ID, Value(kind: ValueTypes.OBJECT, obj: newString(text))))
 
 
 proc parseComment(self: var Lexer) =
@@ -174,17 +174,17 @@ proc scanToken(self: var Lexer) =
         elif single == '/' and self.match('*'):
             self.parseComment()
         elif single == '=' and self.match('='):
-            self.tokens.add(self.createToken(DEQ, Value(kind: ValueTypes.OBJECT, obj: Obj(kind: ObjectTypes.STRING, str: "=="))))
+            self.tokens.add(self.createToken(DEQ, Value(kind: ValueTypes.OBJECT, obj: newString("=="))))
         elif single == '>' and self.match('='):
-            self.tokens.add(self.createToken(GE, Value(kind: ValueTypes.OBJECT, obj: Obj(kind: ObjectTypes.STRING, str: ">="))))
+            self.tokens.add(self.createToken(GE, Value(kind: ValueTypes.OBJECT, obj: newString(">="))))
         elif single == '<' and self.match('='):
-            self.tokens.add(self.createToken(LE, Value(kind: ValueTypes.OBJECT, obj: Obj(kind: ObjectTypes.STRING, str: "<="))))
+            self.tokens.add(self.createToken(LE, Value(kind: ValueTypes.OBJECT, obj: newString("<="))))
         elif single == '!' and self.match('='):
-            self.tokens.add(self.createToken(NE, Value(kind: ValueTypes.OBJECT, obj: Obj(kind: ObjectTypes.STRING, str: "!="))))
+            self.tokens.add(self.createToken(NE, Value(kind: ValueTypes.OBJECT, obj: newString("!="))))
         elif single == '*' and self.match('*'):
-            self.tokens.add(self.createToken(POW, Value(kind: ValueTypes.OBJECT, obj: Obj(kind: ObjectTypes.STRING, str: "**"))))
+            self.tokens.add(self.createToken(POW, Value(kind: ValueTypes.OBJECT, obj: newString("**"))))
         else:
-            self.tokens.add(self.createToken(TOKENS[single], Value(kind: ValueTypes.OBJECT, obj: Obj(kind: ObjectTypes.STRING, str: &"{single}"))))
+            self.tokens.add(self.createToken(TOKENS[single], Value(kind: ValueTypes.OBJECT, obj: newString(&"{single}"))))
     else:
         self.errored = true
         echo &"SyntaxError: Unexpected character '{single}' at {self.line}"

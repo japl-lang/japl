@@ -4,19 +4,20 @@
 # the future, when a proper custom GC is in place, the implementation
 # will shift towards an array of characters
 import objecttype
-import strutils
+import ../memory
 
 
 type String* = ref object of Obj
-    str*: string
+    str*: ptr UncheckedArray[char]
+    len*: int
 
 
 method stringify*(s: String): string =
-    result = strutils.escape(s.str)
+    result = ""
 
 
 method isFalsey*(s: String): bool =
-    result = len(s.str) == 0
+    result = s.len == 0
 
 
 method valuesEqual*(a: String, b: String): bool =
@@ -26,6 +27,9 @@ method valuesEqual*(a: String, b: String): bool =
         result = a.str == b.str
 
 
-func newString*(str: string): String =
-    result = String(kind: STRING, str: str)
-
+proc newString*(str: string): String =
+    var strObj = allocateObj(String, ObjectTypes.STRING)
+    strObj.str = cast[ptr UncheckedArray[char]](reallocate(nil, 0, sizeof(char) * len(str)))
+    strObj.len = len(str)
+    for i in 0..len(str) - 1:
+        strObj.str[i] = str[i]

@@ -1,21 +1,25 @@
 import objecttype
+import stringtype
+
 
 type JAPLException* = ref object of Obj
-
+    errName*: String
+    message*: String
 
 
 func newTypeError*(message: string): JAPLException =
-    result = JAPLException(kind: ObjectTypes.EXCEPTION, errName: Obj(kind: STRING, str: "TypeError"), message: Obj(kind: ObjectTypes.STRING, str: message))
+    result = JAPLException(kind: ObjectTypes.EXCEPTION, errName: newString("TypeError"), message: newString(message))
 
 
 func newIndexError*(message: string): JAPLException =
-    result = JAPLException(kind: ObjectTypes.EXCEPTION, errName: Obj(kind: STRING, str: "IndexError"), message: Obj(kind: ObjectTypes.STRING, str: message))
+    result = JAPLException(kind: ObjectTypes.EXCEPTION, errName: newString("IndexError"), message: newString(message))
 
 
 func newReferenceError*(message: string): JAPLException =
-    result = JAPLException(kind: ObjectTypes.EXCEPTION, errName: Obj(kind: STRING, str: "ReferenceError"), message: Obj(kind: STRING, str: message))
+    result = JAPLException(kind: ObjectTypes.EXCEPTION, errName: newString("ReferenceError"), message: newString(message))
 
 
 func newInterruptedError*(message: string): JAPLException =
-    result = JAPLException(kind: ObjectTypes.EXCEPTION, errName: Obj(kind: STRING, str: "InterruptedError"), message: Obj(kind: STRING, str: message))
+    result = JAPLException(kind: ObjectTypes.EXCEPTION, errName: newString("InterruptedError"), message: newString(message))
+
 

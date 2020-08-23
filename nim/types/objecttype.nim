@@ -19,9 +19,17 @@ func objType*(obj: Obj): ObjectTypes =
     return obj.kind
 
 
-method stringify(obj: Obj): string =
+method stringify*(obj: Obj): string {.base.} =
     result = "<object (built-in type)>"
 
 
-method typeName(obj: Obj): string =
-    result = &"<class '{obj.kind.toLowerAscii()}'>"
+method typeName*(obj: Obj): string {.base.} =
+    result = &"<class '{($obj.kind).toLowerAscii()}'>"
+
+
+method isFalsey*(obj: Obj): bool {.base.} =
+    result = false
+
+
+method valuesEqual*(a: Obj, b: Obj): bool {.base.} =
+    result = a.kind == b.kind
