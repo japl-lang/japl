@@ -105,7 +105,7 @@ proc parseString(self: var Lexer, delimiter: char) =
         echo &"SyntaxError: Unterminated string literal at line {self.line}"
         self.errored = true
     discard self.step()
-    let value = Value(kind: ValueTypes.OBJECT, obj: newString(self.source[self.start..<self.current])) # Get the value between quotes
+    let value = self.source[self.start..<self.current].asStr() # Get the value between quotes
     let token = self.createToken(STR, value)
     self.tokens.add(token)
 
@@ -118,10 +118,10 @@ proc parseNumber(self: var Lexer) =
             discard self.step()
             while self.peek().isDigit():
                 discard self.step()
-            var value = Value(kind: ValueTypes.DOUBLE, floatValue: parseFloat(self.source[self.start..<self.current]))
+            var value = parseFloat(self.source[self.start..<self.current]).asFloat()
             self.tokens.add(self.createToken(TokenType.NUMBER, value))
         else:
-            var value = Value(kind: ValueTypes.INTEGER, intValue: parseInt(self.source[self.start..<self.current]))
+            var value = parseInt(self.source[self.start..<self.current]).asInt()
             self.tokens.add(self.createToken(TokenType.NUMBER, value))
     except ValueError:
         echo "OverflowError: integer is too big"
@@ -134,9 +134,9 @@ proc parseIdentifier(self: var Lexer) =
     var text: string = self.source[self.start..<self.current]
     var keyword = text in RESERVED
     if keyword:
-        self.tokens.add(self.createToken(RESERVED[text], Value(kind: ValueTypes.OBJECT, obj: newString(text))))
+        self.tokens.add(self.createToken(RESERVED[text], text.asStr()))
     else:
-        self.tokens.add(self.createToken(ID, Value(kind: ValueTypes.OBJECT, obj: newString(text))))
+        self.tokens.add(self.createToken(ID, text.asStr()))
 
 
 proc parseComment(self: var Lexer) =
@@ -177,17 +177,17 @@ proc scanToken(self: var Lexer) =
         elif single == '/' and self.match('*'):
             self.parseComment()
         elif single == '=' and self.match('='):
-            self.tokens.add(self.createToken(DEQ, Value(kind: ValueTypes.OBJECT, obj: newString("=="))))
+            self.tokens.add(self.createToken(DEQ, "==".asStr()))
         elif single == '>' and self.match('='):
-            self.tokens.add(self.createToken(GE, Value(kind: ValueTypes.OBJECT, obj: newString(">="))))
+            self.tokens.add(self.createToken(GE, ">=".asStr()))
         elif single == '<' and self.match('='):
-            self.tokens.add(self.createToken(LE, Value(kind: ValueTypes.OBJECT, obj: newString("<="))))
+            self.tokens.add(self.createToken(LE, "<=".asStr()))
         elif single == '!' and self.match('='):
-            self.tokens.add(self.createToken(NE, Value(kind: ValueTypes.OBJECT, obj: newString("!="))))
+            self.tokens.add(self.createToken(NE, "!=".asStr()))
         elif single == '*' and self.match('*'):
-            self.tokens.add(self.createToken(POW, Value(kind: ValueTypes.OBJECT, obj: newString("**"))))
+            self.tokens.add(self.createToken(POW, "**".asStr()))
         else:
-            self.tokens.add(self.createToken(TOKENS[single], Value(kind: ValueTypes.OBJECT, obj: newString(&"{single}"))))
+            self.tokens.add(self.createToken(TOKENS[single], asStr(&"{single}")))
     else:
         self.errored = true
         echo &"SyntaxError: Unexpected character '{single}' at line {self.line}"

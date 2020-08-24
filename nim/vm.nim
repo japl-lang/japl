@@ -73,7 +73,10 @@ proc slice(self: VM): bool =
                         self.error(newTypeError("string indeces must be integers"))
                         return false
                     elif idx.toInt() < 0:
-                        idx.intValue = (len(str) - 1) - (-idx.toInt())
+                        idx.intValue = len(str) + idx.toInt()
+                        if idx.toInt() < 0:
+                            self.error(newIndexError("string index out of bounds"))
+                            return false
                     if idx.toInt() - 1 > len(str) - 1:
                         self.error(newIndexError("string index out of bounds"))
                         return false
@@ -101,14 +104,24 @@ proc sliceRange(self: VM): bool =
                         sliceEnd = Value(kind: INTEGER, intValue: len(str))
                     if sliceStart.isNil():
                         sliceStart = Value(kind: INTEGER, intValue: 0)
-                    if not sliceStart.isInt() or not sliceEnd.isInt():
+                    elif not sliceStart.isInt() or not sliceEnd.isInt():
                         self.error(newTypeError("string indeces must be integers"))
                         return false
-                    elif sliceStart.toInt() - 1 > len(str) - 1 or sliceEnd.toInt() - 1 > len(str) - 1:
+                    elif sliceStart.toInt() < 0:
+                        sliceStart.intValue = len(str) + sliceStart.toInt()
+                        if sliceStart.toInt() < 0:
+                            self.error(newIndexError("string index out of bounds"))
+                            return false
+                    if sliceEnd.toInt() < 0:
+                        sliceEnd.intValue = len(str) + sliceEnd.toInt()
+                        if sliceEnd.toInt() < 0:
+                            self.error(newIndexError("string index out of bounds"))
+                            return false
+                    if sliceStart.toInt() - 1 > len(str) - 1 or sliceEnd.toInt() - 1 > len(str) - 1:
                         self.error(newIndexError("string index out of bounds"))
                         return false
-                    elif sliceStart.toInt() < 0 or sliceEnd.toInt() < 0:
-                        self.error(newIndexError("string index out of bounds"))
+                    elif sliceStart.toInt() > sliceEnd.toInt():
+                        self.error(newIndexError("the start index can't be bigger than the end index"))
                         return false
                     self.push(Value(kind: OBJECT, obj: newString(str[sliceStart.toInt()..<sliceEnd.toInt()])))
                     return true

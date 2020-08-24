@@ -110,6 +110,10 @@ func asBool*(b: bool): Value =
     result = Value(kind: BOOL, boolValue: b)
 
 
+proc asStr*(s: string): Value =
+    result = Value(kind: OBJECT, obj: newString(s))
+
+
 func stringify*(value: Value): string =
     case value.kind:
         of INTEGER:
