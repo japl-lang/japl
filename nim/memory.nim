@@ -26,7 +26,7 @@ template freeArray*(kind: untyped, pointer: ptr, oldCount: int): untyped =
     reallocate(pointer, syzeof(kind) * oldCount, 0)
 
 
-template growCapacity*(cap: int): untyped =
+template growCapacity*(capacity: int): untyped =
     if capacity < 8:
         8
     else:

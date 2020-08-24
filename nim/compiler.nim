@@ -32,6 +32,7 @@ type
 
     Precedence = enum
         PREC_NONE,
+        PREC_SLICE,
         PREC_ASSIGNMENT,
         PREC_OR,
         PREC_AND,
@@ -166,7 +167,7 @@ proc parsePrecedence(self: Compiler, precedence: Precedence) =
 
 
 proc expression(self: Compiler) =
-    self.parsePrecedence(PREC_ASSIGNMENT)
+    self.parsePrecedence(PREC_SLICE)
 
 
 proc binary(self: Compiler, canAssign: bool) =
@@ -225,6 +226,10 @@ proc strVal(self: Compiler, canAssign: bool) =
     self.emitConstant(Value(kind: OBJECT, obj: newString(str)))
 
 
+proc bracketAssign(self: Compiler, canAssign: bool) =
+    discard # TODO -> Implement this
+
+
 proc bracket(self: Compiler, canAssign: bool) =
     if self.parser.peek.kind == COLON:
         self.emitByte(OP_NIL)
@@ -245,6 +250,9 @@ proc bracket(self: Compiler, canAssign: bool) =
             else:
                 self.parsePrecedence(PREC_TERM)
             self.emitByte(OP_SLICE_RANGE)
+    if self.parser.peek.kind == EQ:
+        discard self.parser.advance()
+        self.parsePrecedence(PREC_TERM)
     self.parser.consume(TokenType.RS, "Expecting ']' after slice expression")
 
 
@@ -602,7 +610,6 @@ proc parseBreak(self: Compiler) =
             self.emitByte(OP_POP)
             i -= 1
         discard self.emitJump(OP_BREAK)
-        # What to do here?
 
 proc parseAnd(self: Compiler, canAssign: bool) =
     var jump = self.emitJump(OP_JUMP_IF_FALSE)
@@ -618,7 +625,6 @@ proc parseOr(self: Compiler, canAssign: bool) =
     self.emitByte(OP_POP)
     self.parsePrecedence(PREC_OR)
     self.patchJump(endJump)
-
 
 
 proc continueStatement(self: Compiler) =
@@ -654,7 +660,6 @@ proc statement(self: Compiler) =
         self.expressionStatement()
 
 
-
 proc declaration(self: Compiler) =
     self.statement()
     if self.parser.panicMode:
@@ -678,7 +683,7 @@ var rules: array[TokenType, ParseRule] = [
     makeRule(nil, binary, PREC_COMPARISON), # GT
     makeRule(grouping, nil, PREC_NONE), # LP
     makeRule(nil, nil, PREC_NONE), # RP
-    makeRule(nil, bracket, PREC_CALL), # LS
+    makeRule(bracketAssign, bracket, PREC_SLICE), # LS
     makeRule(nil, nil, PREC_NONE), # LB
     makeRule(nil, nil, PREC_NONE), # RB
     makeRule(nil, nil, PREC_NONE), # COMMA

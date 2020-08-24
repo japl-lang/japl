@@ -1,14 +1,14 @@
-# This module implements the interface for strings in JAPL.ob
-# Strings are natively utf-8 encoded, and for now we are using
-# Nim's own garbage collected string type to represent them. In
-# the future, when a proper custom GC is in place, the implementation
-# will shift towards an array of characters
+# This module implements the interface for strings in JAPL.
+# Strings are manually-allocated arrays of characters, and are
+# therefore immutable from the user's perspective. They are
+# natively ASCII encoded, but soon they will support for unicode.
+
 import objecttype
 import ../memory
 
 
 type String* = ref object of Obj
-    str*: ptr UncheckedArray[char]
+    str*: ptr UncheckedArray[char]  #TODO -> Maybe ptr UncheckedArray[array[4, char]]?
     len*: int
 
 
@@ -29,6 +29,7 @@ method valuesEqual*(a: String, b: String): bool =
 
 
 proc newString*(str: string): String =
+    # TODO -> Unicode
     result = String()
     var arrStr = cast[ptr UncheckedArray[char]](reallocate(nil, 0, sizeof(char) * len(str)))
     var length = len(str)
