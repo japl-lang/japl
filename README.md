@@ -16,7 +16,7 @@ at [this](https://craftinginterpreters.com) link, where he describes the impleme
 
 - Possibility to delete variables with the `del` statement
 - `break` statement
-- `continue` statement (__Coming Soon__)
+- `continue` statement
 - multi-line comments
 - Nested comments
 - Generators (__Coming soon__)
@@ -24,6 +24,10 @@ at [this](https://craftinginterpreters.com) link, where he describes the impleme
 - Modulo division (`%`) and exponentiation (`**`)
 - `OP_CONSTANT_LONG` OpCode is implemented
 - Differentiation between integers and floating point numbers
+- Possibility to have more than 255 locals in scope at any given time
+- String slicing, with start:end syntax as well
+- All entities are actually objects (even builtins) 
+
 
 
 Other than that, JAPL features closures, function definitions, classes, inheritance and static scoping. You can check
