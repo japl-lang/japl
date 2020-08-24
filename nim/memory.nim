@@ -23,7 +23,7 @@ template resizeArray*(kind: untyped, pointer: pointer, oldCount, newCount: int):
 
 
 template freeArray*(kind: untyped, pointer: ptr, oldCount: int): untyped =
-    reallocate(pointer, syzeof(kind) * oldCount, 0)
+    reallocate(pointer, sizeof(kind) * oldCount, 0)
 
 
 template growCapacity*(capacity: int): untyped =

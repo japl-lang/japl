@@ -28,6 +28,16 @@ method valuesEqual*(a: String, b: String): bool =
     return true
 
 
+method hash*(self: String): uint32 =
+    var result: uint32 = 2166136261u32
+    var i = 0
+    while i < self.len:
+        result = result xor uint32 self.str[i]
+        result *= 16777619
+        i += 1
+    return result
+
+
 proc newString*(str: string): String =
     # TODO -> Unicode
     result = String()
@@ -37,6 +47,7 @@ proc newString*(str: string): String =
         arrStr[i] = str[i]
     result.str = arrStr
     result.len = length
+    result.hashValue = result.hash()
 
 
 proc typeName*(s: String): string =

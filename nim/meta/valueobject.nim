@@ -163,3 +163,30 @@ proc valuesEqual*(a: Value, b: Value): bool =
                         result = valuesEqual(a, b)
                     else:
                         result = valuesEqual(a.obj, b.obj)
+
+proc hashFloat(f: float): uint32 =
+    result = 2166136261u32
+    result = result xor uint32 f
+    result *= 16777619
+    return result
+
+
+proc hash*(value: Value): uint32 =
+    case value.kind:
+        of INTEGER:
+            result = uint32 value.toInt()
+        of BOOL:
+            if value.boolValue:
+                result = uint32 1
+            else:
+                result = uint32 0
+        of DOUBLE:
+            result = hashFloat(value.toFloat())
+        of OBJECT:
+            case value.obj.kind:
+                of ObjectTypes.STRING:
+                    result = hash(cast[String](value.obj))
+                else:
+                    result = hash(value.obj)
+        else:   # More coming soon
+            result = uint32 0

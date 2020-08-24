@@ -11,6 +11,7 @@ type
         CLASS, MODULE
     Obj* = ref object of RootObj
         kind*: ObjectTypes
+        hashValue*: uint32
 
 
 func objType*(obj: Obj): ObjectTypes =
@@ -31,3 +32,8 @@ method isFalsey*(obj: Obj): bool {.base.} =
 
 method valuesEqual*(a: Obj, b: Obj): bool {.base.} =
     result = a.kind == b.kind
+
+
+method hash*(self: Obj): uint32 =
+    result = 2166136261u32
+    # Add more
