@@ -7,28 +7,20 @@ import objecttype
 import ../memory
 
 
-type String* = ref object of Obj
+type String* = object of Obj
     str*: ptr UncheckedArray[char]  #TODO -> Maybe ptr UncheckedArray[array[4, char]]?
     len*: int
 
 
-method stringify*(s: String): string =
-    result = $s.str
+proc stringify*(s: String): string =
+    result = "\"" & $s.str & "\""
 
 
-method isFalsey*(s: String): bool =
+proc isFalsey*(s: String): bool =
     result = s.len == 0
 
-method valuesEqual*(a: String, b: String): bool =
-    if a.len != b.len:
-        return false
-    for i in 0..a.len - 1:
-        if a.str[i] != b.str[i]:
-            return false
-    return true
 
-
-method hash*(self: String): uint32 =
+proc hash*(self: String): uint32 =
     var result: uint32 = 2166136261u32
     var i = 0
     while i < self.len:
@@ -38,16 +30,27 @@ method hash*(self: String): uint32 =
     return result
 
 
-proc newString*(str: string): String =
+proc valuesEqual*(a: String, b: String): bool =
+    if a.len != b.len:
+        return false
+    elif a.hash != b.hash:
+        return false
+    for i in 0..a.len - 1:
+        if a.str[i] != b.str[i]:
+            return false
+    return true
+
+
+
+proc newString*(str: string): ptr String =
     # TODO -> Unicode
-    result = String()
+    result = cast[ptr String](allocateObject(sizeof String, ObjectTypes.STRING))
     var arrStr = cast[ptr UncheckedArray[char]](reallocate(nil, 0, sizeof(char) * len(str)))
-    var length = len(str)
     for i in 0..len(str) - 1:
         arrStr[i] = str[i]
     result.str = arrStr
-    result.len = length
-    result.hashValue = result.hash()
+    result.len = len(str)
+    result.hashValue = result[].hash()
 
 
 proc typeName*(s: String): string =

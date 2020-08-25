@@ -9,7 +9,7 @@ type
     ObjectTypes* = enum
         STRING, EXCEPTION, FUNCTION,
         CLASS, MODULE
-    Obj* = ref object of RootObj
+    Obj* = object of RootObj
         kind*: ObjectTypes
         hashValue*: uint32
 
@@ -18,22 +18,22 @@ func objType*(obj: Obj): ObjectTypes =
     return obj.kind
 
 
-method stringify*(obj: Obj): string {.base.} =
+proc stringify*(obj: Obj): string   =
     result = "<object (built-in type)>"
 
 
-method typeName*(obj: Obj): string {.base.} =
+proc typeName*(obj: Obj): string   =
     result = "object"
 
 
-method isFalsey*(obj: Obj): bool {.base.} =
+proc isFalsey*(obj: Obj): bool   =
     result = false
 
 
-method valuesEqual*(a: Obj, b: Obj): bool {.base.} =
+proc valuesEqual*(a: Obj, b: Obj): bool   =
     result = a.kind == b.kind
 
 
-method hash*(self: Obj): uint32 =
+proc hash*(self: Obj): uint32 =
     result = 2166136261u32
     # Add more

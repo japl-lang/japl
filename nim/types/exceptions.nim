@@ -4,8 +4,8 @@ import strformat
 
 
 type JAPLException* = ref object of Obj
-    errName*: String
-    message*: String
+    errName*: ptr String
+    message*: ptr String
 
 
 proc stringify*(self: JAPLException): string =

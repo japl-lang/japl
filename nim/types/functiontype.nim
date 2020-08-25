@@ -12,8 +12,8 @@ import ../meta/chunk
 import strformat
 
 
-type Function* = ref object of Obj
-    name*: String
+type Function* = object of Obj
+    name*: ptr String
     arity*: int
     chunk*: Chunk
 
@@ -24,13 +24,13 @@ proc newFunction*(name: string = "", chunk: Chunk = initChunk(), arity: int = 0)
     result.chunk = chunk
 
 
-method isFalsey*(fn: Function): bool =
+proc isFalsey*(fn: Function): bool =
     return false
 
 
-method stringify*(fn: Function): string =
-    result = &"<function object '{stringify(fn.name)}' (built-in type)>"
+proc stringify*(fn: Function): string =
+    result = &"<function object '{stringify(fn.name[])}' (built-in type)>"
 
 
-method valuesEqual*(a, b: Function): bool =
+proc valuesEqual*(a, b: Function): bool =
     result = a.name == b.name

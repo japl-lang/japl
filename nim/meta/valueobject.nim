@@ -25,7 +25,7 @@ type
             of NIL:
                 discard
             of OBJECT:
-                obj*: Obj
+                obj*: ptr Obj
     ValueArray* = ref object
         values*: seq[Value]
 
@@ -84,17 +84,16 @@ func typeName*(value: Value): string =
         of OBJECT:
             case value.obj.kind:
                 of ObjectTypes.STRING:
-                    result = cast[String](value.obj).typeName()
+                    result = cast[ptr String](value.obj)[].typeName()
                 else:
-                    result = value.obj.typeName()
+                    result = value.obj[].typeName()
 
 
 func toStr*(value: Value): string =
-    var strObj = cast[String](value.obj)
+    var strObj = cast[ptr String](value.obj)
     var c = ""
-    result = ""
-    for i in 0..strObj.str.len - 1:
-        c = &"{strObj.str[i]}"
+    for i in 0..strObj[].str.len - 1:
+        c = &"{strObj[].str[i]}"
         result = result & c
 
 
@@ -114,7 +113,7 @@ proc asStr*(s: string): Value =
     result = Value(kind: OBJECT, obj: newString(s))
 
 
-func stringify*(value: Value): string =
+proc stringify*(value: Value): string =
     case value.kind:
         of INTEGER:
             result = $value.toInt()
@@ -125,7 +124,11 @@ func stringify*(value: Value): string =
         of NIL:
             result = "nil"
         of OBJECT:
-            result = stringify(value.obj)
+            case value.obj.kind:
+                of ObjectTypes.STRING:
+                    result = cast[ptr String](value.obj)[].stringify
+                else:
+                    result = "object"
 
 
 func isFalsey*(value: Value): bool =
@@ -133,7 +136,7 @@ func isFalsey*(value: Value): bool =
         of BOOL:
             result = not value.toBool()
         of OBJECT:
-            result = isFalsey(value.obj)
+            result = isFalsey(value.obj[])
         of INTEGER:
             result = value.toInt() == 0
         of DOUBLE:
@@ -158,11 +161,11 @@ proc valuesEqual*(a: Value, b: Value): bool =
             of OBJECT:
                 case a.obj.kind:
                     of ObjectTypes.STRING:
-                        var a = cast[String](a.obj)
-                        var b = cast[String](b.obj)
-                        result = valuesEqual(a, b)
+                        var a = cast[ptr String](a.obj)
+                        var b = cast[ptr String](b.obj)
+                        result = valuesEqual(a[], b[])
                     else:
-                        result = valuesEqual(a.obj, b.obj)
+                        result = valuesEqual(a.obj[], b.obj[])
 
 proc hashFloat(f: float): uint32 =
     result = 2166136261u32
@@ -185,8 +188,8 @@ proc hash*(value: Value): uint32 =
         of OBJECT:
             case value.obj.kind:
                 of ObjectTypes.STRING:
-                    result = hash(cast[String](value.obj))
+                    result = hash(cast[ptr String](value.obj)[])
                 else:
-                    result = hash(value.obj)
+                    result = hash(value.obj[])
         else:   # More coming soon
             result = uint32 0

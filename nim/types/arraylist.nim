@@ -1,6 +1,7 @@
 # WIP - Not working
 
 import ../meta/valueobject
+import objecttype
 import exceptions
 import ../memory
 
@@ -41,15 +42,12 @@ proc newArrayList*(): ArrayList =
     result = ArrayList(size: 0, capacity: 0, container: nil)
 
 
-
 proc `$`*(self: ArrayList): string =
-    result = result & "["
-    var i = self.size
-    var element: Value
+    result = "["
     if self.size > 0:
         for i in 0..self.size:
-            element = self.container[i]
-            result = result & stringify(element)
+            result = result & stringify(self.container[i])
+            result = result & ", "
     result = result & "]"
 
 

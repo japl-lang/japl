@@ -19,7 +19,7 @@ proc reallocate*(pointer: pointer, oldSize: int, newSize: int): pointer =
 
 
 template resizeArray*(kind: untyped, pointer: pointer, oldCount, newCount: int): untyped =
-    cast[kind](reallocate(pointer, sizeof(kind) * oldCount, sizeof(kind) * newCount))
+    cast[ptr kind](reallocate(pointer, sizeof(kind) * oldCount, sizeof(kind) * newCount))
 
 
 template freeArray*(kind: untyped, pointer: ptr, oldCount: int): untyped =
@@ -34,9 +34,8 @@ template growCapacity*(capacity: int): untyped =
 
 
 proc allocateObject*(size: int, kind: ObjectTypes): ptr Obj =
-    var obj = cast[Obj](reallocate(nil, 0, size))
-    obj.kind = kind
-    result = addr obj
+    result = cast[ptr Obj](reallocate(nil, 0, size))
+    result.kind = kind
 
 
 template allocate*(kind: untyped, count: int): untyped =
