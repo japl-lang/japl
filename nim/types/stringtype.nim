@@ -41,14 +41,12 @@ proc valuesEqual*(a: String, b: String): bool =
     return true
 
 
-
 proc newString*(str: string): ptr String =
     # TODO -> Unicode
-    result = cast[ptr String](allocateObject(sizeof String, ObjectTypes.STRING))
-    var arrStr = cast[ptr UncheckedArray[char]](reallocate(nil, 0, sizeof(char) * len(str)))
+    result = allocateObj(String, ObjectTypes.STRING)
+    result.str = allocate(UncheckedArray[char], char, len(str))
     for i in 0..len(str) - 1:
-        arrStr[i] = str[i]
-    result.str = arrStr
+        result.str[i] = str[i]
     result.len = len(str)
     result.hashValue = result[].hash()
 

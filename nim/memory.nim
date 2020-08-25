@@ -38,5 +38,9 @@ proc allocateObject*(size: int, kind: ObjectTypes): ptr Obj =
     result.kind = kind
 
 
-template allocate*(kind: untyped, count: int): untyped =
-    cast[ptr kind](reallocate(nil, 0, sizeof(kind) * count))
+template allocate*(castTo: untyped, sizeTo: untyped, count: int): untyped =
+    cast[ptr castTo](reallocate(nil, 0, sizeof(sizeTo) * count))
+
+
+template allocateObj*(kind: untyped, objType: ObjectTypes): untyped =
+    cast[ptr kind](allocateObject(sizeof kind, objType))

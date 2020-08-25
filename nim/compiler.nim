@@ -32,7 +32,6 @@ type
 
     Precedence = enum
         PREC_NONE,
-        PREC_SLICE,
         PREC_ASSIGNMENT,
         PREC_OR,
         PREC_AND,
@@ -167,7 +166,7 @@ proc parsePrecedence(self: Compiler, precedence: Precedence) =
 
 
 proc expression(self: Compiler) =
-    self.parsePrecedence(PREC_SLICE)
+    self.parsePrecedence(PREC_ASSIGNMENT)
 
 
 proc binary(self: Compiler, canAssign: bool) =
@@ -683,7 +682,7 @@ var rules: array[TokenType, ParseRule] = [
     makeRule(nil, binary, PREC_COMPARISON), # GT
     makeRule(grouping, nil, PREC_NONE), # LP
     makeRule(nil, nil, PREC_NONE), # RP
-    makeRule(bracketAssign, bracket, PREC_SLICE), # LS
+    makeRule(nil, bracket, PREC_CALL), # LS
     makeRule(nil, nil, PREC_NONE), # LB
     makeRule(nil, nil, PREC_NONE), # RB
     makeRule(nil, nil, PREC_NONE), # COMMA

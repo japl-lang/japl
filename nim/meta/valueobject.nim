@@ -128,7 +128,7 @@ proc stringify*(value: Value): string =
                 of ObjectTypes.STRING:
                     result = cast[ptr String](value.obj)[].stringify
                 else:
-                    result = "object"
+                    result = value.obj[].stringify()
 
 
 func isFalsey*(value: Value): bool =
@@ -166,6 +166,7 @@ proc valuesEqual*(a: Value, b: Value): bool =
                         result = valuesEqual(a[], b[])
                     else:
                         result = valuesEqual(a.obj[], b.obj[])
+
 
 proc hashFloat(f: float): uint32 =
     result = 2166136261u32

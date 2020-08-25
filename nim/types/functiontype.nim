@@ -10,6 +10,7 @@ import objecttype
 import stringtype
 import ../meta/chunk
 import strformat
+import ../memory
 
 
 type Function* = object of Obj
@@ -18,7 +19,7 @@ type Function* = object of Obj
     chunk*: Chunk
 
 
-proc newFunction*(name: string = "", chunk: Chunk = initChunk(), arity: int = 0): Function =
+proc newFunction*(name: string = "", chunk: Chunk = initChunk(), arity: int = 0): ptr Function =
     result.name = newString(name)
     result.arity = arity
     result.chunk = chunk
