@@ -10,10 +10,10 @@ import system
 import strutils
 import strformat
 import tables
+import common
 import meta/tokentype
 import meta/tokenobject
 import meta/valueobject
-import types/stringtype
 
 
 const TOKENS = to_table({
@@ -39,15 +39,6 @@ const RESERVED = to_table({
                 "this": TokenType.THIS, "super": TokenType.SUPER,
                 "del": TokenType.DEL, "break": TokenType.BREAK,
                 "continue": TokenType.CONTINUE})
-
-
-type Lexer* = object
-  source: string
-  tokens: seq[Token]
-  line: int
-  start: int
-  current: int
-  errored*: bool
 
 
 proc initLexer*(source: string): Lexer =

@@ -21,7 +21,7 @@ proc isFalsey*(s: String): bool =
 
 
 proc hash*(self: String): uint32 =
-    var result: uint32 = 2166136261u32
+    result = 2166136261u32
     var i = 0
     while i < self.len:
         result = result xor uint32 self.str[i]

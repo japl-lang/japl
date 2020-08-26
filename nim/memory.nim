@@ -8,14 +8,18 @@
 
 
 import types/objecttype
+import segfaults
 
 
 proc reallocate*(pointer: pointer, oldSize: int, newSize: int): pointer =
-    if newSize == 0 and pointer != nil:
-        dealloc(pointer)
-        return nil
-    var res = realloc(pointer, newSize)
-    result = res
+    try:
+        if newSize == 0 and pointer != nil:
+            dealloc(pointer)
+            return nil
+        result = realloc(pointer, newSize)
+    except NilAccessError:
+        echo "MemoryError: could not manage memory, segmentation fault"
+        quit(71)
 
 
 template resizeArray*(kind: untyped, pointer: pointer, oldCount, newCount: int): untyped =

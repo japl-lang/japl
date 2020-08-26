@@ -2,15 +2,15 @@ import strutils
 import strformat
 import math
 import lenientops
-import lists
+import common
 import tables
-import compiler
 import util/debug
 import meta/chunk
 import meta/valueobject
 import types/exceptions
 import types/objecttype
 import types/stringtype
+import compiler
 
 
 proc `**`(a, b: int): int = pow(a.float, b.float).int
@@ -32,36 +32,26 @@ func handleInterrupt() {.noconv.} =
     raise newException(KeyboardInterrupt, "Ctrl+C")
 
 
-type VM = ref object
-    chunk: Chunk
-    ip: int
-    stack*: seq[Value]
-    stackTop*: int
-    objects*: SinglyLinkedList[Obj]  # Unused for now
-    globals*: Table[string, Value]
-    lastPop: Value
-
-
-proc error*(self: VM, error: JAPLException) =
-    echo stringify(error)
+proc error*(self: var VM, error: ptr JAPLException) =
+    echo error.stringify()
     # Add code to raise an exception here
 
 
-proc pop*(self: VM): Value =
+proc pop*(self: var VM): Value =
     result = self.stack.pop()
     self.stackTop = self.stackTop - 1
 
 
-proc push*(self: VM, value: Value) =
+proc push*(self: var VM, value: Value) =
     self.stack.add(value)
     self.stackTop = self.stackTop + 1
 
 
-proc peek*(self: VM, distance: int): Value =
+proc peek*(self: var VM, distance: int): Value =
     return self.stack[len(self.stack) - distance - 1]
 
 
-proc slice(self: VM): bool =
+proc slice(self: var VM): bool =
     var idx = self.pop()
     var peeked = self.pop()
     case peeked.kind:
@@ -91,7 +81,7 @@ proc slice(self: VM): bool =
             return false
 
 
-proc sliceRange(self: VM): bool =
+proc sliceRange(self: var VM): bool =
     var sliceEnd = self.pop()
     var sliceStart = self.pop()
     var popped = self.pop()
@@ -134,7 +124,7 @@ proc sliceRange(self: VM): bool =
             return false
 
 
-proc run(self: VM, debug, repl: bool): InterpretResult =
+proc run(self: var VM, debug, repl: bool): InterpretResult =
     template readByte: untyped =
         inc(self.ip)
         self.chunk.code[self.ip - 1]
@@ -384,33 +374,30 @@ proc run(self: VM, debug, repl: bool): InterpretResult =
                 return OK
 
 
-proc freeVM*(self: VM) =
+proc freeVM*(self: var VM) =
     unsetControlCHook()
 
 
 proc interpret*(self: var VM, source: string, debug: bool = false, repl: bool = false): InterpretResult =
-    var chunk = initChunk()
-    var compiler = initCompiler(chunk)
+    var compiler = initCompiler(self)
     setControlCHook(handleInterrupt)
-    if not compiler.compile(source, chunk) or compiler.parser.hadError:
+    if not compiler.compile(source) or compiler.parser.hadError:
         return COMPILE_ERROR
-    self.chunk = chunk
+    self.chunk = compiler.function.chunk
     self.ip = 0
-    if len(chunk.code) > 1:
+    if len(self.chunk.code) > 1:
         try:
             result = self.run(debug, repl)
         except KeyboardInterrupt:
             self.error(newInterruptedError(""))
             return RUNTIME_ERROR
-    chunk.freeChunk()
+    self.chunk.freeChunk()
     self.freeVM()
 
 
-proc resetStack*(self: VM) =
+proc resetStack*(self: var VM) =
     self.stackTop = 0
 
 
 proc initVM*(): VM =
-    result = VM(chunk: initChunk(), ip: 0, stack: @[], stackTop: 0, objects: initSinglyLinkedList[Obj](), globals: initTable[string, Value](), lastPop: Value(kind: NIL))
-
-
+    result = VM(chunk: initChunk(), ip: 0, stack: @[], stackTop: 0, objects: nil, globals: initTable[string, Value](), lastPop: Value(kind: NIL))

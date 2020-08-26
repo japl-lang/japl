@@ -12,6 +12,7 @@ type
     Obj* = object of RootObj
         kind*: ObjectTypes
         hashValue*: uint32
+        next*: ptr Obj
 
 
 func objType*(obj: Obj): ObjectTypes =

@@ -20,7 +20,8 @@ type Function* = object of Obj
 
 
 proc newFunction*(name: string = "", chunk: Chunk = initChunk(), arity: int = 0): ptr Function =
-    result.name = newString(name)
+    result = allocateObj(Function, ObjectTypes.FUNCTION)
+    result.name = nil
     result.arity = arity
     result.chunk = chunk
 

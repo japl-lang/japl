@@ -51,14 +51,14 @@ proc main(file: string = "", debug: bool = false) =
 
 
 when isMainModule:
-    var parser = initOptParser(commandLineParams())
+    var optParser = initOptParser(commandLineParams())
     var file: string = ""
     var debug: bool = false
     if paramCount() > 0:
         if paramCount() notin 1..<3:
             echo "usage: japl [filename] [--debug]"
             quit()
-    for kind, key, value in parser.getopt():
+    for kind, key, value in optParser.getopt():
         case kind:
             of cmdArgument:
                 file = key
