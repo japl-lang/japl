@@ -2,13 +2,17 @@ import vm
 import strformat
 import parseopt
 import os
+import common
 
 
 proc repl(debug: bool = false) =
     var bytecodeVM = initVM()
-    echo &"[JAPL 0.2.0 - Nim {NimVersion} - {CompileDate} {CompileTime}]"
+    echo &"[JAPL 0.2.0 - on Nim {NimVersion} - {CompileDate} {CompileTime}]"
     if debug:
-        echo "Debug mode is enabled, bytecode will be disassembled"
+        echo "Debugger enabled, expect verbose output\n"
+        echo "==== VM Constants ====\n"
+        echo &"- FRAMES_MAX -> {FRAMES_MAX}\n- STACK_MAX -> {STACK_MAX}\n"
+        echo "==== Code starts ====\n"
     var source: string = ""
     while true:
         try:
@@ -16,11 +20,11 @@ proc repl(debug: bool = false) =
             source = readLine(stdin)
         except IOError:
             echo ""
-            bytecodeVM.freeVM()
+            bytecodeVM.freeVM(debug)
             break
         except KeyboardInterrupt:
             echo ""
-            bytecodeVM.freeVM()
+            bytecodeVM.freeVM(debug)
             break
         if source == "":
             continue
@@ -47,11 +51,14 @@ proc main(file: string = "", debug: bool = false) =
             echo &"Error: '{file}' could not be read, probably you don't have the permission to read it"
         var bytecodeVM = initVM()
         if debug:
-            echo "Debug mode is enabled, bytecode will be disassembled"
+            echo "Debugger enabled, expect verbose output\n"
+            echo "==== VM Constants ====\n"
+            echo &"- FRAMES_MAX -> {FRAMES_MAX}\n- STACK_MAX -> {STACK_MAX}\n"
+            echo "==== Code starts ====\n"
         var result = bytecodeVM.interpret(source, debug)
         if debug:
             echo &"Result: {result}"
-        bytecodeVM.freeVM()
+        bytecodeVM.freeVM(debug)
 
 
 when isMainModule:

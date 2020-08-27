@@ -5,13 +5,13 @@ import strformat
 
 
 proc simpleInstruction(name: string, index: int): int =
-    echo &"\tOpCode at offset: {name}\n"
+    echo &"\tInstruction at IP: {name}\n"
     return index + 1
 
 
 proc byteInstruction(name: string, chunk: Chunk, offset: int): int =
     var slot = chunk.code[offset + 1]
-    echo &"\tOpCode at offset: {name}, points to slot {slot}\n"
+    echo &"\tInstruction at IP: {name}, points to slot {slot}\n"
     return offset + 1
 
 
@@ -20,28 +20,29 @@ proc constantLongInstruction(name: string, chunk: Chunk, offset: int): int =
     var constantArray: array[3, uint8] = [chunk.code[offset + 1], chunk.code[offset + 2], chunk.code[offset + 3]]
     var constant: int
     copyMem(constant.addr, unsafeAddr(constantArray), sizeof(constantArray))
-    echo &"\tOpCode at offset: {name}, points to {constant}"
+    echo &"\tInstruction at IP: {name}, points to slot {constant}"
     let obj = chunk.consts.values[constant]
-    echo &"\tValue: {stringify(obj)}\n\tKind: {obj.kind}\n"
+    echo &"\tOperand: {stringify(obj)}\n\tValue kind: {obj.kind}\n"
     return offset + 4
 
 
 proc constantInstruction(name: string, chunk: Chunk, offset: int): int =
     var constant = chunk.code[offset + 1]
-    echo &"\tOpCode at offset: {name}, points to index {constant}"
+    echo &"\tInstruction at IP: {name}, points to index {constant}"
     let obj = chunk.consts.values[constant]
-    echo &"\tValue: {stringify(obj)}\n\tKind: {obj.kind}\n"
+    echo &"\tOperand: {stringify(obj)}\n\tValue kind: {obj.kind}\n"
     return offset + 2
 
 
 proc jumpInstruction(name: string, chunk: Chunk, offset: int): int =
     var jump = uint16 (chunk.code[offset + 1] shr 8)
     jump = jump or chunk.code[offset + 2]
-    echo &"\tOpCode at offset: {name}\n\tJump size: {jump}\n"
+    echo &"\tInstruction at IP: {name}\n\tJump offset: {jump}\n"
     return offset + 3
 
+
 proc disassembleInstruction*(chunk: Chunk, offset: int): int =
-    echo &"Current offset: {offset}\nCurrent line: {chunk.lines[offset]}"
+    echo &"Current IP position: {offset}\nCurrent line: {chunk.lines[offset]}"
     var opcode = OpCode(chunk.code[offset])
     if opcode == OP_RETURN:
         result = simpleInstruction("OP_RETURN", offset)

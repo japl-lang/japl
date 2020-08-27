@@ -716,6 +716,7 @@ proc compile*(self: var Compiler, source: string): ptr Function =
     else:
         return nil
 
+
 proc initCompiler*(vm: var VM, context: FunctionType): Compiler =
     result = Compiler(parser: initParser(@[]), function: nil, locals: @[], scopeDepth: 0, localCount: 0, loop: Loop(alive: false, loopEnd: -1), vm: vm, context: context)
     result.locals.add(Local(depth: 0, name: Token(kind: EOF, lexeme: "")))

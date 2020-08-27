@@ -51,3 +51,7 @@ type
 
 proc initParser*(tokens: seq[Token]): Parser =
     result = Parser(current: 0, tokens: tokens, hadError: false, panicMode: false)
+
+
+const FRAMES_MAX* = 256
+const STACK_MAX* = FRAMES_MAX * int uint8.high

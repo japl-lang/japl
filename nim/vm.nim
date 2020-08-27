@@ -382,33 +382,42 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                 return OK
 
 
-proc freeObject(obj: ptr Obj) =
+proc freeObject(obj: ptr Obj, debug: bool) =
     case obj.kind:
         of ObjectTypes.STRING:
             var str = cast[ptr String](obj)
+            if debug:
+                echo &"Freeing string object with value '{stringify(str[])}' of length {str.len}"
             discard freeArray(char, str.str, str.len)
             discard free(ObjectTypes.STRING, obj)
         of ObjectTypes.FUNCTION:
             var fun = cast[ptr Function](obj)
+            echo "Freeing function object with value '{stringify(fun[])}'"
             fun.chunk.freeChunk()
             discard free(ObjectTypes.FUNCTION, fun)
         else:
             discard
 
 
-proc freeObjects(self: var VM) =
+proc freeObjects(self: var VM, debug: bool) =
     var obj = self.objects
     var next: ptr Obj
+    var i = 0
     while obj != nil:
         next = obj[].next
-        freeObject(obj)
+        freeObject(obj, debug)
+        i += 1
         obj = next
+    if debug:
+        echo &"Freed {i} objects"
 
 
-proc freeVM*(self: var VM) =
+proc freeVM*(self: var VM, debug: bool) =
+    if debug:
+        echo "\nFreeing all allocated memory before exiting"
     unsetControlCHook()
     try:
-        self.freeObjects()
+        self.freeObjects(debug)
     except NilAccessError:
         echo "MemoryError: could not manage memory, exiting"
         quit(71)
@@ -427,8 +436,6 @@ proc interpret*(self: var VM, source: string, debug: bool = false, repl: bool = 
         except KeyboardInterrupt:
             self.error(newInterruptedError(""))
             return RUNTIME_ERROR
-    self.chunk.freeChunk()
-    self.freeVM()
 
 
 proc resetStack*(self: var VM) =
