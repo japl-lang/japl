@@ -115,8 +115,9 @@ proc statement(self: var Compiler)
 proc declaration(self: var Compiler)
 
 
-proc endCompiler(self: var Compiler) =
+proc endCompiler(self: var Compiler): ptr Function =
     self.emitByte(OP_RETURN)
+    return self.function
 
 
 proc parsePrecedence(self: var Compiler, precedence: Precedence) =
@@ -193,11 +194,17 @@ proc unary(self: var Compiler, canAssign: bool) =
             return
 
 
+template markObject*(self, obj: untyped): untyped =
+    obj.next = self.vm.objects
+    self.vm.objects = obj
+    obj
+
+
 proc strVal(self: var Compiler, canAssign: bool) =
     var str = self.parser.previous().lexeme
     var delimiter = &"{str[0]}"
     str = str.unescape(delimiter, delimiter)
-    self.emitConstant(Value(kind: OBJECT, obj: newString(str)))
+    self.emitConstant(Value(kind: OBJECT, obj: self.markObject(newString(str))))
 
 
 proc bracketAssign(self: var Compiler, canAssign: bool) =
@@ -271,11 +278,11 @@ proc synchronize(self: var Compiler) =
 
 
 proc identifierConstant(self: var Compiler, tok: Token): uint8 =
-    return self.makeConstant(Value(kind: OBJECT, obj: newString(tok.lexeme)))
+    return self.makeConstant(Value(kind: OBJECT, obj: self.markObject(newString(tok.lexeme))))
 
 
 proc identifierLongConstant(self: var Compiler, tok: Token): array[3, uint8] =
-    return self.makeLongConstant(Value(kind: OBJECT, obj: newString(tok.lexeme)))
+    return self.makeLongConstant(Value(kind: OBJECT, obj: self.markObject(newString(tok.lexeme))))
 
 
 proc addLocal(self: var Compiler, name: Token) =
@@ -694,12 +701,22 @@ proc getRule(kind: TokenType): ParseRule =
     result = rules[kind]
 
 
-proc compile*(self: var Compiler, source: string): bool =
+proc compile*(self: var Compiler, source: string): ptr Function =
     var scanner = initLexer(source)
     var tokens = scanner.lex()
     if len(tokens) > 1 and not scanner.errored:
         self.parser = initParser(tokens)
         while not self.parser.match(EOF):
             self.declaration()
-        self.endCompiler()
-    return not self.parser.hadError
+        var function = self.endCompiler()
+        if not self.parser.hadError:
+            return function
+        else:
+            return nil
+    else:
+        return nil
+
+proc initCompiler*(vm: var VM, context: FunctionType): Compiler =
+    result = Compiler(parser: initParser(@[]), function: nil, locals: @[], scopeDepth: 0, localCount: 0, loop: Loop(alive: false, loopEnd: -1), vm: vm, context: context)
+    result.locals.add(Local(depth: 0, name: Token(kind: EOF, lexeme: "")))
+    result.function = result.markObject(newFunction())

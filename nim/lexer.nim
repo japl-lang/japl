@@ -10,7 +10,6 @@ import system
 import strutils
 import strformat
 import tables
-import common
 import meta/tokentype
 import meta/tokenobject
 import meta/valueobject
@@ -39,9 +38,17 @@ const RESERVED = to_table({
                 "this": TokenType.THIS, "super": TokenType.SUPER,
                 "del": TokenType.DEL, "break": TokenType.BREAK,
                 "continue": TokenType.CONTINUE})
+type
+    Lexer* = ref object
+        source*: string
+        tokens*: seq[Token]
+        line*: int
+        start*: int
+        current*: int
+        errored*: bool
 
 
-proc initLexer*(source: string): Lexer =
+func initLexer*(source: string): Lexer =
   result = Lexer(source: source, tokens: @[], line: 1, start: 0, current: 0, errored: false)
 
 

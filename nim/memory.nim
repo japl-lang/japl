@@ -7,8 +7,9 @@
 # and some parts of the Virtual Machine) will use nim's GC
 
 
-import types/objecttype
 import segfaults
+import types/objecttype
+import common
 
 
 proc reallocate*(pointer: pointer, oldSize: int, newSize: int): pointer =
@@ -26,8 +27,12 @@ template resizeArray*(kind: untyped, pointer: pointer, oldCount, newCount: int):
     cast[ptr kind](reallocate(pointer, sizeof(kind) * oldCount, sizeof(kind) * newCount))
 
 
-template freeArray*(kind: untyped, pointer: ptr, oldCount: int): untyped =
+template freeArray*(kind: untyped, pointer: pointer, oldCount: int): untyped =
     reallocate(pointer, sizeof(kind) * oldCount, 0)
+
+
+template free*(kind: untyped, pointer: pointer): untyped =
+    reallocate(pointer, sizeof(kind), 0)
 
 
 template growCapacity*(capacity: int): untyped =
@@ -37,13 +42,14 @@ template growCapacity*(capacity: int): untyped =
         capacity * 2
 
 
+template allocate*(castTo: untyped, sizeTo: untyped, count: int): untyped =
+    cast[ptr castTo](reallocate(nil, 0, sizeof(sizeTo) * count))
+
+
 proc allocateObject*(size: int, kind: ObjectTypes): ptr Obj =
     result = cast[ptr Obj](reallocate(nil, 0, size))
     result.kind = kind
 
-
-template allocate*(castTo: untyped, sizeTo: untyped, count: int): untyped =
-    cast[ptr castTo](reallocate(nil, 0, sizeof(sizeTo) * count))
 
 
 template allocateObj*(kind: untyped, objType: ObjectTypes): untyped =

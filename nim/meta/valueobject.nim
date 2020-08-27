@@ -1,10 +1,10 @@
 # This module represents the generic interface that JAPL uses internally
 # to represent types. Small-sized entities such as numbers and booleans are
 # treated differently with respect to bigger and more complex ones such as
-# strings and functions. That is because, at least when we have our own GC,
-# those more complex entities will be allocated on the heap, while the simpler
-# ones will live on the stack
+# strings and functions. That is because those more comolex entities are
+# allocated on the heap, while the simpler ones live on the stack
 
+# import ../types/functiontype
 import ../types/objecttype
 import ../types/stringtype
 import strformat
@@ -14,7 +14,7 @@ import strutils
 type
     ValueTypes* = enum   # All possible value types (this is the VM's notion of 'type', not the end user's)
         INTEGER, DOUBLE, BOOL, NIL, OBJECT
-    Value* = ref object
+    Value* = object
         case kind*: ValueTypes
             of INTEGER:
                 intValue*: int
@@ -26,6 +26,7 @@ type
                 discard
             of OBJECT:
                 obj*: ptr Obj
+
     ValueArray* = ref object
         values*: seq[Value]
 
@@ -64,6 +65,7 @@ func isObj*(value: Value): bool =
 
 func isStr*(value: Value): bool =
     result = isObj(value) and value.obj.kind == ObjectTypes.STRING
+
 
 func toBool*(value: Value): bool =
     result = value.boolValue
@@ -109,11 +111,12 @@ func asBool*(b: bool): Value =
     result = Value(kind: BOOL, boolValue: b)
 
 
+
 proc asStr*(s: string): Value =
     result = Value(kind: OBJECT, obj: newString(s))
 
 
-proc stringify*(value: Value): string =
+func stringify*(value: Value): string =
     case value.kind:
         of INTEGER:
             result = $value.toInt()

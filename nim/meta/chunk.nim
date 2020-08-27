@@ -1,6 +1,7 @@
 import valueobject
 
 
+
 type
     OpCode* = enum
         OP_CONSTANT = 0u8,
@@ -68,3 +69,4 @@ proc addConstant*(chunk: var Chunk, constant: Value): int =
 proc writeConstant*(chunk: var Chunk, constant: Value): array[3, uint8] =
     let index = chunk.addConstant(constant)
     result = cast[array[3, uint8]](index)
+

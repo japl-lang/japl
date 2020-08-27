@@ -13,7 +13,7 @@ type String* = object of Obj
 
 
 proc stringify*(s: String): string =
-    result = "\"" & $s.str & "\""
+    $s.str
 
 
 proc isFalsey*(s: String): bool =

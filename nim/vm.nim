@@ -3,6 +3,7 @@ import strformat
 import math
 import lenientops
 import common
+import compiler
 import tables
 import util/debug
 import meta/chunk
@@ -10,7 +11,8 @@ import meta/valueobject
 import types/exceptions
 import types/objecttype
 import types/stringtype
-import compiler
+import types/functiontype
+import memory
 
 
 proc `**`(a, b: int): int = pow(a.float, b.float).int
@@ -19,13 +21,13 @@ proc `**`(a, b: int): int = pow(a.float, b.float).int
 proc `**`(a, b: float): float = pow(a, b)
 
 
-type KeyboardInterrupt* = object of CatchableError
+type
+    KeyboardInterrupt* = object of CatchableError
 
-
-type InterpretResult = enum
-    OK,
-    COMPILE_ERROR,
-    RUNTIME_ERROR
+    InterpretResult = enum
+        OK,
+        COMPILE_ERROR,
+        RUNTIME_ERROR
 
 
 func handleInterrupt() {.noconv.} =
@@ -51,6 +53,12 @@ proc peek*(self: var VM, distance: int): Value =
     return self.stack[len(self.stack) - distance - 1]
 
 
+template markObject*(self, obj: untyped): untyped =
+    obj.next = self.objects
+    self.objects = obj
+    obj
+
+
 proc slice(self: var VM): bool =
     var idx = self.pop()
     var peeked = self.pop()
@@ -70,7 +78,7 @@ proc slice(self: var VM): bool =
                     if idx.toInt() - 1 > len(str) - 1:
                         self.error(newIndexError("string index out of bounds"))
                         return false
-                    self.push(Value(kind: OBJECT, obj: newString(&"{str[idx.toInt()]}")))
+                    self.push(Value(kind: OBJECT, obj: self.markObject(newString(&"{str[idx.toInt()]}"))))
                     return true
 
                 else:
@@ -113,7 +121,7 @@ proc sliceRange(self: var VM): bool =
                     elif sliceStart.toInt() > sliceEnd.toInt():
                         self.error(newIndexError("the start index can't be bigger than the end index"))
                         return false
-                    self.push(Value(kind: OBJECT, obj: newString(str[sliceStart.toInt()..<sliceEnd.toInt()])))
+                    self.push(Value(kind: OBJECT, obj: self.markObject(newString(str[sliceStart.toInt()..<sliceEnd.toInt()]))))
                     return true
 
                 else:
@@ -217,9 +225,9 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
             of OP_ADD:
                 if self.peek(0).isObj() and self.peek(1).isObj():
                     if self.peek(0).isStr() and self.peek(1).isStr():
-                        var r = self.peek(0).toStr()
-                        var l = self.peek(1).toStr()
-                        self.push(Value(kind: OBJECT, obj: newString(l & r)))
+                        var r = self.pop().toStr()
+                        var l = self.pop().toStr()
+                        self.push(Value(kind: OBJECT, obj: self.markObject(newString(l & r))))
                     else:
                         self.error(newTypeError(&"Unsupported binary operator for objects of type '{self.peek(0).typeName()}' and '{self.peek(1).typeName()}"))
                         return RUNTIME_ERROR
@@ -232,17 +240,17 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
             of OP_MULTIPLY:
                 if self.peek(0).isInt() and self.peek(1).isObj():
                     if self.peek(1).isStr():
-                        var r = self.peek(0).toInt()
-                        var l = self.peek(1).toStr()
-                        self.push(Value(kind: OBJECT, obj: newString(l.repeat(r))))
+                        var r = self.pop().toInt()
+                        var l = self.pop().toStr()
+                        self.push(Value(kind: OBJECT, obj: self.markObject(newString(l.repeat(r)))))
                     else:
                         self.error(newTypeError(&"Unsupported binary operator for objects of type '{self.peek(0).typeName()}' and '{self.peek(1).typeName()}"))
                         return RUNTIME_ERROR
                 elif self.peek(0).isObj() and self.peek(1).isInt():
                     if self.peek(0).isStr():
-                        var r = self.peek(0).toStr()
-                        var l = self.peek(1).toInt()
-                        self.push(Value(kind: OBJECT, obj: newString(r.repeat(l))))
+                        var r = self.pop().toStr()
+                        var l = self.pop().toInt()
+                        self.push(Value(kind: OBJECT, obj: self.markObject(newString(r.repeat(l)))))
                     else:
                         self.error(newTypeError(&"Unsupported binary operator for objects of type '{self.peek(0).typeName()}' and '{self.peek(1).typeName()}"))
                         return RUNTIME_ERROR
@@ -374,14 +382,42 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                 return OK
 
 
+proc freeObject(obj: ptr Obj) =
+    case obj.kind:
+        of ObjectTypes.STRING:
+            var str = cast[ptr String](obj)
+            discard freeArray(char, str.str, str.len)
+            discard free(ObjectTypes.STRING, obj)
+        of ObjectTypes.FUNCTION:
+            var fun = cast[ptr Function](obj)
+            fun.chunk.freeChunk()
+            discard free(ObjectTypes.FUNCTION, fun)
+        else:
+            discard
+
+
+proc freeObjects(self: var VM) =
+    var obj = self.objects
+    var next: ptr Obj
+    while obj != nil:
+        next = obj[].next
+        freeObject(obj)
+        obj = next
+
+
 proc freeVM*(self: var VM) =
     unsetControlCHook()
+    try:
+        self.freeObjects()
+    except NilAccessError:
+        echo "MemoryError: could not manage memory, exiting"
+        quit(71)
 
 
 proc interpret*(self: var VM, source: string, debug: bool = false, repl: bool = false): InterpretResult =
-    var compiler = initCompiler(self)
+    var compiler = initCompiler(self, SCRIPT)
     setControlCHook(handleInterrupt)
-    if not compiler.compile(source) or compiler.parser.hadError:
+    if compiler.compile(source) == nil:
         return COMPILE_ERROR
     self.chunk = compiler.function.chunk
     self.ip = 0
@@ -400,4 +436,4 @@ proc resetStack*(self: var VM) =
 
 
 proc initVM*(): VM =
-    result = VM(chunk: initChunk(), ip: 0, stack: @[], stackTop: 0, objects: nil, globals: initTable[string, Value](), lastPop: Value(kind: NIL))
+    result = VM(chunk: nil, ip: 0, stack: @[], stackTop: 0, objects: nil, globals: initTable[string, Value](), lastPop: Value(kind: NIL))

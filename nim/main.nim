@@ -16,9 +16,11 @@ proc repl(debug: bool = false) =
             source = readLine(stdin)
         except IOError:
             echo ""
+            bytecodeVM.freeVM()
             break
         except KeyboardInterrupt:
             echo ""
+            bytecodeVM.freeVM()
             break
         if source == "":
             continue
@@ -26,6 +28,7 @@ proc repl(debug: bool = false) =
             var result = bytecodeVM.interpret(source, debug, true)
             if debug:
                 echo &"Result: {result}"
+
 
 proc main(file: string = "", debug: bool = false) =
     if file == "":
@@ -48,6 +51,7 @@ proc main(file: string = "", debug: bool = false) =
         var result = bytecodeVM.interpret(source, debug)
         if debug:
             echo &"Result: {result}"
+        bytecodeVM.freeVM()
 
 
 when isMainModule:

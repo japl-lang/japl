@@ -5,23 +5,25 @@
 # code objects that can be compiled inside the JAPL runtime, pretty much
 # like in Python
 
-
 import objecttype
 import stringtype
-import ../meta/chunk
 import strformat
 import ../memory
+import ../meta/chunk
 
 
-type Function* = object of Obj
-    name*: ptr String
-    arity*: int
-    chunk*: Chunk
+type
+    Function* = object of Obj
+        name*: ptr String
+        arity*: int
+        chunk*: Chunk
+    FunctionType* = enum
+        FUNC, SCRIPT
 
 
 proc newFunction*(name: string = "", chunk: Chunk = initChunk(), arity: int = 0): ptr Function =
     result = allocateObj(Function, ObjectTypes.FUNCTION)
-    result.name = nil
+    result.name = newString(name)
     result.arity = arity
     result.chunk = chunk
 
