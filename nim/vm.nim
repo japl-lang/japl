@@ -35,6 +35,11 @@ func handleInterrupt() {.noconv.} =
 
 
 proc error*(self: var VM, error: ptr JAPLException) =
+    var frame = self.frames[len(self.frames) - 1]
+    var line = frame.function.chunk.lines[frame.ip]
+    echo "Traceback (most recent call last):"
+    echo &"  Line {line}, in '<module>':"
+    echo &"    {self.source.splitLines()[line - 1]}"
     echo error.stringify()
     # Add code to raise an exception here
 
@@ -132,26 +137,28 @@ proc sliceRange(self: var VM): bool =
             return false
 
 
+
 proc run(self: var VM, debug, repl: bool): InterpretResult =
+    var frame = self.frames[len(self.frames) - 1]
     template readByte: untyped =
-        inc(self.ip)
-        self.chunk.code[self.ip - 1]
+        inc(frame.ip)
+        frame.function.chunk.code[frame.ip - 1]
     template readBytes: untyped =
         var arr = [readByte(), readByte(), readByte()]
         var index: int
         copyMem(index.addr, unsafeAddr(arr), sizeof(arr))
         index
     template readShort: untyped =
-        inc(self.ip)
-        inc(self.ip)
-        cast[uint16]((self.chunk.code[self.ip - 2] shl 8) or self.chunk.code[self.ip - 1])
+        inc(frame.ip)
+        inc(frame.ip)
+        cast[uint16]((frame.function.chunk.code[frame.ip - 2] shl 8) or frame.function.chunk.code[frame.ip - 1])
     template readConstant: Value =
-        self.chunk.consts.values[int(readByte())]
+        frame.function.chunk.consts.values[int(readByte())]
     template readLongConstant: Value =
         var arr = [readByte(), readByte(), readByte()]
         var idx: int
         copyMem(idx.addr, unsafeAddr(arr), sizeof(arr))
-        self.chunk.consts.values[idx]
+        frame.function.chunk.consts.values[idx]
     template BinOp(op, check) =
         var rightVal {.inject.} = self.pop()
         var leftVal {.inject.} = self.pop()
@@ -192,18 +199,23 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
         instruction = readByte()
         opcode = OpCode(instruction)
         if debug:
-            stdout.write("Current stack status: [")
+            stdout.write("Current VM stack status: [")
             for v in self.stack:
                 stdout.write(stringify(v))
                 stdout.write(", ")
             stdout.write("]\n")
-            stdout.write("Global scope status: {")
+            stdout.write("Current global scope status: {")
             for k, v in self.globals.pairs():
                 stdout.write(k)
                 stdout.write(": ")
                 stdout.write(stringify(v))
-            echo "}\n"
-            discard disassembleInstruction(self.chunk, self.ip - 1)
+            stdout.write("}\n")
+            stdout.write("Current frame stack status: [")
+            for v in frame.slots[][1..<len(frame.slots[])]:
+                stdout.write(stringify(v))
+                stdout.write(", ")
+            stdout.write("]\n\n")
+            discard disassembleInstruction(frame.function.chunk, frame.ip - 1)
         case opcode:
             of OP_CONSTANT:
                 var constant: Value = readConstant()
@@ -229,7 +241,7 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                         var l = self.pop().toStr()
                         self.push(Value(kind: OBJECT, obj: self.markObject(newString(l & r))))
                     else:
-                        self.error(newTypeError(&"Unsupported binary operator for objects of type '{self.peek(0).typeName()}' and '{self.peek(1).typeName()}"))
+                        self.error(newTypeError(&"Unsupported binary operator for objects of type '{self.peek(0).typeName()}' and '{self.peek(1).typeName()}'"))
                         return RUNTIME_ERROR
                 else:
                     BinOp(`+`, isNum)
@@ -244,7 +256,7 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                         var l = self.pop().toStr()
                         self.push(Value(kind: OBJECT, obj: self.markObject(newString(l.repeat(r)))))
                     else:
-                        self.error(newTypeError(&"Unsupported binary operator for objects of type '{self.peek(0).typeName()}' and '{self.peek(1).typeName()}"))
+                        self.error(newTypeError(&"Unsupported binary operator for objects of type '{self.peek(0).typeName()}' and '{self.peek(1).typeName()}'"))
                         return RUNTIME_ERROR
                 elif self.peek(0).isObj() and self.peek(1).isInt():
                     if self.peek(0).isStr():
@@ -287,7 +299,7 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                 if not self.sliceRange():
                     return RUNTIME_ERROR
             of OP_DEFINE_GLOBAL:
-                if self.chunk.consts.values.len > 255:
+                if frame.function.chunk.consts.values.len > 255:
                     var constant = readLongConstant().toStr()
                     self.globals[constant] = self.peek(0)
                 else:
@@ -295,7 +307,7 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                     self.globals[constant] = self.peek(0)
                 discard self.pop()   # This will help when we have a custom GC
             of OP_GET_GLOBAL:
-                if self.chunk.consts.values.len > 255:
+                if frame.function.chunk.consts.values.len > 255:
                     var constant = readLongConstant().toStr()
                     if constant notin self.globals:
                         self.error(newReferenceError(&"undefined name '{constant}'"))
@@ -310,7 +322,7 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                     else:
                         self.push(self.globals[constant])
             of OP_SET_GLOBAL:
-                if self.chunk.consts.values.len > 255:
+                if frame.function.chunk.consts.values.len > 255:
                     var constant = readLongConstant().toStr()
                     if constant notin self.globals:
                         self.error(newReferenceError(&"assignment to undeclared name '{constant}'"))
@@ -325,7 +337,7 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                     else:
                         self.globals[constant] = self.peek(0)
             of OP_DELETE_GLOBAL:
-                if self.chunk.consts.values.len > 255:
+                if frame.function.chunk.consts.values.len > 255:
                     var constant = readLongConstant().toStr()
                     if constant notin self.globals:
                         self.error(newReferenceError(&"undefined name '{constant}'"))
@@ -340,38 +352,38 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                     else:
                         self.globals.del(constant)
             of OP_GET_LOCAL:
-                if self.stack.len > 255:
+                if frame.slots[].len > 255:
                     var slot = readBytes()
-                    self.push(self.stack[slot])
+                    self.push(frame.slots[slot])
                 else:
                     var slot = readByte()
-                    self.push(self.stack[slot])
+                    self.push(frame.slots[slot])
             of OP_SET_LOCAL:
-                if self.stack.len > 255:
+                if frame.slots[].len > 255:
                     var slot = readBytes()
-                    self.stack[slot] = self.peek(0)
+                    frame.slots[slot] = self.peek(0)
                 else:
                     var slot = readByte()
-                    self.stack[slot] = self.peek(0)
+                    frame.slots[slot] = self.peek(0)
             of OP_DELETE_LOCAL:
-                if self.stack.len > 255:
+                if frame.slots[].len > 255:
                     var slot = readBytes()
-                    self.stack.delete(slot)
+                    frame.slots[].delete(slot)
                 else:
                     var slot = readByte()
-                    self.stack.delete(slot)
+                    frame.slots[].delete(slot)
             of OP_POP:
                 self.lastPop = self.pop()
             of OP_JUMP_IF_FALSE:
                 var offset = readShort()
                 if isFalsey(self.peek(0)):
-                    self.ip += int offset
+                    frame.ip += int offset
             of OP_JUMP:
                 var offset = readShort()
-                self.ip += int offset
+                frame.ip += int offset
             of OP_LOOP:
                 var offset = readShort()
-                self.ip -= int offset
+                frame.ip -= int offset
             of OP_BREAK:
                 discard
             of OP_RETURN:
@@ -425,17 +437,25 @@ proc freeVM*(self: var VM, debug: bool) =
 
 proc interpret*(self: var VM, source: string, debug: bool = false, repl: bool = false): InterpretResult =
     var compiler = initCompiler(self, SCRIPT)
+    var compiled = compiler.compile(source)
+    self.source = source
     setControlCHook(handleInterrupt)
-    if compiler.compile(source) == nil:
+    if compiled == nil:
         return COMPILE_ERROR
-    self.chunk = compiler.function.chunk
-    self.ip = 0
-    if len(self.chunk.code) > 1:
+    if len(compiled.chunk.code) > 1:
+        if len(self.stack) == 0:
+            self.push(Value(kind: OBJECT, obj: compiled))
+        if len(self.frames) == 0:
+            var frame = CallFrame(function: compiled, ip: 0, slots: addr self.stack)
+            self.frames.add(frame)
         try:
             result = self.run(debug, repl)
         except KeyboardInterrupt:
             self.error(newInterruptedError(""))
             return RUNTIME_ERROR
+        except NilAccessError:
+            echo "MemoryError: could not manage memory, exiting"
+            quit(71)
 
 
 proc resetStack*(self: var VM) =
@@ -443,4 +463,4 @@ proc resetStack*(self: var VM) =
 
 
 proc initVM*(): VM =
-    result = VM(chunk: nil, ip: 0, stack: @[], stackTop: 0, objects: nil, globals: initTable[string, Value](), lastPop: Value(kind: NIL))
+    result = VM(frames: @[], stack: @[], stackTop: 0, objects: nil, globals: initTable[string, Value](), lastPop: Value(kind: NIL), source: "")

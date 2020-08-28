@@ -12,16 +12,15 @@ import types/functiontype
 
 
 type
-    callFrame* = object
+    CallFrame* = object
         function*: ptr Function
         ip*: int
-        slots*: ptr Value
+        slots*: ptr seq[Value]
 
 
     VM* = object
-        chunk*: Chunk
-        frames*: seq[callFrame]
-        ip*: int
+        source*: string
+        frames*: seq[CallFrame]
         stack*: seq[Value]
         stackTop*: int
         objects*: ptr Obj
