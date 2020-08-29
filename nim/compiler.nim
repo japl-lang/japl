@@ -286,7 +286,7 @@ proc identifierLongConstant(self: var Compiler, tok: Token): array[3, uint8] =
 
 
 proc addLocal(self: var Compiler, name: Token) =
-    var local = Local(name: name, depth: self.scopeDepth)
+    var local = Local(name: name, depth: -1)
     inc(self.localCount)
     self.locals.add(local)
 
@@ -314,14 +314,20 @@ proc parseLongVariable(self: var Compiler, message: string): array[3, uint8] =
     return self.identifierLongConstant(self.parser.previous)
 
 
+proc markInitialized(self: var Compiler) =
+    self.locals[self.localCount - 1].depth = self.scopeDepth
+
+
 proc defineVariable(self: var Compiler, idx: uint8) =
     if self.scopeDepth > 0:
+        self.markInitialized()
         return
     self.emitBytes(OP_DEFINE_GLOBAL, idx)
 
 
 proc defineVariable(self: var Compiler, idx: array[3, uint8]) =
     if self.scopeDepth > 0:
+        self.markInitialized()
         return
     self.emitByte(OP_DEFINE_GLOBAL)
     self.emitBytes(idx)
@@ -331,6 +337,8 @@ proc resolveLocal(self: var Compiler, name: Token): int =
     var i = self.localCount - 1
     for local in reversed(self.locals):
         if local.name.lexeme == name.lexeme:
+            if local.depth == -1:
+                self.compileError("cannot read local variable in its own initializer")
             return i
         i = i - 1
     return -1
@@ -620,10 +628,11 @@ proc continueStatement(self: var Compiler) =
         self.emitLoop(self.loop.start)
 
 
+proc funDeclaration(self: var Compiler) =
+    var globale = self.parseVariable("expecting function name")
+
 proc statement(self: var Compiler) =
-    if self.parser.match(VAR):
-        self.varDeclaration()
-    elif self.parser.match(TokenType.FOR):
+    if self.parser.match(TokenType.FOR):
         self.forStatement()
     elif self.parser.match(IF):
         self.ifStatement()
@@ -642,7 +651,12 @@ proc statement(self: var Compiler) =
 
 
 proc declaration(self: var Compiler) =
-    self.statement()
+    if self.parser.match(FUN):
+        self.funDeclaration()
+    elif self.parser.match(VAR):
+        self.varDeclaration()
+    else:
+        self.statement()
     if self.parser.panicMode:
         self.synchronize()
 
