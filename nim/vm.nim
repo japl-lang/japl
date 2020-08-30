@@ -168,19 +168,37 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                 if res is bool:
                     self.push(Value(kind: BOOL, boolValue: bool res))
                 else:
-                   self.push(Value(kind: DOUBLE, floatValue: float res))
+                    var res = float res
+                    if res == Inf:
+                        self.push(Value(kind: ValueTypes.INF))
+                    elif res == -Inf:
+                        self.push(Value(kind: MINF))
+                    else:
+                       self.push(Value(kind: DOUBLE, floatValue: float res))
             elif leftVal.isInt() and rightVal.isFloat():
                 var res = `op`(float leftVal.toInt(), rightVal.toFloat())
                 if res is bool:
                     self.push(Value(kind: BOOL, boolValue: bool res))
                 else:
-                   self.push(Value(kind: DOUBLE, floatValue: float res))
+                    var res = float res
+                    if res == Inf:
+                        self.push(Value(kind: ValueTypes.INF))
+                    elif res == -Inf:
+                        self.push(Value(kind: MINF))
+                    else:
+                       self.push(Value(kind: DOUBLE, floatValue: float res))
             elif leftVal.isFloat() and rightVal.isFloat():
                 var res = `op`(leftVal.toFloat(), rightVal.toFloat())
                 if res is bool:
                     self.push(Value(kind: BOOL, boolValue: bool res))
                 else:
-                   self.push(Value(kind: DOUBLE, floatValue: float res))
+                    var res = float res
+                    if res == Inf:
+                        self.push(Value(kind: ValueTypes.INF))
+                    elif res == -Inf:
+                        self.push(Value(kind: MINF))
+                    else:
+                       self.push(Value(kind: DOUBLE, floatValue: float res))
             else:
                 var tmp = `op`(leftVal.toInt(), rightVal.toInt())
                 if tmp is int:
@@ -241,6 +259,10 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                     of INTEGER:
                         cur.intValue = -cur.toInt()
                         self.push(cur)
+                    of ValueTypes.INF:
+                        self.push(Value(kind: MINF))
+                    of ValueTypes.MINF:
+                        self.push(Value(kind: ValueTypes.INF))
                     else:
                         self.error(newTypeError(&"Unsupported unary operator '-' for object of type '{cur.typeName()}'"))
             of OP_ADD:
