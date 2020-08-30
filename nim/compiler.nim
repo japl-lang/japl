@@ -84,6 +84,7 @@ proc compileError(self: var Compiler, message: string) =
     self.parser.hadError = true
     self.parser.panicMode = true
 
+
 proc emitByte(self: var Compiler, byt: OpCode|uint8) =
     self.function.chunk.writeChunk(uint8 byt, self.parser.previous().line)
 
@@ -179,6 +180,12 @@ proc binary(self: var Compiler, canAssign: bool) =
             self.emitByte(OP_LESS)
         of LE:
             self.emitBytes(OP_GREATER, OP_NOT)
+        of CARET:
+           self.emitByte(OP_XOR)
+        of SHL:
+            self.emitByte(OP_SHL)
+        of SHR:
+            self.emitByte(OP_SHR)
         else:
             return
 
@@ -250,6 +257,10 @@ proc literal(self: var Compiler, canAssign: bool) =
             self.emitByte(OP_FALSE)
         of TokenType.NIL:
             self.emitByte(OP_NIL)
+        of TokenType.INF:
+            self.emitByte(OP_INF)
+        of TokenType.NAN:
+            self.emitByte(OP_NAN)
         else:
             discard  # Unreachable
 
@@ -765,7 +776,11 @@ var rules: array[TokenType, ParseRule] = [
     makeRule(nil, nil, PREC_NONE), # EOF
     makeRule(nil, nil, PREC_NONE), # COLON
     makeRule(nil, nil, PREC_NONE), # CONTINUE
-    makeRule(nil, nil, PREC_NONE), # CARET
+    makeRule(nil, binary, PREC_TERM), # CARET
+    makeRule(nil, binary, PREC_TERM), # SHL
+    makeRule(nil, binary, PREC_TERM), # SHR
+    makeRule(literal, nil, PREC_NONE), # INF
+    makeRule(literal, nil, PREC_NONE), # NAN
 ]
 
 

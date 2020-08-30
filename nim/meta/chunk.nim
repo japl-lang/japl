@@ -34,6 +34,13 @@ type
         OP_JUMP,
         OP_LOOP,
         OP_BREAK,
+        OP_SHR,
+        OP_SHL,
+        OP_NAN,
+        OP_INF,
+        OP_XOR
+
+
     Chunk* = ref object
         consts*: ValueArray
         code*: seq[uint8]

@@ -192,6 +192,14 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
         else:
             self.error(newTypeError(&"Unsupported binary operator for objects of type '{leftVal.typeName()}' and '{rightVal.typeName()}'"))
             return RUNTIME_ERROR
+    template BitWise(op): untyped =
+        var rightVal {.inject.} = self.pop()
+        var leftVal {.inject.} = self.pop()
+        if isInt(leftVal) and isInt(rightVal):
+            self.push(Value(kind: INTEGER, intValue: `op`(leftVal.toInt(), rightVal.toInt())))
+        else:
+            self.error(newTypeError(&"Unsupported binary operator for objects of type '{leftVal.typeName()}' and '{rightVal.typeName()}'"))
+            return RUNTIME_ERROR
     var instruction: uint8
     var opcode: OpCode
     while true:
@@ -246,6 +254,12 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                         return RUNTIME_ERROR
                 else:
                     BinOp(`+`, isNum)
+            of OP_SHL:
+                BitWise(`shl`)
+            of OP_SHR:
+                BitWise(`shr`)
+            of OP_XOR:
+                BitWise(`xor`)
             of OP_SUBTRACT:
                 BinOp(`-`, isNum)
             of OP_DIVIDE:
@@ -279,6 +293,10 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                 self.push(Value(kind: BOOL, boolValue: false))
             of OP_NIL:
                 self.push(Value(kind: NIL))
+            of OP_NAN:
+                self.push(Value(kind: ValueTypes.NAN))
+            of OP_INF:
+                self.push(Value(kind: ValueTypes.INF))
             of OP_NOT:
                 self.push(Value(kind: BOOL, boolValue: isFalsey(self.pop())))
             of OP_EQUAL:

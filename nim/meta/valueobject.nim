@@ -13,7 +13,7 @@ import strutils
 
 type
     ValueTypes* = enum   # All possible value types (this is the VM's notion of 'type', not the end user's)
-        INTEGER, DOUBLE, BOOL, NIL, OBJECT
+        INTEGER, DOUBLE, BOOL, NIL, OBJECT, NAN, INF
     Value* = object
         case kind*: ValueTypes
             of INTEGER:
@@ -22,7 +22,7 @@ type
                 floatValue*: float
             of BOOL:
                 boolValue*: bool
-            of NIL:
+            of NIL, INF, NAN:
                 discard
             of OBJECT:
                 obj*: ptr Obj
@@ -81,7 +81,7 @@ func toFloat*(value: Value): float =
 
 func typeName*(value: Value): string =
     case value.kind:
-        of BOOL, NIL, DOUBLE, INTEGER:
+        of BOOL, NIL, DOUBLE, INTEGER, NAN, INF:
             result = ($value.kind).toLowerAscii()
         of OBJECT:
             case value.obj.kind:
@@ -132,6 +132,10 @@ func stringify*(value: Value): string =
                     result = cast[ptr String](value.obj)[].stringify
                 else:
                     result = value.obj[].stringify()
+        of NAN:
+            result = "nan"
+        of INF:
+            result = "nil"
 
 
 func isFalsey*(value: Value): bool =
@@ -146,7 +150,10 @@ func isFalsey*(value: Value): bool =
             result = value.toFloat() > 0.0
         of NIL:
             result = true
-
+        of INF:
+            result = false
+        of NAN:
+            result = true
 
 proc valuesEqual*(a: Value, b: Value): bool =
     if a.kind != b.kind:
@@ -169,6 +176,10 @@ proc valuesEqual*(a: Value, b: Value): bool =
                         result = valuesEqual(a[], b[])
                     else:
                         result = valuesEqual(a.obj[], b.obj[])
+            of INF:
+                result = b.kind == INF
+            of NAN:
+                result = false
 
 
 proc hashFloat(f: float): uint32 =

@@ -37,7 +37,8 @@ const RESERVED = to_table({
                 "return": TokenType.RETURN,
                 "this": TokenType.THIS, "super": TokenType.SUPER,
                 "del": TokenType.DEL, "break": TokenType.BREAK,
-                "continue": TokenType.CONTINUE})
+                "continue": TokenType.CONTINUE, "inf": TokenType.INF,
+                "nan": TokenType.NAN})
 type
     Lexer* = ref object
         source*: string
@@ -184,8 +185,12 @@ proc scanToken(self: var Lexer) =
             self.tokens.add(self.createToken(DEQ, "==".asStr()))
         elif single == '>' and self.match('='):
             self.tokens.add(self.createToken(GE, ">=".asStr()))
+        elif single == '>' and self.match('>'):
+            self.tokens.add(self.createToken(SHR, ">>".asStr()))
         elif single == '<' and self.match('='):
             self.tokens.add(self.createToken(LE, "<=".asStr()))
+        elif single == '<' and self.match('<'):
+            self.tokens.add(self.createToken(SHL, ">>".asStr()))
         elif single == '!' and self.match('='):
             self.tokens.add(self.createToken(NE, "!=".asStr()))
         elif single == '*' and self.match('*'):

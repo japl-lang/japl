@@ -9,7 +9,6 @@
 
 import segfaults
 import types/objecttype
-import common
 
 
 proc reallocate*(pointer: pointer, oldSize: int, newSize: int): pointer =
