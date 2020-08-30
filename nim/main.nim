@@ -29,7 +29,7 @@ proc repl(debug: bool = false) =
         if source == "":
             continue
         else:
-            var result = bytecodeVM.interpret(source, debug, true)
+            var result = bytecodeVM.interpret(source, debug, true, "stdin")
             if debug:
                 echo &"Result: {result}"
 
@@ -55,7 +55,7 @@ proc main(file: string = "", debug: bool = false) =
             echo "==== VM Constants ====\n"
             echo &"- FRAMES_MAX -> {FRAMES_MAX}\n- STACK_MAX -> {STACK_MAX}\n"
             echo "==== Code starts ====\n"
-        var result = bytecodeVM.interpret(source, debug)
+        var result = bytecodeVM.interpret(source, debug, false, file)
         if debug:
             echo &"Result: {result}"
         bytecodeVM.freeVM(debug)

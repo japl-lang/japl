@@ -65,7 +65,9 @@ proc parseError(self: var Parser, token: Token, message: string) =
         return
     self.panicMode = true
     self.hadError = true
-    echo &"ParseError at line {token.line}, at '{token.lexeme}' -> {message}"
+    echo &"Traceback (most recent call last):"
+    echo &"  File '{self.file}', line {token.line}, at '{token.lexeme}'"
+    echo &"ParseError: {message}"
 
 
 proc consume(self: var Parser, expected: TokenType, message: string) =
@@ -76,9 +78,11 @@ proc consume(self: var Parser, expected: TokenType, message: string) =
 
 
 proc compileError(self: var Compiler, message: string) =
-    echo &"CompileError at line {self.parser.peek().line}: {message}"
+    echo &"Traceback (most recent call last):"
+    echo &"  File '{self.file}', line {self.parser.peek.line}, at '{self.parser.peek.lexeme}'"
+    echo &"CompileError: {message}"
     self.parser.hadError = true
-
+    self.parser.panicMode = true
 
 proc emitByte(self: var Compiler, byt: OpCode|uint8) =
     self.function.chunk.writeChunk(uint8 byt, self.parser.previous().line)
@@ -113,6 +117,7 @@ proc emitConstant(self: var Compiler, value: Value) =
 proc getRule(kind: TokenType): ParseRule  # Forward declarations
 proc statement(self: var Compiler)
 proc declaration(self: var Compiler)
+proc initCompiler*(vm: var VM, context: FunctionType, enclosing: ptr Compiler = nil, parser: Parser = initParser(@[], ""), file: string): Compiler
 
 
 proc endCompiler(self: var Compiler): ptr Function =
@@ -315,6 +320,8 @@ proc parseLongVariable(self: var Compiler, message: string): array[3, uint8] =
 
 
 proc markInitialized(self: var Compiler) =
+    if self.scopeDepth == 0:
+        return
     self.locals[self.localCount - 1].depth = self.scopeDepth
 
 
@@ -628,8 +635,58 @@ proc continueStatement(self: var Compiler) =
         self.emitLoop(self.loop.start)
 
 
+proc parseFunction(self: var Compiler, funType: FunctionType) =
+    var self = initCompiler(self.vm, funType, addr self, self.parser, self.file)
+    self.beginScope()
+    self.parser.consume(LP, "Expecting '(' after function name")
+    var paramNames: seq[string] = @[]
+    var defaultFollows: bool = false
+    if not self.parser.check(RP):
+        while true:
+            self.function.arity += 1
+            if self.function.arity + self.function.optionals > 255:
+                self.compileError("cannot have more than 255 arguments")
+                break
+            var paramName = self.parseVariable("expecting parameter name")
+            if self.parser.previous.lexeme in paramNames:
+                self.compileError("duplicate parameter name in function declaration")
+                return
+            paramNames.add(self.parser.previous.lexeme)
+            self.defineVariable(paramName)
+            if self.parser.match(EQ):
+                var defaultArg = self.parser.previous.lexeme
+                self.function.arity -= 1
+                self.function.optionals += 1
+                self.expression()
+                self.function.defaults.add(defaultArg)
+                defaultFollows = true
+            elif defaultFollows:
+                self.compileError("non-default argument follows default argument")
+                return
+            if not self.parser.match(COMMA):
+                break
+    self.parser.consume(RP, "Expecting ')' after parameters")
+    self.parser.consume(LB, "Expecting '{' before function body")
+    self.parseBlock()
+    var fun = self.endCompiler()
+    self = self.enclosing[]
+    if self.function[].chunk.consts.values.len < 255:
+        self.emitBytes(OP_CONSTANT, self.makeConstant(Value(kind: OBJECT, obj: fun)))
+    else:
+        self.emitByte(OP_CONSTANT_LONG)
+        self.emitBytes(self.makeLongConstant(Value(kind: OBJECT, obj: fun)))
+
+
 proc funDeclaration(self: var Compiler) =
-    var globale = self.parseVariable("expecting function name")
+    var funName = self.parseVariable("expecting function name")
+    self.markInitialized()
+    self.parseFunction(FunctionType.FUNC)
+    self.defineVariable(funName)
+
+
+proc call(self: var Compiler, canAssign: bool) =
+    return
+
 
 proc statement(self: var Compiler) =
     if self.parser.match(TokenType.FOR):
@@ -676,7 +733,7 @@ var rules: array[TokenType, ParseRule] = [
     makeRule(nil, binary, PREC_FACTOR), # MOD
     makeRule(nil, binary, PREC_FACTOR), # POW
     makeRule(nil, binary, PREC_COMPARISON), # GT
-    makeRule(grouping, nil, PREC_NONE), # LP
+    makeRule(grouping, call, PREC_CALL), # LP
     makeRule(nil, nil, PREC_NONE), # RP
     makeRule(nil, bracket, PREC_CALL), # LS
     makeRule(nil, nil, PREC_NONE), # LB
@@ -708,6 +765,7 @@ var rules: array[TokenType, ParseRule] = [
     makeRule(nil, nil, PREC_NONE), # EOF
     makeRule(nil, nil, PREC_NONE), # COLON
     makeRule(nil, nil, PREC_NONE), # CONTINUE
+    makeRule(nil, nil, PREC_NONE), # CARET
 ]
 
 
@@ -716,10 +774,10 @@ proc getRule(kind: TokenType): ParseRule =
 
 
 proc compile*(self: var Compiler, source: string): ptr Function =
-    var scanner = initLexer(source)
+    var scanner = initLexer(source, self.file)
     var tokens = scanner.lex()
     if len(tokens) > 1 and not scanner.errored:
-        self.parser = initParser(tokens)
+        self.parser = initParser(tokens, self.file)
         while not self.parser.match(EOF):
             self.declaration()
         var function = self.endCompiler()
@@ -731,8 +789,11 @@ proc compile*(self: var Compiler, source: string): ptr Function =
         return nil
 
 
-proc initCompiler*(vm: var VM, context: FunctionType): Compiler =
-    result = Compiler(parser: initParser(@[]), function: nil, locals: @[], scopeDepth: 0, localCount: 0, loop: Loop(alive: false, loopEnd: -1), vm: vm, context: context)
+proc initCompiler*(vm: var VM, context: FunctionType, enclosing: ptr Compiler = nil, parser: Parser = initParser(@[], ""), file: string): Compiler =
+    result = Compiler(parser: parser, function: nil, locals: @[], scopeDepth: 0, localCount: 0, loop: Loop(alive: false, loopEnd: -1), vm: vm, context: context, enclosing: enclosing, file: file)
+    result.parser.file = file
     result.locals.add(Local(depth: 0, name: Token(kind: EOF, lexeme: "")))
     inc(result.localCount)
     result.function = result.markObject(newFunction())
+    if context != SCRIPT:
+        result.function.name = newString(enclosing[].parser.previous().lexeme)

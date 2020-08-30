@@ -26,12 +26,14 @@ type
         objects*: ptr Obj
         globals*: Table[string, Value]
         lastPop*: Value
+        file*: string
 
     Local* = ref object
        name*: Token
        depth*: int
 
     Compiler* = object
+        enclosing*: ptr Compiler
         function*: ptr Function
         context*: FunctionType
         locals*: seq[Local]
@@ -40,16 +42,18 @@ type
         parser*: Parser
         loop*: Loop
         vm*: VM
+        file*: string
 
     Parser* = ref object
         current*: int
         tokens*: seq[Token]
         hadError*: bool
         panicMode*: bool
+        file*: string
 
 
-proc initParser*(tokens: seq[Token]): Parser =
-    result = Parser(current: 0, tokens: tokens, hadError: false, panicMode: false)
+proc initParser*(tokens: seq[Token], file: string): Parser =
+    result = Parser(current: 0, tokens: tokens, hadError: false, panicMode: false, file: file)
 
 
 const FRAMES_MAX* = 256

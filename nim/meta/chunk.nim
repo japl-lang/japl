@@ -1,7 +1,6 @@
 import valueobject
 
 
-
 type
     OpCode* = enum
         OP_CONSTANT = 0u8,

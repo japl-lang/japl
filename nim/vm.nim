@@ -38,7 +38,7 @@ proc error*(self: var VM, error: ptr JAPLException) =
     var frame = self.frames[len(self.frames) - 1]
     var line = frame.function.chunk.lines[frame.ip]
     echo "Traceback (most recent call last):"
-    echo &"  Line {line}, in '<module>':"
+    echo &"  File '{self.file}, Line {line}, in '<module>':"
     echo &"    {self.source.splitLines()[line - 1]}"
     echo error.stringify()
     # Add code to raise an exception here
@@ -211,9 +211,10 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                 stdout.write(stringify(v))
             stdout.write("}\n")
             stdout.write("Current frame stack status: [")
-            for v in frame.slots[][1..<len(frame.slots[])]:
-                stdout.write(stringify(v))
-                stdout.write(", ")
+            if len(frame.slots[]) > 1:
+                for v in frame.slots[][1..<len(frame.slots[])]:
+                    stdout.write(stringify(v))
+                    stdout.write(", ")
             stdout.write("]\n\n")
             discard disassembleInstruction(frame.function.chunk, frame.ip - 1)
         case opcode:
@@ -435,19 +436,18 @@ proc freeVM*(self: var VM, debug: bool) =
         quit(71)
 
 
-proc interpret*(self: var VM, source: string, debug: bool = false, repl: bool = false): InterpretResult =
-    var compiler = initCompiler(self, SCRIPT)
+proc interpret*(self: var VM, source: string, debug: bool = false, repl: bool = false, file: string): InterpretResult =
+    var compiler = initCompiler(self, SCRIPT, file=file)
     var compiled = compiler.compile(source)
     self.source = source
-    setControlCHook(handleInterrupt)
+    self.file = file
     if compiled == nil:
         return COMPILE_ERROR
     if len(compiled.chunk.code) > 1:
         if len(self.stack) == 0:
             self.push(Value(kind: OBJECT, obj: compiled))
-        if len(self.frames) == 0:
-            var frame = CallFrame(function: compiled, ip: 0, slots: addr self.stack)
-            self.frames.add(frame)
+        var frame = CallFrame(function: compiled, ip: 0, slots: addr self.stack)
+        self.frames.add(frame)
         try:
             result = self.run(debug, repl)
         except KeyboardInterrupt:
@@ -463,4 +463,5 @@ proc resetStack*(self: var VM) =
 
 
 proc initVM*(): VM =
-    result = VM(frames: @[], stack: @[], stackTop: 0, objects: nil, globals: initTable[string, Value](), lastPop: Value(kind: NIL), source: "")
+    setControlCHook(handleInterrupt)
+    result = VM(frames: @[], stack: @[], stackTop: 0, objects: nil, globals: initTable[string, Value](), lastPop: Value(kind: NIL), source: "", file: "")

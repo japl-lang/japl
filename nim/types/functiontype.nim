@@ -16,6 +16,8 @@ type
     Function* = object of Obj
         name*: ptr String
         arity*: int
+        optionals*: int
+        defaults*: seq[string]
         chunk*: Chunk
     FunctionType* = enum
         FUNC, SCRIPT

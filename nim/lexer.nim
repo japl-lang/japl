@@ -25,7 +25,7 @@ const TOKENS = to_table({
               '=': TokenType.EQ, '!': TokenType.NEG,
               '/': TokenType.SLASH, '%': TokenType.MOD,
               '[': TokenType.LS, ']': TokenType.RS,
-              ':': TokenType.COLON})
+              ':': TokenType.COLON, '^': TokenType.CARET})
 
 const RESERVED = to_table({
                 "or": TokenType.OR, "and": TokenType.AND,
@@ -46,10 +46,10 @@ type
         start*: int
         current*: int
         errored*: bool
+        file*: string
 
-
-func initLexer*(source: string): Lexer =
-  result = Lexer(source: source, tokens: @[], line: 1, start: 0, current: 0, errored: false)
+func initLexer*(source: string, file: string): Lexer =
+  result = Lexer(source: source, tokens: @[], line: 1, start: 0, current: 0, errored: false, file: file)
 
 
 proc done(self: Lexer): bool =
@@ -100,7 +100,9 @@ proc parseString(self: var Lexer, delimiter: char) =
             self.line = self.line + 1
         discard self.step()
     if self.done():
-        echo &"SyntaxError: Unterminated string literal at line {self.line}"
+        echo "Traceback (most recent call last):"
+        echo &"  File '{self.file}', line {self.line} at '{self.peek()}'"
+        echo &"SyntaxError: Unterminated string literal"
         self.errored = true
     discard self.step()
     let value = self.source[self.start..<self.current].asStr() # Get the value between quotes
@@ -122,7 +124,9 @@ proc parseNumber(self: var Lexer) =
             var value = parseInt(self.source[self.start..<self.current]).asInt()
             self.tokens.add(self.createToken(TokenType.NUMBER, value))
     except ValueError:
-        echo "OverflowError: integer is too big"
+        echo "Traceback (most recent call last):"
+        echo &"  File '{self.file}', line {self.line} at '{self.peek()}'"
+        echo "OverflowError: integer is too big to convert to int64"
         self.errored = true
 
 
@@ -153,7 +157,9 @@ proc parseComment(self: var Lexer) =
         discard self.step()
     if self.done() and not closed:
         self.errored = true
-        echo &"SyntaxError: Unexpected EOF at line {self.line}"
+        echo "Traceback (most recent call last):"
+        echo &"  File '{self.file}', line {self.line} at '{self.peek()}'"
+        echo &"SyntaxError: Unexpected EOF"
 
 
 proc scanToken(self: var Lexer) =
@@ -188,7 +194,9 @@ proc scanToken(self: var Lexer) =
             self.tokens.add(self.createToken(TOKENS[single], asStr(&"{single}")))
     else:
         self.errored = true
-        echo &"SyntaxError: Unexpected character '{single}' at line {self.line}"
+        echo "Traceback (most recent call last):"
+        echo &"  File '{self.file}', line {self.line} at '{self.peek()}'"
+        echo &"SyntaxError: Unexpected character '{single}'"
 
 
 proc lex*(self: var Lexer): seq[Token] =
