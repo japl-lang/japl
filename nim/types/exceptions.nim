@@ -37,3 +37,8 @@ proc newInterruptedError*(message: string): ptr JAPLException =
     result.message = newString(message)
 
 
+proc newRecursionError*(message: string): ptr JAPLException =
+    result = allocateObj(JAPLException, ObjectTypes.EXCEPTION)
+    result.errName = newString("RecursionError")
+    result.message = newString(message)
+

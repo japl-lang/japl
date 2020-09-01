@@ -55,8 +55,16 @@ func isFloat*(value: Value): bool =
     result = value.kind == DOUBLE
 
 
+func isInf*(value: Value): bool =
+    result = value.kind == ValueTypes.INF or value.kind == MINF
+
+
+func isNan*(value: Value): bool =
+    result = value.kind == ValueTypes.NAN
+
+
 func isNum*(value: Value): bool =
-    result = isInt(value) or isFloat(value)
+    result = isInt(value) or isFloat(value) or isInf(value) or isNan(value)
 
 
 func isObj*(value: Value): bool =
@@ -116,30 +124,6 @@ func asBool*(b: bool): Value =
 
 proc asStr*(s: string): Value =
     result = Value(kind: OBJECT, obj: newString(s))
-
-
-func stringify*(value: Value): string =
-    case value.kind:
-        of INTEGER:
-            result = $value.toInt()
-        of DOUBLE:
-            result = $value.toFloat()
-        of BOOL:
-            result = $value.toBool()
-        of NIL:
-            result = "nil"
-        of OBJECT:
-            case value.obj.kind:
-                of ObjectTypes.STRING:
-                    result = cast[ptr String](value.obj)[].stringify
-                else:
-                    result = value.obj[].stringify()
-        of NAN:
-            result = "nan"
-        of INF:
-            result = "inf"
-        of MINF:
-            result = "-inf"
 
 
 func isFalsey*(value: Value): bool =

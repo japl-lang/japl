@@ -38,7 +38,8 @@ type
         OP_SHL,
         OP_NAN,
         OP_INF,
-        OP_XOR
+        OP_XOR,
+        OP_CALL
 
 
     Chunk* = ref object

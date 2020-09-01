@@ -10,6 +10,7 @@ import meta/tokentype
 import meta/looptype
 import types/stringtype
 import types/functiontype
+import tables
 
 
 type
@@ -86,7 +87,7 @@ proc compileError(self: var Compiler, message: string) =
 
 
 proc emitByte(self: var Compiler, byt: OpCode|uint8) =
-    self.function.chunk.writeChunk(uint8 byt, self.parser.previous().line)
+    self.function.chunk.writeChunk(uint8 byt, self.parser.previous.line)
 
 
 proc emitBytes(self: var Compiler, byt1: OpCode|uint8, byt2: OpCode|uint8) =
@@ -122,6 +123,7 @@ proc initCompiler*(vm: var VM, context: FunctionType, enclosing: ptr Compiler = 
 
 
 proc endCompiler(self: var Compiler): ptr Function =
+    self.emitByte(OP_NIL)
     self.emitByte(OP_RETURN)
     return self.function
 
@@ -206,7 +208,7 @@ proc unary(self: var Compiler, canAssign: bool) =
             return
 
 
-template markObject*(self, obj: untyped): untyped =
+template markObject*(self: var Compiler, obj: untyped): untyped =
     obj.next = self.vm.objects
     self.vm.objects = obj
     obj
@@ -650,6 +652,8 @@ proc parseFunction(self: var Compiler, funType: FunctionType) =
     var self = initCompiler(self.vm, funType, addr self, self.parser, self.file)
     self.beginScope()
     self.parser.consume(LP, "Expecting '(' after function name")
+    if self.parser.hadError:
+        return
     var paramNames: seq[string] = @[]
     var defaultFollows: bool = false
     if not self.parser.check(RP):
@@ -658,18 +662,22 @@ proc parseFunction(self: var Compiler, funType: FunctionType) =
             if self.function.arity + self.function.optionals > 255:
                 self.compileError("cannot have more than 255 arguments")
                 break
-            var paramName = self.parseVariable("expecting parameter name")
+            var paramIdx = self.parseVariable("expecting parameter name")
+            if self.parser.hadError:
+                return
             if self.parser.previous.lexeme in paramNames:
                 self.compileError("duplicate parameter name in function declaration")
                 return
             paramNames.add(self.parser.previous.lexeme)
-            self.defineVariable(paramName)
+            self.defineVariable(paramIdx)
             if self.parser.match(EQ):
-                var defaultArg = self.parser.previous.lexeme
+                if self.parser.peek.kind == EOF:
+                    self.compileError("Unexpected EOF")
+                    return
                 self.function.arity -= 1
                 self.function.optionals += 1
                 self.expression()
-                self.function.defaults.add(defaultArg)
+                self.function.defaults[paramNames[len(paramNames) - 1]] = self.parser.previous.literal
                 defaultFollows = true
             elif defaultFollows:
                 self.compileError("non-default argument follows default argument")
@@ -695,8 +703,23 @@ proc funDeclaration(self: var Compiler) =
     self.defineVariable(funName)
 
 
+proc argumentList(self: var Compiler): uint8 =
+    result = 0
+    if not self.parser.check(RP):
+        while true:
+            self.expression()
+            if result == 255:
+                self.compileError("cannot have more than 255 arguments")
+                return
+            result += 1
+            if not self.parser.match(COMMA):
+                break
+    self.parser.consume(RP, "Expecting ')' after arguments")
+
+
 proc call(self: var Compiler, canAssign: bool) =
-    return
+    var argCount = self.argumentList()
+    self.emitBytes(OP_CALL, argCount)
 
 
 proc statement(self: var Compiler) =

@@ -1,5 +1,5 @@
 import ../meta/chunk
-import ../meta/valueobject
+import ../common
 import strformat
 
 
@@ -70,6 +70,16 @@ proc disassembleInstruction*(chunk: Chunk, offset: int): int =
         result = simpleInstruction("OP_TRUE", offset)
     elif opcode == OP_FALSE:
         result = simpleInstruction("OP_FALSE", offset)
+    elif opcode == OP_NAN:
+        result = simpleInstruction("OP_NAN", offset)
+    elif opcode == OP_INF:
+        result = simpleInstruction("OP_INF", offset)
+    elif opcode == OP_SHL:
+        result = simpleInstruction("OP_SHL", offset)
+    elif opcode == OP_SHR:
+        result = simpleInstruction("OP_SHR", offset)
+    elif opcode == OP_XOR:
+        result = simpleInstruction("OP_XOR", offset)
     elif opcode == OP_NOT:
         result = simpleInstruction("OP_NOT", offset)
     elif opcode == OP_EQUAL:
@@ -104,6 +114,8 @@ proc disassembleInstruction*(chunk: Chunk, offset: int): int =
         result = jumpInstruction("OP_JUMP", chunk, offset)
     elif opcode == OP_LOOP:
         result = jumpInstruction("OP_LOOP", chunk, offset)
+    elif opcode == OP_CALL:
+        result = byteInstruction("OP_CALL", chunk, offset)
     else:
         echo &"Unknown opcode {opcode} at index {offset}"
         result = offset + 1

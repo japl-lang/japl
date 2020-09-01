@@ -3,29 +3,31 @@
 
 
 import tables
+import strformat
 import meta/valueobject
 import meta/tokenobject
 import meta/looptype
 import types/objecttype
-import meta/chunk
 import types/functiontype
+import types/stringtype
 
 
 type
     CallFrame* = object
         function*: ptr Function
         ip*: int
-        slots*: ptr seq[Value]
+        slots*: seq[Value]
 
 
     VM* = object
+        lastPop*: Value
+        frameCount*: int
         source*: string
         frames*: seq[CallFrame]
         stack*: seq[Value]
         stackTop*: int
         objects*: ptr Obj
         globals*: Table[string, Value]
-        lastPop*: Value
         file*: string
 
     Local* = ref object
@@ -56,5 +58,36 @@ proc initParser*(tokens: seq[Token], file: string): Parser =
     result = Parser(current: 0, tokens: tokens, hadError: false, panicMode: false, file: file)
 
 
-const FRAMES_MAX* = 256
-const STACK_MAX* = FRAMES_MAX * int uint8.high
+func stringify*(value: Value): string =
+    case value.kind:
+        of INTEGER:
+            result = $value.toInt()
+        of DOUBLE:
+            result = $value.toFloat()
+        of BOOL:
+            result = $value.toBool()
+        of NIL:
+            result = "nil"
+        of OBJECT:
+            case value.obj.kind:
+                of ObjectTypes.STRING:
+                    result = cast[ptr String](value.obj)[].stringify
+                of ObjectTypes.FUNCTION:
+                    result = cast[ptr Function](value.obj)[].stringify
+                else:
+                    result = value.obj[].stringify()
+        of ValueTypes.NAN:
+            result = "nan"
+        of ValueTypes.INF:
+            result = "inf"
+        of MINF:
+            result = "-inf"
+
+
+proc stringify*(frame: CallFrame): string =
+    return &"CallFrame(slots={frame.slots}, ip={frame.ip}, function={stringify(frame.function[])})"
+
+
+const FRAMES_MAX* = 400
+const JAPL_VERSION* = "0.2.0"
+const JAPL_RELEASE* = "alpha"

@@ -10,6 +10,8 @@ import stringtype
 import strformat
 import ../memory
 import ../meta/chunk
+import ../meta/valueobject
+import tables
 
 
 type
@@ -17,7 +19,7 @@ type
         name*: ptr String
         arity*: int
         optionals*: int
-        defaults*: seq[string]
+        defaults*: Table[string, Value]
         chunk*: Chunk
     FunctionType* = enum
         FUNC, SCRIPT
@@ -25,7 +27,10 @@ type
 
 proc newFunction*(name: string = "", chunk: Chunk = initChunk(), arity: int = 0): ptr Function =
     result = allocateObj(Function, ObjectTypes.FUNCTION)
-    result.name = newString(name)
+    if name.len > 1:
+        result.name = newString(name)
+    else:
+        result.name = nil
     result.arity = arity
     result.chunk = chunk
 
@@ -35,8 +40,11 @@ proc isFalsey*(fn: Function): bool =
 
 
 proc stringify*(fn: Function): string =
-    result = &"<function object '{stringify(fn.name[])}' (built-in type)>"
+    if fn.name != nil:
+        result = &"<function object '{stringify(fn.name[])}' (built-in type)>"
+    else:
+        result = &"<top-level code object (internal type)>"
 
 
 proc valuesEqual*(a, b: Function): bool =
-    result = a.name == b.name
+    result = a.name[].stringify == b.name[].stringify

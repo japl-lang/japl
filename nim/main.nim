@@ -7,16 +7,17 @@ import common
 
 proc repl(debug: bool = false) =
     var bytecodeVM = initVM()
-    echo &"[JAPL 0.2.0 - on Nim {NimVersion} - {CompileDate} {CompileTime}]"
+    echo &"JAPL {JAPL_VERSION} ({JAPL_RELEASE}, {CompileDate} {CompileTime})"
+    echo &"[Nim {NimVersion} on {hostOs} ({hostCPU})]"
     if debug:
         echo "Debugger enabled, expect verbose output\n"
         echo "==== VM Constants ====\n"
-        echo &"- FRAMES_MAX -> {FRAMES_MAX}\n- STACK_MAX -> {STACK_MAX}\n"
+        echo &"- FRAMES_MAX -> {FRAMES_MAX}"
         echo "==== Code starts ====\n"
     var source: string = ""
     while true:
         try:
-            stdout.write(">>> ")
+            stdout.write("=> ")
             source = readLine(stdin)
         except IOError:
             echo ""
@@ -53,7 +54,7 @@ proc main(file: string = "", debug: bool = false) =
         if debug:
             echo "Debugger enabled, expect verbose output\n"
             echo "==== VM Constants ====\n"
-            echo &"- FRAMES_MAX -> {FRAMES_MAX}\n- STACK_MAX -> {STACK_MAX}\n"
+            echo &"- FRAMES_MAX -> {FRAMES_MAX}"
             echo "==== Code starts ====\n"
         var result = bytecodeVM.interpret(source, debug, false, file)
         if debug:

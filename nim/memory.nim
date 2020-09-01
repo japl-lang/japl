@@ -18,7 +18,7 @@ proc reallocate*(pointer: pointer, oldSize: int, newSize: int): pointer =
             return nil
         result = realloc(pointer, newSize)
     except NilAccessError:
-        echo "MemoryError: could not manage memory, segmentation fault"
+        echo "MemoryError: could not allocate memory, segmentation fault"
         quit(71)
 
 
