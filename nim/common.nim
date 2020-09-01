@@ -87,6 +87,9 @@ func stringify*(value: Value): string =
 proc stringify*(frame: CallFrame): string =
     return &"CallFrame(slots={frame.slots}, ip={frame.ip}, function={stringify(frame.function[])})"
 
+proc `$`*(frame: CallFrame): string =
+    result = stringify(frame)
+
 
 const FRAMES_MAX* = 400
 const JAPL_VERSION* = "0.2.0"

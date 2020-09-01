@@ -550,6 +550,9 @@ proc freeVM*(self: var VM, debug: bool) =
 
 
 proc resetStack*(self: var VM) =
+    self.stack = @[]
+    self.frames = @[]
+    self.frameCount = 0
     self.stackTop = 0
 
 
@@ -563,16 +566,13 @@ proc interpret*(self: var VM, source: string, debug: bool = false, repl: bool = 
     var compiled = compiler.compile(source)
     self.source = source
     self.file = file
-    self.resetStack()
     if compiled == nil:
         return COMPILE_ERROR
-    if len(compiled.chunk.code) > 1:
-        self.push(Value(kind: OBJECT, obj: compiled))
-        discard self.callValue(Value(kind: OBJECT, obj: compiled), 0)
-        try:
-            result = self.run(debug, repl)
-        except KeyboardInterrupt:
-            self.error(newInterruptedError(""))
-            return RUNTIME_ERROR
-
-
+    self.push(Value(kind: OBJECT, obj: compiled))
+    discard self.callValue(Value(kind: OBJECT, obj: compiled), 0)
+    try:
+        result = self.run(debug, repl)
+    except KeyboardInterrupt:
+        self.error(newInterruptedError(""))
+        return RUNTIME_ERROR
+    self.resetStack()
