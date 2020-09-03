@@ -12,29 +12,28 @@ type
     Obj* = object of RootObj
         kind*: ObjectTypes
         hashValue*: uint32
-        next*: ptr Obj
 
 
-func objType*(obj: Obj): ObjectTypes =
+func objType*(obj: ptr Obj): ObjectTypes =
     return obj.kind
 
 
-proc stringify*(obj: Obj): string   =
+proc stringify*(obj: ptr Obj): string   =
     result = "<object (built-in type)>"
 
 
-proc typeName*(obj: Obj): string   =
+proc typeName*(obj: ptr Obj): string   =
     result = "object"
 
 
-proc isFalsey*(obj: Obj): bool   =
+proc isFalsey*(obj: ptr Obj): bool   =
     result = false
 
 
-proc valuesEqual*(a: Obj, b: Obj): bool   =
+proc valuesEqual*(a: ptr Obj, b: ptr Obj): bool   =
     result = a.kind == b.kind
 
 
-proc hash*(self: Obj): uint32 =
+proc hash*(self: ptr Obj): uint32 =
     result = 2166136261u32
     # Add more

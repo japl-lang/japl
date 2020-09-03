@@ -39,12 +39,16 @@ proc isFalsey*(fn: Function): bool =
     return false
 
 
-proc stringify*(fn: Function): string =
+proc stringify*(fn: ptr Function): string =
     if fn.name != nil:
-        result = &"<function object '{stringify(fn.name[])}' (built-in type)>"
+        result = &"<function '{stringify(fn.name)}'>"
     else:
-        result = &"<top-level code object (internal type)>"
+        result = &"<code object>"
 
 
-proc valuesEqual*(a, b: Function): bool =
-    result = a.name[].stringify == b.name[].stringify
+proc valuesEqual*(a, b: ptr Function): bool =
+    result = a.name.stringify == b.name.stringify
+
+
+proc typeName*(self: ptr Function): string =
+    result = "function"

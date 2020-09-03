@@ -10,7 +10,7 @@ type JAPLException* = object of Obj
 
 
 proc stringify*(self: ptr JAPLException): string =
-    return &"{self[].errName[].stringify}: {self[].message[].stringify}"
+    return &"{self.errName.stringify}: {self.message.stringify}"
 
 
 proc newTypeError*(message: string): ptr JAPLException =

@@ -35,13 +35,21 @@ func handleInterrupt() {.noconv.} =
     raise newException(KeyboardInterrupt, "Ctrl+C")
 
 
+proc resetStack*(self: var VM) =
+    self.stack = new(seq[Value])
+    self.frames = new(seq[CallFrame])
+    self.frameCount = 0
+    self.stackTop = 0
+
+
+
 proc error*(self: var VM, error: ptr JAPLException) =
     var previous = ""  # All this stuff seems overkill, but it makes the traceback look nicer
     var repCount = 0   # and if we are here we are far beyond a point where performance matters
     var mainReached = false
     var output = ""
     echo "Traceback (most recent call last):"
-    for frame in reversed(self.frames):
+    for frame in reversed(self.frames[]):
         if mainReached:
             break
         var function = frame.function
@@ -50,7 +58,7 @@ proc error*(self: var VM, error: ptr JAPLException) =
             output = &"  File '{self.file}', line {line}, in '<module>':"
             mainReached = true
         else:
-            output = &"  File '{self.file}', line {line}, in {stringify(function.name[])}():"
+            output = &"  File '{self.file}', line {line}, in {stringify(function.name)}():"
         if output != previous:
             if repCount > 0:
                 echo &"   ...repeated {repCount} more times..."
@@ -60,15 +68,16 @@ proc error*(self: var VM, error: ptr JAPLException) =
         else:
             repCount += 1
     echo error.stringify()
+    self.resetStack()
 
 
 proc pop*(self: var VM): Value =
-    result = self.stack.pop()
+    result = self.stack[].pop()
     self.stackTop -= 1
 
 
 proc push*(self: var VM, value: Value) =
-    self.stack.add(value)
+    self.stack[].add(value)
     self.stackTop += 1
 
 
@@ -76,9 +85,8 @@ proc peek*(self: var VM, distance: int): Value =
     return self.stack[self.stackTop - distance - 1]
 
 
-template markObject*(self, obj: untyped): untyped =
-    obj.next = self.objects
-    self.objects = obj
+template markObject*(self: ptr VM, obj: untyped): untyped =
+    self.objects.add(obj)
     obj
 
 
@@ -101,7 +109,7 @@ proc slice(self: var VM): bool =
                     if idx.toInt() - 1 > len(str) - 1:
                         self.error(newIndexError("string index out of bounds"))
                         return false
-                    self.push(Value(kind: OBJECT, obj: self.markObject(newString(&"{str[idx.toInt()]}"))))
+                    self.push(Value(kind: OBJECT, obj: markObject(addr self, newString(&"{str[idx.toInt()]}"))))
                     return true
 
                 else:
@@ -144,7 +152,7 @@ proc sliceRange(self: var VM): bool =
                     elif sliceStart.toInt() > sliceEnd.toInt():
                         self.error(newIndexError("the start index can't be bigger than the end index"))
                         return false
-                    self.push(Value(kind: OBJECT, obj: self.markObject(newString(str[sliceStart.toInt()..<sliceEnd.toInt()]))))
+                    self.push(Value(kind: OBJECT, obj: markObject(addr self, newString(str[sliceStart.toInt()..<sliceEnd.toInt()]))))
                     return true
 
                 else:
@@ -157,13 +165,13 @@ proc sliceRange(self: var VM): bool =
 
 proc call(self: var VM, function: ptr Function, argCount: uint8): bool =
     if argCount != uint8 function.arity:
-        self.error(newTypeError(&"Function '{stringify(function.name[])}' takes {function.arity} argument(s), got {argCount}"))
+        self.error(newTypeError(&"Function '{stringify(function.name)}' takes {function.arity} argument(s), got {argCount}"))
         return false
     if self.frameCount == FRAMES_MAX:
         self.error(newRecursionError("Max recursion depth exceeded"))
         return false
     var frame = CallFrame(function: function, ip: 0, slots: self.stack[argCount..self.stackTop - 1])
-    self.frames.add(frame)
+    self.frames[].add(frame)
     self.frameCount += 1
     return true
 
@@ -275,7 +283,7 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
         opcode = OpCode(instruction)
         if debug:   # Consider moving this elsewhere
             stdout.write("Current VM stack status: [")
-            for v in self.stack:
+            for v in self.stack[]:
                 stdout.write(stringify(v))
                 stdout.write(", ")
             stdout.write("]\n")
@@ -290,7 +298,7 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
             if frame.function.name == nil:
                 stdout.write(" main\n")
             else:
-                stdout.write(&" function, '{frame.function.name[].stringify()}'\n")
+                stdout.write(&" function, '{frame.function.name.stringify()}'\n")
             stdout.write(&"Current frame count: {self.frameCount}\n")
             stdout.write("Current frame stack status: ")
             if frame.function.name == nil:
@@ -330,7 +338,7 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                     if self.peek(0).isStr() and self.peek(1).isStr():
                         var r = self.pop().toStr()
                         var l = self.pop().toStr()
-                        self.push(Value(kind: OBJECT, obj: self.markObject(newString(l & r))))
+                        self.push(Value(kind: OBJECT, obj: markObject(addr self, newString(l & r))))
                     else:
                         self.error(newTypeError(&"Unsupported binary operator for objects of type '{self.peek(0).typeName()}' and '{self.peek(1).typeName()}'"))
                         return RUNTIME_ERROR
@@ -351,7 +359,7 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                     if self.peek(1).isStr():
                         var r = self.pop().toInt()
                         var l = self.pop().toStr()
-                        self.push(Value(kind: OBJECT, obj: self.markObject(newString(l.repeat(r)))))
+                        self.push(Value(kind: OBJECT, obj: markObject(addr self, newString(l.repeat(r)))))
                     else:
                         self.error(newTypeError(&"Unsupported binary operator for objects of type '{self.peek(0).typeName()}' and '{self.peek(1).typeName()}'"))
                         return RUNTIME_ERROR
@@ -359,7 +367,7 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                     if self.peek(0).isStr():
                         var r = self.pop().toStr()
                         var l = self.pop().toInt()
-                        self.push(Value(kind: OBJECT, obj: self.markObject(newString(r.repeat(l)))))
+                        self.push(Value(kind: OBJECT, obj: markObject(addr self, newString(r.repeat(l)))))
                     else:
                         self.error(newTypeError(&"Unsupported binary operator for objects of type '{self.peek(0).typeName()}' and '{self.peek(1).typeName()}"))
                         return RUNTIME_ERROR
@@ -494,12 +502,12 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                 discard
             of OP_RETURN:
                 var retResult = self.pop()
-                self.frameCount -= 1
-                discard self.frames.pop()
                 if repl:
                     if not self.lastPop.isNil():
                         echo stringify(self.lastPop)
                         self.lastPop = Value(kind: NIL)
+                self.frameCount -= 1
+                discard self.frames[].pop()
                 if self.frameCount == 0:
                     discard self.pop()
                     return OK
@@ -513,12 +521,13 @@ proc freeObject(obj: ptr Obj, debug: bool) =
         of ObjectTypes.STRING:
             var str = cast[ptr String](obj)
             if debug:
-                echo &"Freeing string object with value '{stringify(str[])}' of length {str.len}"
+                echo &"Freeing string object with value '{stringify(str)}' of length {str.len}"
             discard freeArray(char, str.str, str.len)
             discard free(ObjectTypes.STRING, obj)
         of ObjectTypes.FUNCTION:
             var fun = cast[ptr Function](obj)
-            echo "Freeing function object with value '{stringify(fun[])}'"
+            if debug:
+                echo &"Freeing function object with value '{stringify(fun)}'"
             fun.chunk.freeChunk()
             discard free(ObjectTypes.FUNCTION, fun)
         else:
@@ -526,16 +535,12 @@ proc freeObject(obj: ptr Obj, debug: bool) =
 
 
 proc freeObjects(self: var VM, debug: bool) =
-    var obj = self.objects
-    var next: ptr Obj
-    var i = 0
-    while obj != nil:
-        next = obj[].next
+    var objCount = len(self.objects)
+    for obj in reversed(self.objects):
         freeObject(obj, debug)
-        i += 1
-        obj = next
+        discard self.objects.pop()
     if debug:
-        echo &"Freed {i} objects"
+        echo &"Freed {objCount} objects"
 
 
 proc freeVM*(self: var VM, debug: bool) =
@@ -549,25 +554,21 @@ proc freeVM*(self: var VM, debug: bool) =
         quit(71)
 
 
-proc resetStack*(self: var VM) =
-    self.stack = @[]
-    self.frames = @[]
-    self.frameCount = 0
-    self.stackTop = 0
-
-
 proc initVM*(): VM =
     setControlCHook(handleInterrupt)
-    result = VM(lastPop: Value(kind: NIL), frameCount: 0, frames: @[], stack: @[], stackTop: 0, objects: nil, globals: initTable[string, Value](), source: "", file: "")
+    result = VM(lastPop: Value(kind: NIL), frameCount: 0, frames: new(seq[CallFrame]), stack: new(seq[Value]), stackTop: 0, objects: @[], globals: initTable[string, Value](), source: "", file: "")
 
 
 proc interpret*(self: var VM, source: string, debug: bool = false, repl: bool = false, file: string): InterpretResult =
-    var compiler = initCompiler(self, SCRIPT, file=file)
+    self.resetStack()
+    var compiler = initCompiler(addr self, SCRIPT, file=file)
     var compiled = compiler.compile(source)
     self.source = source
     self.file = file
     if compiled == nil:
-        return COMPILE_ERROR
+        if compiler.parser.hadError:
+            return COMPILE_ERROR
+        return OK
     self.push(Value(kind: OBJECT, obj: compiled))
     discard self.callValue(Value(kind: OBJECT, obj: compiled), 0)
     try:
@@ -575,4 +576,3 @@ proc interpret*(self: var VM, source: string, debug: bool = false, repl: bool = 
     except KeyboardInterrupt:
         self.error(newInterruptedError(""))
         return RUNTIME_ERROR
-    self.resetStack()

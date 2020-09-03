@@ -29,10 +29,17 @@ proc repl(debug: bool = false) =
             break
         if source == "":
             continue
+        if source == "//clear" or source == "// clear":
+            echo "\x1Bc"
+            echo &"JAPL {JAPL_VERSION} ({JAPL_RELEASE}, {CompileDate} {CompileTime})"
+            echo &"[Nim {NimVersion} on {hostOs} ({hostCPU})]"
+            continue
         else:
             var result = bytecodeVM.interpret(source, debug, true, "stdin")
             if debug:
                 echo &"Result: {result}"
+    if debug:
+        echo "==== Code ends ===="
 
 
 proc main(file: string = "", debug: bool = false) =
@@ -60,6 +67,7 @@ proc main(file: string = "", debug: bool = false) =
         if debug:
             echo &"Result: {result}"
         bytecodeVM.freeVM(debug)
+        echo "==== Code ends ===="
 
 
 when isMainModule:
