@@ -113,10 +113,10 @@ proc slice(self: var VM): bool =
                     return true
 
                 else:
-                    self.error(newTypeError(&"Unsupported slicing for object of type '{peeked.typeName()}'"))
+                    self.error(newTypeError(&"unsupported slicing for object of type '{peeked.typeName()}'"))
                     return false
         else:
-            self.error(newTypeError(&"Unsupported slicing for object of type '{peeked.typeName()}'"))
+            self.error(newTypeError(&"unsupported slicing for object of type '{peeked.typeName()}'"))
             return false
 
 
@@ -138,37 +138,32 @@ proc sliceRange(self: var VM): bool =
                         return false
                     elif sliceStart.toInt() < 0:
                         sliceStart.intValue = len(str) + sliceStart.toInt()
-                        if sliceStart.toInt() < 0:
-                            self.error(newIndexError("string index out of bounds"))
-                            return false
                     if sliceEnd.toInt() < 0:
                         sliceEnd.intValue = len(str) + sliceEnd.toInt()
-                        if sliceEnd.toInt() < 0:
-                            self.error(newIndexError("string index out of bounds"))
-                            return false
-                    if sliceStart.toInt() - 1 > len(str) - 1 or sliceEnd.toInt() - 1 > len(str) - 1:
-                        self.error(newIndexError("string index out of bounds"))
-                        return false
-                    elif sliceStart.toInt() > sliceEnd.toInt():
-                        self.error(newIndexError("the start index can't be bigger than the end index"))
-                        return false
+                    if sliceStart.toInt() - 1 > len(str) - 1:
+                        self.push(Value(kind: OBJECT, obj: markObject(addr self, newString(""))))
+                        return true
+                    if sliceEnd.toInt() - 1 > len(str) - 1:
+                        sliceEnd = Value(kind: INTEGER, intValue: len(str))
+                    if sliceStart.toInt() > sliceEnd.toInt():
+                        self.push(Value(kind: OBJECT, obj: markObject(addr self, newString(""))))
+                        return true
                     self.push(Value(kind: OBJECT, obj: markObject(addr self, newString(str[sliceStart.toInt()..<sliceEnd.toInt()]))))
                     return true
-
                 else:
-                    self.error(newTypeError(&"Unsupported slicing for object of type '{popped.typeName()}'"))
+                    self.error(newTypeError(&"unsupported slicing for object of type '{popped.typeName()}'"))
                     return false
         else:
-            self.error(newTypeError(&"Unsupported slicing for object of type '{popped.typeName()}'"))
+            self.error(newTypeError(&"unsupported slicing for object of type '{popped.typeName()}'"))
             return false
 
 
 proc call(self: var VM, function: ptr Function, argCount: uint8): bool =
     if argCount != uint8 function.arity:
-        self.error(newTypeError(&"Function '{stringify(function.name)}' takes {function.arity} argument(s), got {argCount}"))
+        self.error(newTypeError(&"function '{stringify(function.name)}' takes {function.arity} argument(s), got {argCount}"))
         return false
     if self.frameCount == FRAMES_MAX:
-        self.error(newRecursionError("Max recursion depth exceeded"))
+        self.error(newRecursionError("max recursion depth exceeded"))
         return false
     var frame = CallFrame(function: function, ip: 0, slots: self.stack[argCount..self.stackTop - 1])
     self.frames[].add(frame)
@@ -265,7 +260,7 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                 else:
                     self.push(Value(kind: DOUBLE, floatValue: float tmp))
         else:
-            self.error(newTypeError(&"Unsupported binary operator for objects of type '{leftVal.typeName()}' and '{rightVal.typeName()}'"))
+            self.error(newTypeError(&"unsupported binary operator for objects of type '{leftVal.typeName()}' and '{rightVal.typeName()}'"))
             return RUNTIME_ERROR
     template BitWise(op): untyped =
         var rightVal {.inject.} = self.pop()
@@ -273,7 +268,7 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
         if isInt(leftVal) and isInt(rightVal):
             self.push(Value(kind: INTEGER, intValue: `op`(leftVal.toInt(), rightVal.toInt())))
         else:
-            self.error(newTypeError(&"Unsupported binary operator for objects of type '{leftVal.typeName()}' and '{rightVal.typeName()}'"))
+            self.error(newTypeError(&"unsupported binary operator for objects of type '{leftVal.typeName()}' and '{rightVal.typeName()}'"))
             return RUNTIME_ERROR
     var instruction: uint8
     var opcode: OpCode
@@ -331,7 +326,7 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                     of ValueTypes.MINF:
                         self.push(Value(kind: ValueTypes.INF))
                     else:
-                        self.error(newTypeError(&"Unsupported unary operator for object of type '{cur.typeName()}'"))
+                        self.error(newTypeError(&"unsupported unary operator for object of type '{cur.typeName()}'"))
                         return RUNTIME_ERROR
             of OP_ADD:
                 if self.peek(0).isObj() and self.peek(1).isObj():
@@ -340,7 +335,7 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                         var l = self.pop().toStr()
                         self.push(Value(kind: OBJECT, obj: markObject(addr self, newString(l & r))))
                     else:
-                        self.error(newTypeError(&"Unsupported binary operator for objects of type '{self.peek(0).typeName()}' and '{self.peek(1).typeName()}'"))
+                        self.error(newTypeError(&"unsupported binary operator for objects of type '{self.peek(0).typeName()}' and '{self.peek(1).typeName()}'"))
                         return RUNTIME_ERROR
                 else:
                     BinOp(`+`, isNum)
@@ -361,7 +356,7 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                         var l = self.pop().toStr()
                         self.push(Value(kind: OBJECT, obj: markObject(addr self, newString(l.repeat(r)))))
                     else:
-                        self.error(newTypeError(&"Unsupported binary operator for objects of type '{self.peek(0).typeName()}' and '{self.peek(1).typeName()}'"))
+                        self.error(newTypeError(&"unsupported binary operator for objects of type '{self.peek(0).typeName()}' and '{self.peek(1).typeName()}'"))
                         return RUNTIME_ERROR
                 elif self.peek(0).isObj() and self.peek(1).isInt():
                     if self.peek(0).isStr():
@@ -369,7 +364,7 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                         var l = self.pop().toInt()
                         self.push(Value(kind: OBJECT, obj: markObject(addr self, newString(r.repeat(l)))))
                     else:
-                        self.error(newTypeError(&"Unsupported binary operator for objects of type '{self.peek(0).typeName()}' and '{self.peek(1).typeName()}"))
+                        self.error(newTypeError(&"unsupported binary operator for objects of type '{self.peek(0).typeName()}' and '{self.peek(1).typeName()}"))
                         return RUNTIME_ERROR
                 else:
                     BinOp(`*`, isNum)
@@ -576,3 +571,4 @@ proc interpret*(self: var VM, source: string, debug: bool = false, repl: bool = 
     except KeyboardInterrupt:
         self.error(newInterruptedError(""))
         return RUNTIME_ERROR
+
