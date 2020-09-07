@@ -13,12 +13,18 @@ import types/functiontype
 import types/stringtype
 
 
+const FRAMES_MAX* = 400
+const JAPL_VERSION* = "0.2.0"
+const JAPL_RELEASE* = "alpha"
+
+
+
 type
     CallFrame* = object
         function*: ptr Function
         ip*: int
-        slots*: seq[Value]
-
+        slots*: HSlice[int, int]
+        stack*: ref seq[Value]
 
     VM* = object
         lastPop*: Value
@@ -55,10 +61,6 @@ type
         file*: string
 
 
-proc initParser*(tokens: seq[Token], file: string): Parser =
-    result = Parser(current: 0, tokens: tokens, hadError: false, panicMode: false, file: file)
-
-
 func stringify*(value: Value): string =
     case value.kind:
         of INTEGER:
@@ -84,9 +86,43 @@ func stringify*(value: Value): string =
         of MINF:
             result = "-inf"
 
+proc getAbsIndex(self: CallFrame, idx: int): int =
+    if idx notin self.slots:
+        raise newException(IndexError, "CallFrame index out of bounds")
+    result = self.slots.a + idx
+
+
+proc getView*(self: CallFrame): seq[Value] =
+    result = self.stack[self.slots]
+
+
+proc len*(self: CallFrame): int =
+    result = len(self.getView())
+
+
+proc delete*(self: CallFrame, idx: int) =
+    self.stack[].delete(self.getAbsIndex(idx))
+
+
+proc `[]`*(self: CallFrame, idx: int): Value =
+    result = self.stack[self.getAbsIndex(idx)]
+
+
+proc `[]=`*(self: CallFrame, idx: int, val: Value) =
+    self.stack[self.getAbsIndex(idx)] = val
+
 
 proc stringify*(frame: CallFrame): string =
-    return &"CallFrame(slots={frame.slots}, ip={frame.ip}, function={stringify(frame.function)})"
+    result = "CallFrame(slots=["
+    for slot in frame.getView():
+        result = result & stringify(slot)
+    result = result & "]"
+    result = result & (&", ip={frame.ip}")
+    result = result & (&", function={stringify(frame.function)})")
+
+
+proc initParser*(tokens: seq[Token], file: string): Parser =
+    result = Parser(current: 0, tokens: tokens, hadError: false, panicMode: false, file: file)
 
 
 proc hashFloat(f: float): uint32 =
@@ -189,12 +225,3 @@ proc valuesEqual*(a: Value, b: Value): bool =
             of ValueTypes.NAN:
                 result = false
 
-
-
-proc `$`*(frame: CallFrame): string =
-    result = stringify(frame)
-
-
-const FRAMES_MAX* = 400
-const JAPL_VERSION* = "0.2.0"
-const JAPL_RELEASE* = "alpha"

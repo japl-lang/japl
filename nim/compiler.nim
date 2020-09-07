@@ -813,7 +813,7 @@ proc getRule(kind: TokenType): ParseRule =
 proc compile*(self: ref Compiler, source: string): ptr Function =
     var scanner = initLexer(source, self.file)
     var tokens = scanner.lex()
-    if len(tokens) > 1 and not scanner.errored:
+    if not scanner.errored:
         self.parser = initParser(tokens, self.file)
         while not self.parser.match(EOF):
             self.declaration()

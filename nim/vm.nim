@@ -48,7 +48,7 @@ proc error*(self: var VM, error: ptr JAPLException) =
     var repCount = 0   # and if we are here we are far beyond a point where performance matters
     var mainReached = false
     var output = ""
-    echo "Traceback (most recent call last):"
+    stderr.write("Traceback (most recent call last):\n")
     for frame in reversed(self.frames[]):
         if mainReached:
             break
@@ -61,13 +61,14 @@ proc error*(self: var VM, error: ptr JAPLException) =
             output = &"  File '{self.file}', line {line}, in {stringify(function.name)}():"
         if output != previous:
             if repCount > 0:
-                echo &"   ...repeated {repCount} more times..."
+                stderr.write(&"   ...previous line repeated {repCount} more times...\n")
             repCount = 0
             previous = output
-            echo output
+            stderr.write(&"{output}\n")
         else:
             repCount += 1
-    echo error.stringify()
+    stderr.write(error.stringify())
+    stderr.write("\n")
     self.resetStack()
 
 
@@ -159,13 +160,14 @@ proc sliceRange(self: var VM): bool =
 
 
 proc call(self: var VM, function: ptr Function, argCount: uint8): bool =
-    if argCount != uint8 function.arity:
+    var argCount = int argCount
+    if argCount != function.arity:
         self.error(newTypeError(&"function '{stringify(function.name)}' takes {function.arity} argument(s), got {argCount}"))
         return false
     if self.frameCount == FRAMES_MAX:
         self.error(newRecursionError("max recursion depth exceeded"))
         return false
-    var frame = CallFrame(function: function, ip: 0, slots: self.stack[argCount..self.stackTop - 1])
+    var frame = CallFrame(function: function, ip: 0, slots: self.stackTop..argCount, stack: self.stack)
     self.frames[].add(frame)
     self.frameCount += 1
     return true
@@ -288,7 +290,6 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                 stdout.write(": ")
                 stdout.write(stringify(v))
             stdout.write("}\n")
-            stdout.write(&"Current frame: {stringify(frame)}\n")
             stdout.write("Current frame type:")
             if frame.function.name == nil:
                 stdout.write(" main\n")
@@ -296,14 +297,11 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                 stdout.write(&" function, '{frame.function.name.stringify()}'\n")
             stdout.write(&"Current frame count: {self.frameCount}\n")
             stdout.write("Current frame stack status: ")
-            if frame.function.name == nil:
-                stdout.write("see VM stack\n")
-            else:
-                stdout.write("[")
-                for v in frame.slots:
-                    stdout.write(stringify(v))
-                    stdout.write(", ")
-                stdout.write("]\n")
+            stdout.write("[")
+            for e in frame.getView():
+                stdout.write(stringify(e))
+                stdout.write(", ")
+            stdout.write("]\n")
             discard disassembleInstruction(frame.function.chunk, frame.ip - 1)
         case opcode:
             of OP_CONSTANT:
@@ -456,26 +454,26 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                     else:
                         self.globals.del(constant)
             of OP_GET_LOCAL:
-                if frame.slots.len > 255:
+                if frame.len > 255:
                     var slot = readBytes()
-                    self.push(frame.slots[slot])
+                    self.push(frame[slot])
                 else:
                     var slot = readByte()
-                    self.push(frame.slots[slot])
+                    self.push(frame[int slot])
             of OP_SET_LOCAL:
-                if frame.slots.len > 255:
+                if frame.len > 255:
                     var slot = readBytes()
-                    frame.slots[slot] = self.peek(0)
+                    frame[slot] = self.peek(0)
                 else:
                     var slot = readByte()
-                    frame.slots[slot] = self.peek(0)
+                    frame[int slot] = self.peek(0)
             of OP_DELETE_LOCAL:
-                if frame.slots.len > 255:
+                if frame.len > 255:
                     var slot = readBytes()
-                    frame.slots.delete(slot)
+                    frame.delete(slot)
                 else:
                     var slot = readByte()
-                    frame.slots.delete(slot)
+                    frame.delete(int slot)
             of OP_POP:
                 self.lastPop = self.pop()
             of OP_JUMP_IF_FALSE:
@@ -551,7 +549,7 @@ proc freeVM*(self: var VM, debug: bool) =
 
 proc initVM*(): VM =
     setControlCHook(handleInterrupt)
-    result = VM(lastPop: Value(kind: NIL), frameCount: 0, frames: new(seq[CallFrame]), stack: new(seq[Value]), stackTop: 0, objects: @[], globals: initTable[string, Value](), source: "", file: "")
+    result = VM(lastPop: Value(kind: NIL), objects: @[], globals: initTable[string, Value](), source: "", file: "")
 
 
 proc interpret*(self: var VM, source: string, debug: bool = false, repl: bool = false, file: string): InterpretResult =
@@ -561,9 +559,7 @@ proc interpret*(self: var VM, source: string, debug: bool = false, repl: bool = 
     self.source = source
     self.file = file
     if compiled == nil:
-        if compiler.parser.hadError:
-            return COMPILE_ERROR
-        return OK
+        return COMPILE_ERROR
     self.push(Value(kind: OBJECT, obj: compiled))
     discard self.callValue(Value(kind: OBJECT, obj: compiled), 0)
     try:
@@ -571,4 +567,3 @@ proc interpret*(self: var VM, source: string, debug: bool = false, repl: bool = 
     except KeyboardInterrupt:
         self.error(newInterruptedError(""))
         return RUNTIME_ERROR
-
