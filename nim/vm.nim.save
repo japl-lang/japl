@@ -167,8 +167,6 @@ proc call(self: var VM, function: ptr Function, argCount: uint8): bool =
     if self.frameCount == FRAMES_MAX:
         self.error(newRecursionError("max recursion depth exceeded"))
         return false
-    if self.frameCount > 0:
-        argCount += 1
     var frame = CallFrame(function: function, ip: 0, slots: argCount..self.stackTop - 1, stack: self.stack)
     self.frames[].add(frame)
     self.frameCount += 1
@@ -509,7 +507,6 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                 self.push(retResult)
                 self.stackTop = len(frame.slots)
                 frame = self.frames[self.frameCount - 1]
-                echo frame
 
 
 proc freeObject(obj: ptr Obj, debug: bool) =
@@ -565,12 +562,8 @@ proc interpret*(self: var VM, source: string, debug: bool = false, repl: bool = 
         return COMPILE_ERROR
     self.push(Value(kind: OBJECT, obj: compiled))
     discard self.callValue(Value(kind: OBJECT, obj: compiled), 0)
-    if debug:
-        echo "==== Real-time VM debugging ====\n"
     try:
         result = self.run(debug, repl)
     except KeyboardInterrupt:
         self.error(newInterruptedError(""))
         return RUNTIME_ERROR
-    if debug:
-        echo "==== Real-time debugging ends ====\n"

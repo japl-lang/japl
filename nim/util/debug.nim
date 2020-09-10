@@ -124,7 +124,6 @@ proc disassembleInstruction*(chunk: Chunk, offset: int): int =
 proc disassembleChunk*(chunk: Chunk, name: string) =
     echo &"==== JAPL VM Debugger - Chunk '{name}' ====\n"
     var index = 0
-    echo chunk.lines
     while index < chunk.code.len:
         index = disassembleInstruction(chunk, index)
     echo &"==== Debug session ended - Chunk '{name}' ===="

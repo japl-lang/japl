@@ -11,9 +11,9 @@ proc repl(debug: bool = false) =
     echo &"[Nim {NimVersion} on {hostOs} ({hostCPU})]"
     if debug:
         echo "Debugger enabled, expect verbose output\n"
-        echo "==== VM Constants ====\n"
+        echo "==== Runtime Constants ====\n"
         echo &"- FRAMES_MAX -> {FRAMES_MAX}"
-        echo "==== Code starts ====\n"
+        echo "==== Debugger started ====\n"
     var source: string = ""
     while true:
         try:
@@ -39,7 +39,7 @@ proc repl(debug: bool = false) =
             if debug:
                 echo &"Result: {result}"
     if debug:
-        echo "==== Code ends ===="
+        echo "==== Debugger exits ===="
 
 
 proc main(file: string = "", debug: bool = false) =
