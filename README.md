@@ -1,5 +1,5 @@
 # japl
-JAPL is an interpreted, dynamically-typed, garbage-collected and minimalistic programming language
+JAPL is an interpreted, dynamically-typed, garbage-collected and minimalistic programming language with C- and Java-like syntax.
 
 # J.. what?
 
@@ -14,7 +14,7 @@ at [this](https://craftinginterpreters.com) link, where he describes the impleme
 
 ### What has been (or will be) added from Lox
 
-- Possibility to delete variables with the `del` statement
+- Possibility to delete variables with the `del` statement (Currently being reworked)
 - `break` statement
 - `continue` statement
 - Multi-line comments (`/* like this */`)
@@ -25,9 +25,10 @@ at [this](https://craftinginterpreters.com) link, where he describes the impleme
 - `inf`, and `nan` types
 - Possibility to have more than 255 locals in scope at any given time
 - String slicing, with start:end syntax as well
-- All entities are actually objects (even builtins) 
-- Bitwise operators (AND, OR, XOR)
-- Functions default and keyword arguments
+- Strings are not interned (may change in the future)
+- All entities are actually objects, even builtins (at least externally) 
+- Bitwise operators (AND, OR, XOR, NOT)
+- Functions default and keyword arguments (__WIP__)
 - A proper import system (__Coming soon__)
 - Native asynchronous (`await`/`async fun`) support (__Coming soon__)
 - Multiple inheritance (__Coming Soon__)
@@ -35,11 +36,12 @@ at [this](https://craftinginterpreters.com) link, where he describes the impleme
 - Arbitrary-precision arithmetic (__Coming soon__)
 - Generators (__Coming soon__)
 - A standard library with collections, I/O utilities, scientific modules, etc (__Coming soon__)
-- Multithreading and multiprocessing support (with a global VM Lock like CPython)
+- Multithreading and multiprocessing support with a global VM Lock like CPython (__Coming soon__)
+- Multiple GC implementations which can be chosen at runtime or via CLI: bare refcount, refcount + generational GC, M&S (__Coming soon__)
 
 
 Other than that, JAPL features closures, function definitions, classes, inheritance and static scoping. You can check
-the provided example `.jpl` files in the repo to find out more about JAPL.
+the provided example `.jpl` files in the repo to find out more about its syntax.
 
 ### Disclaimer
 
