@@ -13,7 +13,7 @@ import types/functiontype
 import types/stringtype
 
 
-const FRAMES_MAX* = 400
+const FRAMES_MAX* = 2
 const JAPL_VERSION* = "0.2.0"
 const JAPL_RELEASE* = "alpha"
 

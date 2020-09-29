@@ -167,9 +167,7 @@ proc call(self: var VM, function: ptr Function, argCount: uint8): bool =
     if self.frameCount == FRAMES_MAX:
         self.error(newRecursionError("max recursion depth exceeded"))
         return false
-    if self.frameCount > 0:
-        argCount += 1
-    var frame = CallFrame(function: function, ip: 0, slots: argCount..self.stackTop - 1, stack: self.stack)
+    var frame = CallFrame(function: function, ip: 0, slots: argCount + 1..self.stackTop - 1, stack: self.stack)
     self.frames[].add(frame)
     self.frameCount += 1
     return true
@@ -507,9 +505,8 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                     discard self.pop()
                     return OK
                 self.push(retResult)
-                self.stackTop = len(frame.slots)
+                self.stackTop = len(frame.slots) - 1
                 frame = self.frames[self.frameCount - 1]
-                echo frame
 
 
 proc freeObject(obj: ptr Obj, debug: bool) =
