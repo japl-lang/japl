@@ -444,6 +444,7 @@ proc expressionStatement(self: ref Compiler) =
     self.emitByte(OP_POP)
 
 
+# TODO: This code will not be used right now as it might clash with the future GC, fix this to make it GC aware!
 proc deleteVariable(self: ref Compiler, canAssign: bool) =
     self.expression()
     if self.parser.previous().kind in [NUMBER, STR]:
@@ -799,7 +800,7 @@ var rules: array[TokenType, ParseRule] = [
     makeRule(literal, nil, PREC_NONE), # TRUE
     makeRule(nil, nil, PREC_NONE), # VAR
     makeRule(nil, nil, PREC_NONE), # WHILE
-    makeRule(deleteVariable, nil, PREC_NONE), # DEL
+    makeRule(nil, nil, PREC_NONE), # DEL  # TODO: Fix del statement to make it GC-aware
     makeRule(nil, nil, PREC_NONE), # BREAK
     makeRule(nil, nil, PREC_NONE), # EOF
     makeRule(nil, nil, PREC_NONE), # COLON

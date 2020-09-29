@@ -460,6 +460,7 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                     else:
                         self.globals[constant] = self.peek(0)
             of OP_DELETE_GLOBAL:
+                # This OpCode, as well as OP_DELETE_LOCAL, is currently unused due to issues with the GC
                 if frame.function.chunk.consts.values.len > 255:
                     var constant = readLongConstant().toStr()
                     if constant notin self.globals:
@@ -489,6 +490,7 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                     var slot = readByte()
                     frame[int slot] = self.peek(0)
             of OP_DELETE_LOCAL:
+                # Unused due to GC potential issues
                 if frame.len > 255:
                     var slot = readBytes()
                     frame.delete(slot)
