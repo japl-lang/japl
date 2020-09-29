@@ -13,4 +13,5 @@ type
     THIS, OR, TRUE, VAR,
     WHILE, DEL, BREAK, EOF,
     COLON, CONTINUE, CARET,
-    SHL, SHR, NAN, INF
+    SHL, SHR, NAN, INF, BAND, 
+    BOR, TILDE

@@ -188,6 +188,10 @@ proc binary(self: ref Compiler, canAssign: bool) =
             self.emitByte(OP_SHL)
         of SHR:
             self.emitByte(OP_SHR)
+        of BOR:
+            self.emitByte(OP_BOR)
+        of BAND:
+            self.emitByte(OP_BAND)
         else:
             return
 
@@ -204,6 +208,8 @@ proc unary(self: ref Compiler, canAssign: bool) =
             self.emitByte(OP_NEGATE)
         of NEG:
             self.emitByte(OP_NOT)
+        of TILDE:
+            self.emitByte(OP_BNOT)
         else:
             return
 
@@ -803,6 +809,9 @@ var rules: array[TokenType, ParseRule] = [
     makeRule(nil, binary, PREC_TERM), # SHR
     makeRule(literal, nil, PREC_NONE), # INF
     makeRule(literal, nil, PREC_NONE), # NAN
+    makeRule(nil, binary, PREC_TERM), # BAND
+    makeRule(nil, binary, PREC_TERM), # BOR
+    makeRule(unary, nil, PREC_TERM), # TILDE
 ]
 
 

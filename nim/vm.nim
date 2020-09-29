@@ -13,6 +13,7 @@ import types/exceptions
 import types/objecttype
 import types/stringtype
 import types/functiontype
+import bitops
 import memory
 
 
@@ -86,7 +87,7 @@ proc peek*(self: var VM, distance: int): Value =
     return self.stack[self.stackTop - distance - 1]
 
 
-template markObject*(self: ptr VM, obj: untyped): untyped =
+template addObject*(self: ptr VM, obj: untyped): untyped =
     self.objects.add(obj)
     obj
 
@@ -110,7 +111,7 @@ proc slice(self: var VM): bool =
                     if idx.toInt() - 1 > len(str) - 1:
                         self.error(newIndexError("string index out of bounds"))
                         return false
-                    self.push(Value(kind: OBJECT, obj: markObject(addr self, newString(&"{str[idx.toInt()]}"))))
+                    self.push(Value(kind: OBJECT, obj: addObject(addr self, newString(&"{str[idx.toInt()]}"))))
                     return true
 
                 else:
@@ -142,14 +143,14 @@ proc sliceRange(self: var VM): bool =
                     if sliceEnd.toInt() < 0:
                         sliceEnd.intValue = len(str) + sliceEnd.toInt()
                     if sliceStart.toInt() - 1 > len(str) - 1:
-                        self.push(Value(kind: OBJECT, obj: markObject(addr self, newString(""))))
+                        self.push(Value(kind: OBJECT, obj: addObject(addr self, newString(""))))
                         return true
                     if sliceEnd.toInt() - 1 > len(str) - 1:
                         sliceEnd = Value(kind: INTEGER, intValue: len(str))
                     if sliceStart.toInt() > sliceEnd.toInt():
-                        self.push(Value(kind: OBJECT, obj: markObject(addr self, newString(""))))
+                        self.push(Value(kind: OBJECT, obj: addObject(addr self, newString(""))))
                         return true
-                    self.push(Value(kind: OBJECT, obj: markObject(addr self, newString(str[sliceStart.toInt()..<sliceEnd.toInt()]))))
+                    self.push(Value(kind: OBJECT, obj: addObject(addr self, newString(str[sliceStart.toInt()..<sliceEnd.toInt()]))))
                     return true
                 else:
                     self.error(newTypeError(&"unsupported slicing for object of type '{popped.typeName()}'"))
@@ -205,7 +206,7 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
         var idx: int
         copyMem(idx.addr, unsafeAddr(arr), sizeof(arr))
         frame.function.chunk.consts.values[idx]
-    template BinOp(op, check) =
+    template binOp(op, check) =
         var rightVal {.inject.} = self.pop()
         var leftVal {.inject.} = self.pop()
         if leftVal.isInf():
@@ -264,7 +265,7 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
         else:
             self.error(newTypeError(&"unsupported binary operator for objects of type '{leftVal.typeName()}' and '{rightVal.typeName()}'"))
             return RUNTIME_ERROR
-    template BitWise(op): untyped =
+    template binBitWise(op): untyped =
         var rightVal {.inject.} = self.pop()
         var leftVal {.inject.} = self.pop()
         if isInt(leftVal) and isInt(rightVal):
@@ -272,6 +273,13 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
         else:
             self.error(newTypeError(&"unsupported binary operator for objects of type '{leftVal.typeName()}' and '{rightVal.typeName()}'"))
             return RUNTIME_ERROR
+    template unBitWise(op): untyped = 
+            var leftVal {.inject.} = self.pop()
+            if isInt(leftVal):
+                self.push(Value(kind: INTEGER, intValue: `op`(leftVal.toInt())))
+            else:
+                self.error(newTypeError(&"unsupported unary operator for object of type '{leftVal.typeName()}'"))
+                return RUNTIME_ERROR
     var instruction: uint8
     var opcode: OpCode
     while true:
@@ -329,47 +337,60 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
             of OP_ADD:
                 if self.peek(0).isObj() and self.peek(1).isObj():
                     if self.peek(0).isStr() and self.peek(1).isStr():
-                        var r = self.pop().toStr()
-                        var l = self.pop().toStr()
-                        self.push(Value(kind: OBJECT, obj: markObject(addr self, newString(l & r))))
+                        var r = self.peek(0).toStr()
+                        var l = self.peek(1).toStr()
+                        let res = Value(kind: OBJECT, obj: addObject(addr self, newString(l & r)))
+                        discard self.pop()    # Garbage collector-related paranoia here
+                        discard self.pop()
+                        self.push(res)
                     else:
                         self.error(newTypeError(&"unsupported binary operator for objects of type '{self.peek(0).typeName()}' and '{self.peek(1).typeName()}'"))
                         return RUNTIME_ERROR
                 else:
-                    BinOp(`+`, isNum)
+                    binOp(`+`, isNum)
             of OP_SHL:
-                BitWise(`shl`)
+                binBitWise(`shl`)
             of OP_SHR:
-                BitWise(`shr`)
+                binBitWise(`shr`)
             of OP_XOR:
-                BitWise(`xor`)
+                binBitWise(`xor`)
+            of OP_BOR:
+                binBitWise(bitor)
+            of OP_BNOT:
+                unBitWise(bitnot)
+            of OP_BAND:
+                binBitWise(bitand)
             of OP_SUBTRACT:
-                BinOp(`-`, isNum)
+                binOp(`-`, isNum)
             of OP_DIVIDE:
-                BinOp(`/`, isNum)
+                binOp(`/`, isNum)
             of OP_MULTIPLY:
                 if self.peek(0).isInt() and self.peek(1).isObj():
                     if self.peek(1).isStr():
-                        var r = self.pop().toInt()
-                        var l = self.pop().toStr()
-                        self.push(Value(kind: OBJECT, obj: markObject(addr self, newString(l.repeat(r)))))
+                        var r = self.pop().toInt()   # We don't peek here because integers are not garbage collected (not by us at least)
+                        var l = self.peek(0).toStr()
+                        let res = Value(kind: OBJECT, obj: addObject(addr self, newString(l.repeat(r))))
+                        discard self.pop()
+                        self.push(res)
                     else:
                         self.error(newTypeError(&"unsupported binary operator for objects of type '{self.peek(0).typeName()}' and '{self.peek(1).typeName()}'"))
                         return RUNTIME_ERROR
                 elif self.peek(0).isObj() and self.peek(1).isInt():
                     if self.peek(0).isStr():
-                        var r = self.pop().toStr()
-                        var l = self.pop().toInt()
-                        self.push(Value(kind: OBJECT, obj: markObject(addr self, newString(r.repeat(l)))))
+                        var r = self.peek(0).toStr()
+                        var l = self.peek(1).toInt()
+                        let res = Value(kind: OBJECT, obj: addObject(addr self, newString(r.repeat(l))))
+                        discard self.pop()
+                        self.push(res)
                     else:
                         self.error(newTypeError(&"unsupported binary operator for objects of type '{self.peek(0).typeName()}' and '{self.peek(1).typeName()}"))
                         return RUNTIME_ERROR
                 else:
-                    BinOp(`*`, isNum)
+                    binOp(`*`, isNum)
             of OP_MOD:
-                BinOp(floorMod, isNum)
+                binOp(floorMod, isNum)
             of OP_POW:
-                BinOp(`**`, isNum)
+                binOp(`**`, isNum)
             of OP_TRUE:
                 self.push(Value(kind: BOOL, boolValue: true))
             of OP_FALSE:
@@ -391,9 +412,9 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                     a = Value(kind: DOUBLE, floatValue: float a.toInt())
                 self.push(Value(kind: BOOL, boolValue: valuesEqual(a, b)))
             of OP_LESS:
-                BinOp(`<`, isNum)
+                binOp(`<`, isNum)
             of OP_GREATER:
-                BinOp(`>`, isNum)
+                binOp(`>`, isNum)
             of OP_SLICE:
                 if not self.slice():
                     return RUNTIME_ERROR
