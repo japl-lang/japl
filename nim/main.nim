@@ -67,7 +67,8 @@ proc main(file: string = "", debug: bool = false) =
         if debug:
             echo &"Result: {result}"
         bytecodeVM.freeVM(debug)
-        echo "==== Code ends ===="
+        if debug:
+            echo "==== Code ends ===="
 
 
 when isMainModule:
