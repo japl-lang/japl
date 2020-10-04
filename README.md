@@ -22,7 +22,7 @@ at [this](https://craftinginterpreters.com) link, where he describes the impleme
 - Modulo division (`%`) and exponentiation (`**`)
 - `OP_CONSTANT_LONG` OpCode is implemented
 - Differentiation between integers and floating point numbers
-- `inf`, and `nan` types
+- `inf` and `nan` types
 - Possibility to have more than 255 locals in scope at any given time
 - String slicing, with start:end syntax as well
 - Strings are not interned (may change in the future)
@@ -38,6 +38,8 @@ at [this](https://craftinginterpreters.com) link, where he describes the impleme
 - A standard library with collections, I/O utilities, scientific modules, etc (__Coming soon__)
 - Multithreading and multiprocessing support with a global VM Lock like CPython (__Coming soon__)
 - Multiple GC implementations which can be chosen at runtime or via CLI: bare refcount, refcount + generational GC, M&S (__Coming soon__)
+- Exceptions (__Coming soon__)
+- Optional JIT Compilation (__Coming soon__)
 
 
 Other than that, JAPL features closures, function definitions, classes, inheritance and static scoping. You can check
@@ -53,3 +55,7 @@ For other useful information, check the LICENSE file in this repo.
 ### Contributing
 
 If you want to contribute, feel free to send a PR!
+
+Right now there are some major issues with the virtual machine which need to be addressed
+before the development can proceed, and some help is ~~desperately needed~~ greatly appreciated!
+
