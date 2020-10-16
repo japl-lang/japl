@@ -51,38 +51,47 @@ type
 
     Chunk* = ref object
       ## A piece of bytecode.
+      ## Consts represents (TODO newdoc)
+      ## Code represents (TODO newdoc)
+      ## Lines represents (TODO newdoc)
       consts*: ValueArray
       code*: seq[uint8]
       lines*: seq[int]
 
 
 proc newChunk*(): Chunk =
-  ## 
+  ## The constructor for the type Chunk
   result = Chunk(consts: ValueArray(values: @[]), code: @[], lines: @[])
 
 
-proc writeChunk*(self: Chunk, byt: uint8, line: int) =
-    self.code.add(byt)
-    self.lines.add(line)
+proc writeChunk*(self: Chunk, newByte: uint8, line: int) =
+  ## Appends newByte at line to a chunk.
+  self.code.add(newByte)
+  self.lines.add(line)
 
 
 proc writeChunk*(self: Chunk, bytes: array[3, uint8], line: int) =
-    for byt in bytes:
-        self.writeChunk(byt, line)
+  ## Appends bytes (an array of 3 bytes) to a chunk
+  for cByte in bytes:
+    self.writeChunk(cByte, line)
 
 
-proc freeChunk*(self: var Chunk) =
-    self.consts = ValueArray(values: @[])
-    self.code = @[]
-    self.lines = @[]
+proc freeChunk*(self: Chunk) =
+  ## Resets a chunk to its initial value.
+  self.consts = ValueArray(values: @[])
+  self.code = @[]
+  self.lines = @[]
 
 
-proc addConstant*(chunk: var Chunk, constant: Value): int =
-    chunk.consts.values.add(constant)
-    return len(chunk.consts.values) - 1  # The index of the constant
+proc addConstant*(self: Chunk, constant: Value): int =
+  ## Adds a constant to a chunk. Returns its index. 
+  chunk.consts.values.add(constant)
+  return self.consts.values.high()  # The index of the constant
 
 
-proc writeConstant*(chunk: var Chunk, constant: Value): array[3, uint8] =
-    let index = chunk.addConstant(constant)
-    result = cast[array[3, uint8]](index)
+proc writeConstant*(self: Chunk, constant: Value): array[3, uint8] =
+  ## Writes a constant to a chunk. Returns its index casted to an array.
+  ## TODO newdoc
+  let index = chunk.addConstant(constant)
+  result = cast[array[3, uint8]](index)
 
