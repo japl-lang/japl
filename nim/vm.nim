@@ -37,8 +37,8 @@ func handleInterrupt() {.noconv.} =
 
 
 proc resetStack*(self: var VM) =
-    self.stack = new(seq[Value])
-    self.frames = new(seq[CallFrame])
+    self.stack = @[]
+    self.frames = @[]
     self.frameCount = 0
     self.stackTop = 0
 
@@ -50,7 +50,7 @@ proc error*(self: var VM, error: ptr JAPLException) =
     var mainReached = false
     var output = ""
     stderr.write("Traceback (most recent call last):\n")
-    for frame in reversed(self.frames[]):
+    for frame in reversed(self.frames):
         if mainReached:
             break
         var function = frame.function
@@ -74,12 +74,12 @@ proc error*(self: var VM, error: ptr JAPLException) =
 
 
 proc pop*(self: var VM): Value =
-    result = self.stack[].pop()
+    result = self.stack.pop()
     self.stackTop -= 1
 
 
 proc push*(self: var VM, value: Value) =
-    self.stack[].add(value)
+    self.stack.add(value)
     self.stackTop += 1
 
 
@@ -168,8 +168,8 @@ proc call(self: var VM, function: ptr Function, argCount: uint8): bool =
     if self.frameCount == FRAMES_MAX:
         self.error(newRecursionError("max recursion depth exceeded"))
         return false
-    var frame = CallFrame(function: function, ip: 0, slots: argCount + 1..self.stackTop - 1, stack: self.stack)
-    self.frames[].add(frame)
+    var frame = CallFrame(function: function, ip: 0, slot: argCount + 1, stack: self.stack)
+    self.frames.add(frame)
     self.frameCount += 1
     return true
 
@@ -258,6 +258,10 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                 var tmp = `op`(leftVal.toInt(), rightVal.toInt())
                 if tmp is int:
                     self.push(Value(kind: INTEGER, intValue: int tmp))
+                elif res == Inf:
+                    self.push(Value(kind: ValueTypes.INF))
+                elif res == -Inf:
+                    self.push(Value(kind: MINF))
                 elif tmp is bool:
                     self.push(Value(kind: BOOL, boolValue: bool tmp))
                 else:
@@ -273,7 +277,7 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
         else:
             self.error(newTypeError(&"unsupported binary operator for objects of type '{leftVal.typeName()}' and '{rightVal.typeName()}'"))
             return RUNTIME_ERROR
-    template unBitWise(op): untyped = 
+    template unBitWise(op): untyped =
             var leftVal {.inject.} = self.pop()
             if isInt(leftVal):
                 self.push(Value(kind: INTEGER, intValue: `op`(leftVal.toInt())))
@@ -288,7 +292,7 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
         opcode = OpCode(instruction)
         if debug:   # Consider moving this elsewhere
             stdout.write("Current VM stack status: [")
-            for v in self.stack[]:
+            for v in self.stack:
                 stdout.write(stringify(v))
                 stdout.write(", ")
             stdout.write("]\n")
@@ -306,7 +310,7 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
             stdout.write(&"Current frame count: {self.frameCount}\n")
             stdout.write("Current frame stack status: ")
             stdout.write("[")
-            for e in frame.getView():
+            for e in self.stack[frame.slot..self.stackTop - 1]:
                 stdout.write(stringify(e))
                 stdout.write(", ")
             stdout.write("]\n")
@@ -523,7 +527,7 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                         echo stringify(self.lastPop)
                         self.lastPop = Value(kind: NIL)
                 self.frameCount -= 1
-                discard self.frames[].pop()
+                discard self.frames.pop()
                 if self.frameCount == 0:
                     discard self.pop()
                     return OK

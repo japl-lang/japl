@@ -36,4 +36,3 @@ proc valuesEqual*(a: ptr Obj, b: ptr Obj): bool   =
 
 proc hash*(self: ptr Obj): uint32 =
     result = 2166136261u32
-    # Add more

@@ -78,6 +78,10 @@ proc consume(self: var Parser, expected: TokenType, message: string) =
     self.parseError(self.peek(), message)
 
 
+proc currentChunk(self: ref Compiler): var Chunk =
+    result = self.function.chunk
+
+
 proc compileError(self: ref Compiler, message: string) =
     echo &"Traceback (most recent call last):"
     echo &"  File '{self.file}', line {self.parser.peek.line}, at '{self.parser.peek.lexeme}'"
@@ -87,7 +91,7 @@ proc compileError(self: ref Compiler, message: string) =
 
 
 proc emitByte(self: ref Compiler, byt: OpCode|uint8) =
-    self.function.chunk.writeChunk(uint8 byt, self.parser.previous.line)
+    self.currentChunk.writeChunk(uint8 byt, self.parser.previous.line)
 
 
 proc emitBytes(self: ref Compiler, byt1: OpCode|uint8, byt2: OpCode|uint8) =
@@ -101,15 +105,15 @@ proc emitBytes(self: ref Compiler, bytarr: array[3, uint8]) =
 
 
 proc makeConstant(self: ref Compiler, val: Value): uint8 =
-    result = uint8 self.function.chunk.addConstant(val)
+    result = uint8 self.currentChunk.addConstant(val)
 
 
 proc makeLongConstant(self: ref Compiler, val: Value): array[3, uint8] =
-    result = self.function.chunk.writeConstant(val)
+    result = self.currentChunk.writeConstant(val)
 
 
 proc emitConstant(self: ref Compiler, value: Value) =
-    if self.function.chunk.consts.values.len > 255:
+    if self.currentChunk().consts.values.len > 255:
         self.emitByte(OP_CONSTANT_LONG)
         self.emitBytes(self.makeLongConstant(value))
     else:
@@ -422,7 +426,7 @@ proc varDeclaration(self: ref Compiler) =
     var shortName: uint8
     var longName: array[3, uint8]
     var useShort: bool = true
-    if self.function.chunk.consts.values.len < 255:
+    if self.currentChunk.consts.values.len < 255:
         shortName = self.parseVariable("Expecting variable name")
     else:
         useShort = false
@@ -455,7 +459,7 @@ proc deleteVariable(self: ref Compiler, canAssign: bool) =
     else:
         code = OP_DELETE_LOCAL
     self.localCount = self.localCount - 1
-    if self.function.chunk.consts.values.len < 255:
+    if self.currentChunk.consts.values.len < 255:
         var name = self.identifierConstant(self.parser.previous())
         self.locals.delete(name)
         self.emitBytes(code, name)
@@ -486,16 +490,16 @@ proc emitJump(self: ref Compiler, opcode: OpCode): int =
     self.emitByte(opcode)
     self.emitByte(0xff)
     self.emitByte(0xff)
-    return self.function.chunk.code.len - 2
+    return self.currentChunk.code.len - 2
 
 
 proc patchJump(self: ref Compiler, offset: int) =
-    var jump = self.function.chunk.code.len - offset - 2
+    var jump = self.currentChunk.code.len - offset - 2
     if jump > (int uint16.high):
         self.compileError("too much code to jump over")
     else:
-        self.function.chunk.code[offset] = uint8 (jump shr 8) and 0xff
-        self.function.chunk.code[offset + 1] = uint8 jump and 0xff
+        self.currentChunk.code[offset] = uint8 (jump shr 8) and 0xff
+        self.currentChunk.code[offset + 1] = uint8 jump and 0xff
 
 
 proc ifStatement(self: ref Compiler) =
@@ -522,7 +526,7 @@ proc ifStatement(self: ref Compiler) =
 
 proc emitLoop(self: ref Compiler, start: int) =
     self.emitByte(OP_LOOP)
-    var offset = self.function.chunk.code.len - start + 2
+    var offset = self.currentChunk.code.len - start + 2
     if offset > (int uint16.high):
         self.compileError("loop body is too large")
     else:
@@ -535,9 +539,9 @@ proc endLooping(self: ref Compiler) =
         self.patchJump(self.loop.loopEnd)
         self.emitByte(OP_POP)
     var i = self.loop.body
-    while i < self.function.chunk.code.len:
-        if self.function.chunk.code[i] == uint OP_BREAK:
-            self.function.chunk.code[i] = uint8 OP_JUMP
+    while i < self.currentChunk.code.len:
+        if self.currentChunk.code[i] == uint OP_BREAK:
+            self.currentChunk.code[i] = uint8 OP_JUMP
             self.patchJump(i + 1)
             i += 3
         else:
@@ -546,7 +550,7 @@ proc endLooping(self: ref Compiler) =
 
 
 proc whileStatement(self: ref Compiler) =
-    var loop = Loop(depth: self.scopeDepth, outer: self.loop, start: self.function.chunk.code.len, alive: true, loopEnd: -1)
+    var loop = Loop(depth: self.scopeDepth, outer: self.loop, start: self.currentChunk.code.len, alive: true, loopEnd: -1)
     self.loop = loop
     self.parser.consume(LP, "The loop condition must be parenthesized")
     if self.parser.peek.kind != EOF:
@@ -556,7 +560,7 @@ proc whileStatement(self: ref Compiler) =
         if self.parser.peek.kind != EOF:
             self.loop.loopEnd = self.emitJump(OP_JUMP_IF_FALSE)
             self.emitByte(OP_POP)
-            self.loop.body = self.function.chunk.code.len
+            self.loop.body = self.currentChunk.code.len
             self.statement()
             self.emitLoop(self.loop.start)
             self.patchJump(self.loop.loopEnd)
@@ -578,7 +582,7 @@ proc forStatement(self: ref Compiler) =
             self.varDeclaration()
         else:
             self.expressionStatement()
-        var loop = Loop(depth: self.scopeDepth, outer: self.loop, start: self.function.chunk.code.len, alive: true, loopEnd: -1)
+        var loop = Loop(depth: self.scopeDepth, outer: self.loop, start: self.currentChunk.code.len, alive: true, loopEnd: -1)
         self.loop = loop
         if not self.parser.match(SEMICOLON):
             self.expression()
@@ -591,7 +595,7 @@ proc forStatement(self: ref Compiler) =
                 self.parser.parseError(self.parser.previous, "Invalid syntax")
         if not self.parser.match(RP):
             var bodyJump = self.emitJump(OP_JUMP)
-            var incrementStart = self.function.chunk.code.len
+            var incrementStart = self.currentChunk.code.len
             if self.parser.peek.kind != EOF:
                 self.expression()
                 self.emitByte(OP_POP)
@@ -600,7 +604,7 @@ proc forStatement(self: ref Compiler) =
                 self.loop.start = incrementStart
                 self.patchJump(bodyJump)
         if self.parser.peek.kind != EOF:
-            self.loop.body = self.function.chunk.code.len
+            self.loop.body = self.currentChunk.code.len
             self.statement()
             self.emitLoop(self.loop.start)
         else:
@@ -695,7 +699,7 @@ proc parseFunction(self: ref Compiler, funType: FunctionType) =
     self.parseBlock()
     var fun = self.endCompiler()
     self = self.enclosing
-    if self.function.chunk.consts.values.len < 255:
+    if self.currentChunk.consts.values.len < 255:
         self.emitBytes(OP_CONSTANT, self.makeConstant(Value(kind: OBJECT, obj: fun)))
     else:
         self.emitByte(OP_CONSTANT_LONG)
@@ -838,16 +842,16 @@ proc compile*(self: ref Compiler, source: string): ptr Function =
 
 proc initCompiler*(vm: ptr VM, context: FunctionType, enclosing: ref Compiler = nil, parser: Parser = initParser(@[], ""), file: string): ref Compiler =
     result = new(Compiler)
-    result.parser =   parser
+    result.parser = parser
     result.function = nil
-    result.locals =  @[]
+    result.locals = @[]
     result.scopeDepth = 0
     result.localCount = 0
     result.loop = Loop(alive: false, loopEnd: -1)
-    result.vm =  vm
+    result.vm = vm
     result.context = context
     result.enclosing = enclosing
-    result.file =  file
+    result.file = file
     result.parser.file = file
     result.locals.add(Local(depth: 0, name: Token(kind: EOF, lexeme: "")))
     inc(result.localCount)
