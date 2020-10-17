@@ -114,10 +114,10 @@ proc makeLongConstant(self: ref Compiler, val: Value): array[3, uint8] =
 
 proc emitConstant(self: ref Compiler, value: Value) =
     if self.currentChunk().consts.values.len > 255:
-        self.emitByte(OP_CONSTANT_LONG)
+        self.emitByte(OpCode.ConstantLong)
         self.emitBytes(self.makeLongConstant(value))
     else:
-        self.emitBytes(OP_CONSTANT, self.makeConstant(value))
+        self.emitBytes(OpCode.Constant, self.makeConstant(value))
 
 
 proc getRule(kind: TokenType): ParseRule  # Forward declarations
@@ -127,8 +127,8 @@ proc initCompiler*(vm: ptr VM, context: FunctionType, enclosing: ref Compiler = 
 
 
 proc endCompiler(self: ref Compiler): ptr Function =
-    self.emitByte(OP_NIL)
-    self.emitByte(OP_RETURN)
+    self.emitByte(OpCode.Nil)
+    self.emitByte(OpCode.Return)
     return self.function
 
 
@@ -163,39 +163,39 @@ proc binary(self: ref Compiler, canAssign: bool) =
     self.parsePrecedence(Precedence((int rule.precedence) + 1))
     case operator:
         of PLUS:
-            self.emitByte(OP_ADD)
+            self.emitByte(OpCode.Add)
         of MINUS:
-            self.emitByte(OP_SUBTRACT)
+            self.emitByte(OpCode.Subtract)
         of SLASH:
-            self.emitByte(OP_DIVIDE)
+            self.emitByte(OpCode.Divide)
         of STAR:
-            self.emitByte(OP_MULTIPLY)
+            self.emitByte(OpCode.Multiply)
         of MOD:
-            self.emitByte(OP_MOD)
+            self.emitByte(OpCode.Mod)
         of POW:
-            self.emitByte(OP_POW)
+            self.emitByte(OpCode.Pow)
         of NE:
-            self.emitBytes(OP_EQUAL, OP_NOT)
+            self.emitBytes(OpCode.Equal, OpCode.Not)
         of DEQ:
-            self.emitByte(OP_EQUAL)
+            self.emitByte(OpCode.Equal)
         of GT:
-            self.emitByte(OP_GREATER)
+            self.emitByte(OpCode.Greater)
         of GE:
-            self.emitBytes(OP_LESS, OP_NOT)
+            self.emitBytes(OpCode.Less, OpCode.Not)
         of LT:
-            self.emitByte(OP_LESS)
+            self.emitByte(OpCode.Less)
         of LE:
-            self.emitBytes(OP_GREATER, OP_NOT)
+            self.emitBytes(OpCode.Greater, OpCode.Not)
         of CARET:
-           self.emitByte(OP_XOR)
+           self.emitByte(OpCode.Xor)
         of SHL:
-            self.emitByte(OP_SHL)
+            self.emitByte(OpCode.Shl)
         of SHR:
-            self.emitByte(OP_SHR)
+            self.emitByte(OpCode.Shr)
         of BOR:
-            self.emitByte(OP_BOR)
+            self.emitByte(OpCode.Bor)
         of BAND:
-            self.emitByte(OP_BAND)
+            self.emitByte(OpCode.Band)
         else:
             return
 
@@ -209,11 +209,11 @@ proc unary(self: ref Compiler, canAssign: bool) =
         return
     case operator:
         of MINUS:
-            self.emitByte(OP_NEGATE)
+            self.emitByte(OpCode.Negate)
         of NEG:
-            self.emitByte(OP_NOT)
+            self.emitByte(OpCode.Not)
         of TILDE:
-            self.emitByte(OP_BNOT)
+            self.emitByte(OpCode.Bnot)
         else:
             return
 
@@ -236,24 +236,24 @@ proc bracketAssign(self: ref Compiler, canAssign: bool) =
 
 proc bracket(self: ref Compiler, canAssign: bool) =
     if self.parser.peek.kind == COLON:
-        self.emitByte(OP_NIL)
+        self.emitByte(OpCode.Nil)
         discard self.parser.advance()
         if self.parser.peek.kind == RS:
-            self.emitByte(OP_NIL)
+            self.emitByte(OpCode.Nil)
         else:
             self.parsePrecedence(PREC_TERM)
-        self.emitByte(OP_SLICE_RANGE)
+        self.emitByte(OpCode.SliceRange)
     else:
         self.parsePrecedence(PREC_TERM)
         if self.parser.peek.kind == RS:
-            self.emitByte(OP_SLICE)
+            self.emitByte(OpCode.Slice)
         elif self.parser.peek.kind == COLON:
             discard self.parser.advance()
             if self.parser.peek.kind == RS:
-                self.emitByte(OP_NIL)
+                self.emitByte(OpCode.Nil)
             else:
                 self.parsePrecedence(PREC_TERM)
-            self.emitByte(OP_SLICE_RANGE)
+            self.emitByte(OpCode.SliceRange)
     if self.parser.peek.kind == EQ:
         discard self.parser.advance()
         self.parsePrecedence(PREC_TERM)
@@ -263,15 +263,15 @@ proc bracket(self: ref Compiler, canAssign: bool) =
 proc literal(self: ref Compiler, canAssign: bool) =
     case self.parser.previous().kind:
         of TRUE:
-            self.emitByte(OP_TRUE)
+            self.emitByte(OpCode.True)
         of FALSE:
-            self.emitByte(OP_FALSE)
+            self.emitByte(OpCode.False)
         of TokenType.NIL:
-            self.emitByte(OP_NIL)
+            self.emitByte(OpCode.Nil)
         of TokenType.INF:
-            self.emitByte(OP_INF)
+            self.emitByte(OpCode.Inf)
         of TokenType.NAN:
-            self.emitByte(OP_NAN)
+            self.emitByte(OpCode.Nan)
         else:
             discard  # Unreachable
 
@@ -285,7 +285,7 @@ proc grouping(self: ref Compiler, canAssign: bool) =
     if self.parser.match(EOF):
         self.parser.parseError(self.parser.previous, "Expecting ')'")
     elif self.parser.match(RP):
-        self.emitByte(OP_NIL)
+        self.emitByte(OpCode.Nil)
     else:
         self.expression()
         self.parser.consume(RP, "Expecting ')' after parentheszed expression")
@@ -351,14 +351,14 @@ proc defineVariable(self: ref Compiler, idx: uint8) =
     if self.scopeDepth > 0:
         self.markInitialized()
         return
-    self.emitBytes(OP_DEFINE_GLOBAL, idx)
+    self.emitBytes(OpCode.DefineGlobal, idx)
 
 
 proc defineVariable(self: ref Compiler, idx: array[3, uint8]) =
     if self.scopeDepth > 0:
         self.markInitialized()
         return
-    self.emitByte(OP_DEFINE_GLOBAL)
+    self.emitByte(OpCode.DefineGlobal)
     self.emitBytes(idx)
 
 
@@ -379,11 +379,11 @@ proc namedVariable(self: ref Compiler, tok: Token, canAssign: bool) =
         get: OpCode
         set: OpCode
     if arg != -1:
-        get = OP_GET_LOCAL
-        set = OP_SET_LOCAL
+        get = OpCode.GetLocal
+        set = OpCode.SetLocal
     else:
-        get = OP_GET_GLOBAL
-        set = OP_SET_GLOBAL
+        get = OpCode.GetGlobal
+        set = OpCode.SetGlobal
         arg = int self.identifierConstant(tok)
     if self.parser.match(EQ) and canAssign:
         self.expression()
@@ -399,11 +399,11 @@ proc namedLongVariable(self: ref Compiler, tok: Token, canAssign: bool) =
         get: OpCode
         set: OpCode
     if arg != -1:
-        get = OP_GET_LOCAL
-        set = OP_SET_LOCAL
+        get = OpCode.GetLocal
+        set = OpCode.SetLocal
     else:
-        get = OP_GET_GLOBAL
-        set = OP_SET_GLOBAL
+        get = OpCode.GetGlobal
+        set = OpCode.SetGlobal
         casted = self.identifierLongConstant(tok)
     if self.parser.match(EQ) and canAssign:
         self.expression()
@@ -434,7 +434,7 @@ proc varDeclaration(self: ref Compiler) =
     if self.parser.match(EQ):
         self.expression()
     else:
-        self.emitByte(OP_NIL)
+        self.emitByte(OpCode.Nil)
     self.parser.consume(SEMICOLON, "Missing semicolon after var declaration")
     if useShort:
         self.defineVariable(shortName)
@@ -445,7 +445,7 @@ proc varDeclaration(self: ref Compiler) =
 proc expressionStatement(self: ref Compiler) =
     self.expression()
     self.parser.consume(SEMICOLON, "Missing semicolon after expression")
-    self.emitByte(OP_POP)
+    self.emitByte(OpCode.Pop)
 
 
 # TODO: This code will not be used right now as it might clash with the future GC, fix this to make it GC aware!
@@ -455,9 +455,9 @@ proc deleteVariable(self: ref Compiler, canAssign: bool) =
         self.compileError("cannot delete a literal")
     var code: OpCode
     if self.scopeDepth == 0:
-        code = OP_DELETE_GLOBAL
+        code = OpCode.DeleteGlobal
     else:
-        code = OP_DELETE_LOCAL
+        code = OpCode.DeleteLocal
     self.localCount = self.localCount - 1
     if self.currentChunk.consts.values.len < 255:
         var name = self.identifierConstant(self.parser.previous())
@@ -482,7 +482,7 @@ proc beginScope(self: ref Compiler) =
 proc endScope(self: ref Compiler) =
     self.scopeDepth = self.scopeDepth - 1
     while self.localCount > 0 and self.locals[self.localCount - 1].depth > self.scopeDepth:
-        self.emitByte(OP_POP)
+        self.emitByte(OpCode.Pop)
         self.localCount = self.localCount - 1
 
 
@@ -509,12 +509,12 @@ proc ifStatement(self: ref Compiler) =
         if self.parser.peek.kind != EOF:
             self.parser.consume(RP, "The if condition must be parenthesized")
         if self.parser.peek.kind != EOF:
-            var jump: int = self.emitJump(OP_JUMP_IF_FALSE)
-            self.emitByte(OP_POP)
+            var jump: int = self.emitJump(OpCode.JumpIfFalse)
+            self.emitByte(OpCode.Pop)
             self.statement()
-            var elseJump = self.emitJump(OP_JUMP)
+            var elseJump = self.emitJump(OpCode.Jump)
             self.patchJump(jump)
-            self.emitByte(OP_POP)
+            self.emitByte(OpCode.Pop)
             if self.parser.match(ELSE):
                 self.statement()
             self.patchJump(elseJump)
@@ -525,7 +525,7 @@ proc ifStatement(self: ref Compiler) =
 
 
 proc emitLoop(self: ref Compiler, start: int) =
-    self.emitByte(OP_LOOP)
+    self.emitByte(OpCode.Loop)
     var offset = self.currentChunk.code.len - start + 2
     if offset > (int uint16.high):
         self.compileError("loop body is too large")
@@ -537,11 +537,11 @@ proc emitLoop(self: ref Compiler, start: int) =
 proc endLooping(self: ref Compiler) =
     if self.loop.loopEnd != -1:
         self.patchJump(self.loop.loopEnd)
-        self.emitByte(OP_POP)
+        self.emitByte(OpCode.Pop)
     var i = self.loop.body
     while i < self.currentChunk.code.len:
-        if self.currentChunk.code[i] == uint OP_BREAK:
-            self.currentChunk.code[i] = uint8 OP_JUMP
+        if self.currentChunk.code[i] == uint OpCode.Break:
+            self.currentChunk.code[i] = uint8 OpCode.Jump
             self.patchJump(i + 1)
             i += 3
         else:
@@ -558,13 +558,13 @@ proc whileStatement(self: ref Compiler) =
         if self.parser.peek.kind != EOF:
             self.parser.consume(RP, "The loop condition must be parenthesized")
         if self.parser.peek.kind != EOF:
-            self.loop.loopEnd = self.emitJump(OP_JUMP_IF_FALSE)
-            self.emitByte(OP_POP)
+            self.loop.loopEnd = self.emitJump(OpCode.JumpIfFalse)
+            self.emitByte(OpCode.Pop)
             self.loop.body = self.currentChunk.code.len
             self.statement()
             self.emitLoop(self.loop.start)
             self.patchJump(self.loop.loopEnd)
-            self.emitByte(OP_POP)
+            self.emitByte(OpCode.Pop)
         else:
             self.parser.parseError(self.parser.previous, "Invalid syntax")
     else:
@@ -588,17 +588,17 @@ proc forStatement(self: ref Compiler) =
             self.expression()
             if self.parser.previous.kind != EOF:
                 self.parser.consume(SEMICOLON, "Expecting ';'")
-                self.loop.loopEnd = self.emitJump(OP_JUMP_IF_FALSE)
-                self.emitByte(OP_POP)
+                self.loop.loopEnd = self.emitJump(OpCode.JumpIfFalse)
+                self.emitByte(OpCode.Pop)
             else:
                 self.parser.current -= 1
                 self.parser.parseError(self.parser.previous, "Invalid syntax")
         if not self.parser.match(RP):
-            var bodyJump = self.emitJump(OP_JUMP)
+            var bodyJump = self.emitJump(OpCode.Jump)
             var incrementStart = self.currentChunk.code.len
             if self.parser.peek.kind != EOF:
                 self.expression()
-                self.emitByte(OP_POP)
+                self.emitByte(OpCode.Pop)
                 self.parser.consume(RP, "The loop condition must be parenthesized")
                 self.emitLoop(self.loop.start)
                 self.loop.start = incrementStart
@@ -612,7 +612,7 @@ proc forStatement(self: ref Compiler) =
             self.parser.parseError(self.parser.previous, "Invalid syntax")
         if self.loop.loopEnd != -1:
             self.patchJump(self.loop.loopEnd)
-            self.emitByte(OP_POP)
+            self.emitByte(OpCode.Pop)
     else:
         self.parser.parseError(self.parser.previous, "The loop condition must be parenthesized")
     self.endLooping()
@@ -626,22 +626,22 @@ proc parseBreak(self: ref Compiler) =
         self.parser.consume(SEMICOLON, "missing semicolon after statement")
         var i = self.localCount - 1
         while i >= 0 and self.locals[i].depth > self.loop.depth:
-            self.emitByte(OP_POP)
+            self.emitByte(OpCode.Pop)
             i -= 1
-        discard self.emitJump(OP_BREAK)
+        discard self.emitJump(OpCode.Break)
 
 proc parseAnd(self: ref Compiler, canAssign: bool) =
-    var jump = self.emitJump(OP_JUMP_IF_FALSE)
-    self.emitByte(OP_POP)
+    var jump = self.emitJump(OpCode.JumpIfFalse)
+    self.emitByte(OpCode.Pop)
     self.parsePrecedence(PREC_AND)
     self.patchJump(jump)
 
 
 proc parseOr(self: ref Compiler, canAssign: bool) =
-    var elseJump = self.emitJump(OP_JUMP_IF_FALSE)
-    var endJump = self.emitJump(OP_JUMP)
+    var elseJump = self.emitJump(OpCode.JumpIfFalse)
+    var endJump = self.emitJump(OpCode.Jump)
     self.patchJump(elseJump)
-    self.emitByte(OP_POP)
+    self.emitByte(OpCode.Pop)
     self.parsePrecedence(PREC_OR)
     self.patchJump(endJump)
 
@@ -653,7 +653,7 @@ proc continueStatement(self: ref Compiler) =
         self.parser.consume(SEMICOLON, "missing semicolon after statement")
         var i = self.localCount - 1
         while i >= 0 and self.locals[i].depth > self.loop.depth:
-            self.emitByte(OP_POP)
+            self.emitByte(OpCode.Pop)
             i -= 1
         self.emitLoop(self.loop.start)
 
@@ -700,9 +700,9 @@ proc parseFunction(self: ref Compiler, funType: FunctionType) =
     var fun = self.endCompiler()
     self = self.enclosing
     if self.currentChunk.consts.values.len < 255:
-        self.emitBytes(OP_CONSTANT, self.makeConstant(Value(kind: OBJECT, obj: fun)))
+        self.emitBytes(OpCode.Constant, self.makeConstant(Value(kind: OBJECT, obj: fun)))
     else:
-        self.emitByte(OP_CONSTANT_LONG)
+        self.emitByte(OpCode.ConstantLong)
         self.emitBytes(self.makeLongConstant(Value(kind: OBJECT, obj: fun)))
 
 
@@ -729,7 +729,7 @@ proc argumentList(self: ref Compiler): uint8 =
 
 proc call(self: ref Compiler, canAssign: bool) =
     var argCount = self.argumentList()
-    self.emitBytes(OP_CALL, argCount)
+    self.emitBytes(OpCode.Call, argCount)
 
 
 proc statement(self: ref Compiler) =

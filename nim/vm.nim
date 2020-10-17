@@ -98,7 +98,7 @@ proc slice(self: var VM): bool =
     case peeked.kind:
         of OBJECT:
             case peeked.obj.kind:
-                of ObjectTypes.STRING:
+                of ObjectType.String:
                     var str = peeked.toStr()
                     if not idx.isInt():
                         self.error(newTypeError("string indeces must be integers"))
@@ -129,7 +129,7 @@ proc sliceRange(self: var VM): bool =
     case popped.kind:
         of OBJECT:
             case popped.obj.kind:
-                of ObjectTypes.STRING:
+                of ObjectType.String:
                     var str = popped.toStr()
                     if sliceEnd.isNil():
                         sliceEnd = Value(kind: INTEGER, intValue: len(str))
