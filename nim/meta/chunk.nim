@@ -5,58 +5,58 @@ import valueobject
 
 
 type
-  OpCode* {.pure.} = enum
-    ## Enum of possible opcodes.
-    Constant = 0u8,
-    ConstantLong,
-    Return,
-    Negate,
-    Add,
-    Subtract,
-    Divide,
-    Multiply,
-    Pow,
-    Mod,
-    Nil,
-    True,
-    False,
-    Greater,
-    Less,
-    Equal,
-    Not,
-    Slice,
-    SliceRange,
-    Pop,
-    DefineGlobal,
-    GetGlobal,
-    SetGlobal,
-    DeleteGlobal,
-    SetLocal,
-    GetLocal,
-    DeleteLocal,
-    JumpIfFalse,
-    Jump,
-    Loop,
-    Break,
-    Shr,
-    Shl,
-    Nan,
-    Inf,
-    Xor,
-    Call,
-    Bor,
-    Band,
-    Bnot
+    OpCode* {.pure.} = enum
+        ## Enum of possible opcodes.
+        Constant = 0u8,
+        ConstantLong,
+        Return,
+        Negate,
+        Add,
+        Subtract,
+        Divide,
+        Multiply,
+        Pow,
+        Mod,
+        Nil,
+        True,
+        False,
+        Greater,
+        Less,
+        Equal,
+        Not,
+        Slice,
+        SliceRange,
+        Pop,
+        DefineGlobal,
+        GetGlobal,
+        SetGlobal,
+        DeleteGlobal,
+        SetLocal,
+        GetLocal,
+        DeleteLocal,
+        JumpIfFalse,
+        Jump,
+        Loop,
+        Break,
+        Shr,
+        Shl,
+        Nan,
+        Inf,
+        Xor,
+        Call,
+        Bor,
+        Band,
+        Bnot
 
 
-  Chunk* = ref object
-    ## A piece of bytecode.
-    ## Consts represents (TODO newdoc)
-    ## Code represents (TODO newdoc)
-    ## Lines represents (TODO newdoc)
-    consts*: ValueArray
-    code*: seq[uint8]
-    lines*: seq[int]
+    Chunk* = ref object
+        ## A piece of bytecode.
+        ## Consts represents (TODO newdoc)
+        ## Code represents (TODO newdoc)
+        ## Lines represents (TODO newdoc)
+        consts*: ValueArray
+        code*: seq[uint8]
+        lines*: seq[int]
 
 const simpleInstructions* = {OpCode.Return, OpCode.Add, OpCode.Multiply,
                              OpCode.Divide, OpCode.Subtract,
@@ -76,38 +76,38 @@ const jumpInstructions* = {OpCode.JumpIfFalse, OpCode.Jump, OpCode.Loop}
 
 
 proc newChunk*(): Chunk =
-  ## The constructor for the type Chunk
-  result = Chunk(consts: ValueArray(values: @[]), code: @[], lines: @[])
+    ## The constructor for the type Chunk
+    result = Chunk(consts: ValueArray(values: @[]), code: @[], lines: @[])
 
 
 proc writeChunk*(self: Chunk, newByte: uint8, line: int) =
-  ## Appends newByte at line to a chunk.
-  self.code.add(newByte)
-  self.lines.add(line)
+    ## Appends newByte at line to a chunk.
+    self.code.add(newByte)
+    self.lines.add(line)
 
 
 proc writeChunk*(self: Chunk, bytes: array[3, uint8], line: int) =
-  ## Appends bytes (an array of 3 bytes) to a chunk
-  for cByte in bytes:
-    self.writeChunk(cByte, line)
+    ## Appends bytes (an array of 3 bytes) to a chunk
+    for cByte in bytes:
+        self.writeChunk(cByte, line)
 
 
 proc freeChunk*(self: Chunk) =
-  ## Resets a chunk to its initial value.
-  self.consts = ValueArray(values: @[])
-  self.code = @[]
-  self.lines = @[]
+    ## Resets a chunk to its initial value.
+    self.consts = ValueArray(values: @[])
+    self.code = @[]
+    self.lines = @[]
 
 
 proc addConstant*(self: Chunk, constant: Value): int =
-  ## Adds a constant to a chunk. Returns its index. 
-  self.consts.values.add(constant)
-  return self.consts.values.high()  # The index of the constant
+    ## Adds a constant to a chunk. Returns its index. 
+    self.consts.values.add(constant)
+    return self.consts.values.high()  # The index of the constant
 
 
 proc writeConstant*(self: Chunk, constant: Value): array[3, uint8] =
-  ## Writes a constant to a chunk. Returns its index casted to an array.
-  ## TODO newdoc
-  let index = self.addConstant(constant)
-  result = cast[array[3, uint8]](index)
+    ## Writes a constant to a chunk. Returns its index casted to an array.
+    ## TODO newdoc
+    let index = self.addConstant(constant)
+    result = cast[array[3, uint8]](index)
 
