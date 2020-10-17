@@ -1,8 +1,8 @@
-# This module represents the generic interface that JAPL uses internally
-# to represent types. Small-sized entities such as numbers and booleans are
-# treated differently with respect to bigger and more complex ones such as
-# strings and functions. That is because those more comolex entities are
-# allocated on the heap, while the simpler ones live on the stack
+## This module represents the generic interface that JAPL uses internally
+## to represent types. Small-sized entities such as numbers and booleans are
+## treated differently with respect to bigger and more complex ones such as
+## strings and functions. That is because those more comolex entities are
+## allocated on the heap, while the simpler ones live on the stack
 
 # import ../types/functiontype
 import ../types/objecttype
@@ -11,101 +11,104 @@ import strformat
 
 
 type
-    ValueTypes* = enum   # All possible value types (this is the VM's notion of 'type', not the end user's)
-        INTEGER, DOUBLE, BOOL, NIL, OBJECT, NAN, INF, MINF
-    Value* = object
-        case kind*: ValueTypes
-            of INTEGER:
-                intValue*: int
-            of DOUBLE:
-                floatValue*: float
-            of BOOL:
-                boolValue*: bool
-            of NIL, INF, NAN, MINF:
-                discard
-            of OBJECT:
-                obj*: ptr Obj
+  ValueType* {.pure.} = enum
+    # All possible value types (this is the VM's notion of 'type', not the end user's)
+    Integer, Double, Bool, Nil, Object, Nan, Inf, Minf
+  Value* = object
+    ## Represents an internal JAPL type
+    case kind*: ValueType
+      of ValueType.Integer:
+        intValue*: int
+      of ValueType.Double:
+        floatValue*: float
+      of ValueType.Bool:
+        boolValue*: bool
+      of ValueType.Nil, ValueType.Inf, ValueType.Nan, ValueType.Minf:
+        discard
+      of ValueType.Object:
+        obj*: ptr Obj
 
-    ValueArray* = ref object
-        values*: seq[Value]
+  ValueArray* = ref object
+    values*: seq[Value]
 
 
-func initValueArray*(): ValueArray =
-    result = ValueArray(values: @[])
+func newValueArray*(): ValueArray =
+  result = ValueArray(values: @[])
 
 
 func writeValueArray*(arr: var ValueArray, value: Value) =
-    arr.values.add(value)
+  ## Adds a value to a valuearray
+  arr.values.add(value)
 
 
 func isNil*(value: Value): bool =
-    result = value.kind == NIL
+  result = value.kind == ValueType.Nil
 
 
 func isBool*(value: Value): bool =
-    result = value.kind == BOOL
+  result = value.kind == ValueType.Bool
 
 
 func isInt*(value: Value): bool =
-    result = value.kind == INTEGER
+  result = value.kind == ValueType.Integer
 
 
 func isFloat*(value: Value): bool =
-    result = value.kind == DOUBLE
+  result = value.kind == ValueType.Double
 
 
 func isInf*(value: Value): bool =
-    result = value.kind == ValueTypes.INF or value.kind == MINF
+  result = value.kind == ValueType.Inf or value.kind == ValueType.Minf
 
 
 func isNan*(value: Value): bool =
-    result = value.kind == ValueTypes.NAN
+  result = value.kind == ValueType.Nan
 
 
 func isNum*(value: Value): bool =
-    result = isInt(value) or isFloat(value) or isInf(value) or isNan(value)
+  result = isInt(value) or isFloat(value) or isInf(value) or isNan(value)
 
 
 func isObj*(value: Value): bool =
-    result = value.kind == OBJECT
+  result = value.kind == ValueType.Object
 
 
 func isStr*(value: Value): bool =
-    result = isObj(value) and value.obj.kind == ObjectTypes.STRING
+  result = isObj(value) and value.obj.kind == ObjectType.String
 
 
 func toBool*(value: Value): bool =
-    result = value.boolValue
+  result = value.boolValue
 
 
 func toInt*(value: Value): int =
-    result = value.intValue
+  result = value.intValue
 
 
 func toFloat*(value: Value): float =
-    result = value.floatValue
+  result = value.floatValue
 
 
 func toStr*(value: Value): string =
-    var strObj = cast[ptr String](value.obj)
-    var c = ""
-    for i in 0..strObj.str.len - 1:
-        c = &"{strObj.str[i]}"
-        result = result & c
+  var strObj = cast[ptr String](value.obj)
+  for i in 0..strObj.str.len - 1:
+    result.add(strObj.str[i])
 
 
 func asInt*(n: int): Value =
-    result = Value(kind: INTEGER, intValue: n)
+  ## creates a value of type int
+  result = Value(kind: ValueType.Integer, intValue: n)
 
 
 func asFloat*(n: float): Value =
-    result = Value(kind: DOUBLE, floatValue: n)
+  ## creates a value of type float
+  result = Value(kind: ValueType.Double, floatValue: n)
 
 
 func asBool*(b: bool): Value =
-    result = Value(kind: BOOL, boolValue: b)
-
-
+  ## creates a value of type bool
+  result = Value(kind: ValueType.Bool, boolValue: b)
 
 proc asStr*(s: string): Value =
-    result = Value(kind: OBJECT, obj: newString(s))
+  ## creates a value of type string(object)
+  result = Value(kind: ValueType.Object, obj: newString(s))

@@ -96,15 +96,15 @@ func stringify*(value: Value): string =
             result = "nil"
         of OBJECT:
             case value.obj.kind:
-                of ObjectTypes.STRING:
+                of ObjectType.String:
                     result = cast[ptr String](value.obj).stringify
-                of ObjectTypes.FUNCTION:
+                of ObjectType.Function:
                     result = cast[ptr Function](value.obj).stringify
                 else:
                     result = value.obj.stringify()
-        of ValueTypes.NAN:
+        of ValueType.NAN:
             result = "nan"
-        of ValueTypes.INF:
+        of ValueType.INF:
             result = "inf"
         of MINF:
             result = "-inf"
@@ -134,7 +134,7 @@ proc hash*(value: Value): uint32 =
             result = hashFloat(value.toFloat())
         of OBJECT:
             case value.obj.kind:
-                of ObjectTypes.STRING:
+                of ObjectType.String:
                     result = hash(cast[ptr String](value.obj))
                 else:
                     result = hash(value.obj)
@@ -148,9 +148,9 @@ func isFalsey*(value: Value): bool =
             result = not value.toBool()
         of OBJECT:
             case value.obj.kind:
-                of ObjectTypes.STRING:
+                of ObjectType.String:
                     result = cast[ptr String](value.obj).isFalsey()
-                of ObjectTypes.FUNCTION:
+                of ObjectType.Function:
                     result = cast[ptr Function](value.obj).isFalsey()
                 else:
                     result = isFalsey(value.obj)
@@ -160,23 +160,24 @@ func isFalsey*(value: Value): bool =
             result = value.toFloat() > 0.0
         of NIL:
             result = true
-        of ValueTypes.INF, MINF:
+        of ValueType.Inf, ValueType.Minf:
             result = false
-        of ValueTypes.NAN:
+        of ValueType.Nan:
             result = true
 
 
 func typeName*(value: Value): string =
     case value.kind:
-        of BOOL, NIL, DOUBLE, INTEGER, ValueTypes.NAN, ValueTypes.INF:
+        of ValueType.Bool, ValueType.Nil, ValueType.Double,
+          ValueType.Integer, ValueType.Nan, ValueType.Inf:
             result = ($value.kind).toLowerAscii()
         of MINF:
            result = "inf"
         of OBJECT:
             case value.obj.kind:
-                of ObjectTypes.STRING:
+                of ObjectType.String:
                     result = cast[ptr String](value.obj).typeName()
-                of ObjectTypes.FUNCTION:
+                of ObjectType.Function:
                     result = cast[ptr Function](value.obj).typeName()
                 else:
                     result = value.obj.typeName()
@@ -197,20 +198,20 @@ proc valuesEqual*(a: Value, b: Value): bool =
                 result = a.toFloat() == b.toFloat()
             of OBJECT:
                 case a.obj.kind:
-                    of ObjectTypes.STRING:
+                    of ObjectType.String:
                         var a = cast[ptr String](a.obj)
                         var b = cast[ptr String](b.obj)
                         result = valuesEqual(a, b)
-                    of ObjectTypes.FUNCTION:
+                    of ObjectType.Function:
                         var a = cast[ptr Function](a.obj)
                         var b = cast[ptr Function](b.obj)
                         result = valuesEqual(a, b)
                     else:
                         result = valuesEqual(a.obj, b.obj)
-            of ValueTypes.INF:
-                result = b.kind == ValueTypes.INF
+            of ValueType.Inf:
+                result = b.kind == ValueType.Inf
             of MINF:
-                result = b.kind == MINF
-            of ValueTypes.NAN:
+                result = b.kind == ValueType.Minf
+            of ValueType.Nan:
                 result = false
 

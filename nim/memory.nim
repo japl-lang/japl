@@ -45,11 +45,11 @@ template allocate*(castTo: untyped, sizeTo: untyped, count: int): untyped =
     cast[ptr castTo](reallocate(nil, 0, sizeof(sizeTo) * count))
 
 
-proc allocateObject*(size: int, kind: ObjectTypes): ptr Obj =
+proc allocateObject*(size: int, kind: ObjectType): ptr Obj =
     result = cast[ptr Obj](reallocate(nil, 0, size))
     result.kind = kind
 
 
 
-template allocateObj*(kind: untyped, objType: ObjectTypes): untyped =
+template allocateObj*(kind: untyped, objType: ObjectType): untyped =
     cast[ptr kind](allocateObject(sizeof kind, objType))

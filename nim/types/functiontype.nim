@@ -25,8 +25,8 @@ type
         FUNC, SCRIPT
 
 
-proc newFunction*(name: string = "", chunk: Chunk = initChunk(), arity: int = 0): ptr Function =
-    result = allocateObj(Function, ObjectTypes.FUNCTION)
+proc newFunction*(name: string = "", chunk: Chunk = newChunk(), arity: int = 0): ptr Function =
+    result = allocateObj(Function, ObjectType.Function)
     if name.len > 1:
         result.name = newString(name)
     else:
