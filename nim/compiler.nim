@@ -10,10 +10,14 @@ import meta/tokentype
 import meta/looptype
 import types/stringtype
 import types/functiontype
+import types/objecttype
 import tables
+when isMainModule:
+    import util/debug
 
 type
     Compiler* = object
+        ## The state of the compiler
         enclosing*: ref Compiler
         function*: ptr Function
         context*: FunctionType
@@ -148,7 +152,7 @@ proc parsePrecedence(self: ref Compiler, precedence: Precedence) =
     if prefixRule == nil:
         self.parser.parseError(self.parser.previous, "Expecting expression")
         return
-    var canAssign = precedence <= PREC_ASSIGNMENT
+    var canAssign = precedence <= Precedence.Assignment
     self.prefixRule(canAssign)
     if self.parser.previous.kind == EOF:
         self.parser.current -= 1
@@ -164,7 +168,7 @@ proc parsePrecedence(self: ref Compiler, precedence: Precedence) =
 
 
 proc expression(self: ref Compiler) =
-    self.parsePrecedence(PREC_ASSIGNMENT)
+    self.parsePrecedence(Precedence.Assignment)
 
 
 proc binary(self: ref Compiler, canAssign: bool) =
@@ -213,7 +217,7 @@ proc binary(self: ref Compiler, canAssign: bool) =
 proc unary(self: ref Compiler, canAssign: bool) =
     var operator = self.parser.previous().kind
     if self.parser.peek().kind != EOF:
-        self.parsePrecedence(PREC_UNARY)
+        self.parsePrecedence(Precedence.Unary)
     else:
         self.parser.parseError(self.parser.previous, "Expecting expression, got EOF")
         return
@@ -251,10 +255,10 @@ proc bracket(self: ref Compiler, canAssign: bool) =
         if self.parser.peek.kind == RS:
             self.emitByte(OpCode.Nil)
         else:
-            self.parsePrecedence(PREC_TERM)
+            self.parsePrecedence(Precedence.Term)
         self.emitByte(OpCode.SliceRange)
     else:
-        self.parsePrecedence(PREC_TERM)
+        self.parsePrecedence(Precedence.Term)
         if self.parser.peek.kind == RS:
             self.emitByte(OpCode.Slice)
         elif self.parser.peek.kind == COLON:
@@ -262,11 +266,11 @@ proc bracket(self: ref Compiler, canAssign: bool) =
             if self.parser.peek.kind == RS:
                 self.emitByte(OpCode.Nil)
             else:
-                self.parsePrecedence(PREC_TERM)
+                self.parsePrecedence(Precedence.Term)
             self.emitByte(OpCode.SliceRange)
     if self.parser.peek.kind == EQ:
         discard self.parser.advance()
-        self.parsePrecedence(PREC_TERM)
+        self.parsePrecedence(Precedence.Term)
     self.parser.consume(TokenType.RS, "Expecting ']' after slice expression")
 
 
@@ -643,7 +647,7 @@ proc parseBreak(self: ref Compiler) =
 proc parseAnd(self: ref Compiler, canAssign: bool) =
     var jump = self.emitJump(OpCode.JumpIfFalse)
     self.emitByte(OpCode.Pop)
-    self.parsePrecedence(PREC_AND)
+    self.parsePrecedence(Precedence.And)
     self.patchJump(jump)
 
 
@@ -652,7 +656,7 @@ proc parseOr(self: ref Compiler, canAssign: bool) =
     var endJump = self.emitJump(OpCode.Jump)
     self.patchJump(elseJump)
     self.emitByte(OpCode.Pop)
-    self.parsePrecedence(PREC_OR)
+    self.parsePrecedence(Precedence.Or)
     self.patchJump(endJump)
 
 
@@ -773,60 +777,60 @@ proc declaration(self: ref Compiler) =
 
 
 var rules: array[TokenType, ParseRule] = [
-    makeRule(nil, binary, PREC_TERM), # PLUS
-    makeRule(unary, binary, PREC_TERM), # MINUS
-    makeRule(nil, binary, PREC_FACTOR), # SLASH
-    makeRule(nil, binary, PREC_FACTOR), # STAR
-    makeRule(unary, nil, PREC_NONE), # NEG
-    makeRule(nil, binary, PREC_EQUALITY), # NE
-    makeRule(nil, nil, PREC_NONE), # EQ
-    makeRule(nil, binary, PREC_COMPARISON), # DEQ
-    makeRule(nil, binary, PREC_COMPARISON), # LT
-    makeRule(nil, binary, PREC_COMPARISON), # GE
-    makeRule(nil, binary, PREC_COMPARISON), # LE
-    makeRule(nil, binary, PREC_FACTOR), # MOD
-    makeRule(nil, binary, PREC_FACTOR), # POW
-    makeRule(nil, binary, PREC_COMPARISON), # GT
-    makeRule(grouping, call, PREC_CALL), # LP
-    makeRule(nil, nil, PREC_NONE), # RP
-    makeRule(nil, bracket, PREC_CALL), # LS
-    makeRule(nil, nil, PREC_NONE), # LB
-    makeRule(nil, nil, PREC_NONE), # RB
-    makeRule(nil, nil, PREC_NONE), # COMMA
-    makeRule(nil, nil, PREC_NONE), # DOT
-    makeRule(variable, nil, PREC_NONE), # ID
-    makeRule(nil, nil, PREC_NONE), # RS
-    makeRule(number, nil, PREC_NONE), # NUMBER
-    makeRule(strVal, nil, PREC_NONE), # STR
-    makeRule(nil, nil, PREC_NONE), # SEMICOLON
-    makeRule(nil, parseAnd, PREC_AND), # AND
-    makeRule(nil, nil, PREC_NONE), # CLASS
-    makeRule(nil, nil, PREC_NONE), # ELSE
-    makeRule(nil, nil, PREC_NONE), # FOR
-    makeRule(nil, nil, PREC_NONE), # FUN
-    makeRule(literal, nil, PREC_NONE), # FALSE
-    makeRule(nil, nil, PREC_NONE), # IF
-    makeRule(literal, nil, PREC_NONE), # NIL
-    makeRule(nil, nil, PREC_NONE), # RETURN
-    makeRule(nil, nil, PREC_NONE), # SUPER
-    makeRule(nil, nil, PREC_NONE), # THIS
-    makeRule(nil, parseOr, PREC_OR), # OR
-    makeRule(literal, nil, PREC_NONE), # TRUE
-    makeRule(nil, nil, PREC_NONE), # VAR
-    makeRule(nil, nil, PREC_NONE), # WHILE
-    makeRule(nil, nil, PREC_NONE), # DEL  # TODO: Fix del statement to make it GC-aware
-    makeRule(nil, nil, PREC_NONE), # BREAK
-    makeRule(nil, nil, PREC_NONE), # EOF
-    makeRule(nil, nil, PREC_NONE), # COLON
-    makeRule(nil, nil, PREC_NONE), # CONTINUE
-    makeRule(nil, binary, PREC_TERM), # CARET
-    makeRule(nil, binary, PREC_TERM), # SHL
-    makeRule(nil, binary, PREC_TERM), # SHR
-    makeRule(literal, nil, PREC_NONE), # INF
-    makeRule(literal, nil, PREC_NONE), # NAN
-    makeRule(nil, binary, PREC_TERM), # BAND
-    makeRule(nil, binary, PREC_TERM), # BOR
-    makeRule(unary, nil, PREC_TERM), # TILDE
+    makeRule(nil, binary, Precedence.Term), # PLUS
+    makeRule(unary, binary, Precedence.Term), # MINUS
+    makeRule(nil, binary, Precedence.Factor), # SLASH
+    makeRule(nil, binary, Precedence.Factor), # STAR
+    makeRule(unary, nil, Precedence.None), # NEG
+    makeRule(nil, binary, Precedence.Equality), # NE
+    makeRule(nil, nil, Precedence.None), # EQ
+    makeRule(nil, binary, Precedence.Comparison), # DEQ
+    makeRule(nil, binary, Precedence.Comparison), # LT
+    makeRule(nil, binary, Precedence.Comparison), # GE
+    makeRule(nil, binary, Precedence.Comparison), # LE
+    makeRule(nil, binary, Precedence.Factor), # MOD
+    makeRule(nil, binary, Precedence.Factor), # POW
+    makeRule(nil, binary, Precedence.Comparison), # GT
+    makeRule(grouping, call, Precedence.Call), # LP
+    makeRule(nil, nil, Precedence.None), # RP
+    makeRule(nil, bracket, Precedence.Call), # LS
+    makeRule(nil, nil, Precedence.None), # LB
+    makeRule(nil, nil, Precedence.None), # RB
+    makeRule(nil, nil, Precedence.None), # COMMA
+    makeRule(nil, nil, Precedence.None), # DOT
+    makeRule(variable, nil, Precedence.None), # ID
+    makeRule(nil, nil, Precedence.None), # RS
+    makeRule(number, nil, Precedence.None), # NUMBER
+    makeRule(strVal, nil, Precedence.None), # STR
+    makeRule(nil, nil, Precedence.None), # SEMICOLON
+    makeRule(nil, parseAnd, Precedence.And), # AND
+    makeRule(nil, nil, Precedence.None), # CLASS
+    makeRule(nil, nil, Precedence.None), # ELSE
+    makeRule(nil, nil, Precedence.None), # FOR
+    makeRule(nil, nil, Precedence.None), # FUN
+    makeRule(literal, nil, Precedence.None), # FALSE
+    makeRule(nil, nil, Precedence.None), # IF
+    makeRule(literal, nil, Precedence.None), # NIL
+    makeRule(nil, nil, Precedence.None), # RETURN
+    makeRule(nil, nil, Precedence.None), # SUPER
+    makeRule(nil, nil, Precedence.None), # THIS
+    makeRule(nil, parseOr, Precedence.Or), # OR
+    makeRule(literal, nil, Precedence.None), # TRUE
+    makeRule(nil, nil, Precedence.None), # VAR
+    makeRule(nil, nil, Precedence.None), # WHILE
+    makeRule(nil, nil, Precedence.None), # DEL  # TODO: Fix del statement to make it GC-aware
+    makeRule(nil, nil, Precedence.None), # BREAK
+    makeRule(nil, nil, Precedence.None), # EOF
+    makeRule(nil, nil, Precedence.None), # COLON
+    makeRule(nil, nil, Precedence.None), # CONTINUE
+    makeRule(nil, binary, Precedence.Term), # CARET
+    makeRule(nil, binary, Precedence.Term), # SHL
+    makeRule(nil, binary, Precedence.Term), # SHR
+    makeRule(literal, nil, Precedence.Term), # INF
+    makeRule(literal, nil, Precedence.Term), # NAN
+    makeRule(nil, binary, Precedence.Term), # BAND
+    makeRule(nil, binary, Precedence.Term), # BOR
+    makeRule(unary, nil, Precedence.Term), # TILDE
 ]
 
 
@@ -869,3 +873,9 @@ proc initCompiler*(context: FunctionType, enclosing: ref Compiler = nil, parser:
     if context != SCRIPT:
         result.function.name = newString(enclosing.parser.previous().lexeme)
 
+# so that the compiler can be executed on its own
+# without the VM
+when isMainModule:
+    var compiler: ref Compiler = initCompiler(SCRIPT, file="test")
+    var compiled = compiler.compile(stdin.readLine())
+    disassembleChunk(compiled.chunk, "test")
