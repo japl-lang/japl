@@ -42,17 +42,6 @@ type
        name*: Token
        depth*: int
 
-    Compiler* = object
-        enclosing*: ref Compiler
-        function*: ptr Function
-        context*: FunctionType
-        locals*: seq[Local]
-        localCount*: int
-        scopeDepth*: int
-        parser*: Parser
-        loop*: Loop
-        vm*: ptr VM
-        file*: string
 
     Parser* = ref object
         current*: int
@@ -102,9 +91,9 @@ func stringify*(value: Value): string =
                     result = cast[ptr Function](value.obj).stringify
                 else:
                     result = value.obj.stringify()
-        of ValueType.NAN:
+        of ValueType.Nan:
             result = "nan"
-        of ValueType.INF:
+        of ValueType.Inf:
             result = "inf"
         of MINF:
             result = "-inf"

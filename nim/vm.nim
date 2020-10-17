@@ -585,6 +585,9 @@ proc interpret*(self: var VM, source: string, debug: bool = false, repl: bool = 
     var compiled = compiler.compile(source)
     self.source = source
     self.file = file
+    self.objects = compiler.objects # TODO: 
+    # revisit the best way to transfer marked objects from the compiler
+    # to the vm
     if compiled == nil:
         return COMPILE_ERROR
     self.push(Value(kind: OBJECT, obj: compiled))

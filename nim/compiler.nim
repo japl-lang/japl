@@ -12,20 +12,30 @@ import types/stringtype
 import types/functiontype
 import tables
 
-
 type
-    Precedence = enum
-        PREC_NONE,
-        PREC_ASSIGNMENT,
-        PREC_OR,
-        PREC_AND,
-        PREC_EQUALITY,
-        PREC_COMPARISON,
-        PREC_TERM,
-        PREC_FACTOR,
-        PREC_UNARY,
-        PREC_CALL,
-        PREC_PRIMARY
+    Compiler* = object
+        enclosing*: ref Compiler
+        function*: ptr Function
+        context*: FunctionType
+        locals*: seq[Local]
+        localCount*: int
+        scopeDepth*: int
+        parser*: Parser
+        loop*: Loop
+        objects*: seq[ptr Obj]
+        file*: string
+    Precedence {.pure.} = enum
+        None,
+        Assignment,
+        Or,
+        And,
+        Equality,
+        Comparison,
+        Term,
+        Factor,
+        Unary,
+        Call,
+        Primary
 
     ParseFn = proc(self: ref Compiler, canAssign: bool): void
 
@@ -123,7 +133,7 @@ proc emitConstant(self: ref Compiler, value: Value) =
 proc getRule(kind: TokenType): ParseRule  # Forward declarations
 proc statement(self: ref Compiler)
 proc declaration(self: ref Compiler)
-proc initCompiler*(vm: ptr VM, context: FunctionType, enclosing: ref Compiler = nil, parser: Parser = initParser(@[], ""), file: string): ref Compiler
+proc initCompiler*(context: FunctionType, enclosing: ref Compiler = nil, parser: Parser = initParser(@[], ""), file: string): ref Compiler
 
 
 proc endCompiler(self: ref Compiler): ptr Function =
@@ -219,7 +229,7 @@ proc unary(self: ref Compiler, canAssign: bool) =
 
 
 template markObject*(self: ref Compiler, obj: untyped): untyped =
-    self.vm.objects.add(obj)
+    self.objects.add(obj)
     obj
 
 
@@ -659,7 +669,7 @@ proc continueStatement(self: ref Compiler) =
 
 
 proc parseFunction(self: ref Compiler, funType: FunctionType) =
-    var self = initCompiler(self.vm, funType, self, self.parser, self.file)
+    var self = initCompiler(funType, self, self.parser, self.file)
     self.beginScope()
     self.parser.consume(LP, "Expecting '(' after function name")
     if self.parser.hadError:
@@ -840,7 +850,7 @@ proc compile*(self: ref Compiler, source: string): ptr Function =
         return nil
 
 
-proc initCompiler*(vm: ptr VM, context: FunctionType, enclosing: ref Compiler = nil, parser: Parser = initParser(@[], ""), file: string): ref Compiler =
+proc initCompiler*(context: FunctionType, enclosing: ref Compiler = nil, parser: Parser = initParser(@[], ""), file: string): ref Compiler =
     result = new(Compiler)
     result.parser = parser
     result.function = nil
@@ -848,7 +858,7 @@ proc initCompiler*(vm: ptr VM, context: FunctionType, enclosing: ref Compiler = 
     result.scopeDepth = 0
     result.localCount = 0
     result.loop = Loop(alive: false, loopEnd: -1)
-    result.vm = vm
+    result.objects = @[]
     result.context = context
     result.enclosing = enclosing
     result.file = file
