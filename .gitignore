@@ -139,3 +139,6 @@ dmypy.json
 # Nim main
 
 main
+*.exe
+*.deps
+*.dot
