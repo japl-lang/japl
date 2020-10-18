@@ -1,3 +1,5 @@
+
+
 import strutils
 import algorithm
 import strformat
@@ -49,43 +51,59 @@ type
 
 
 proc makeRule(prefix, infix: ParseFn, precedence: Precedence): ParseRule =
+    ## Creates a new rule for parsing
     return ParseRule(prefix: prefix, infix: infix, precedence: precedence)
 
 
 proc advance(self: var Parser): Token =
+    ## Steps forward by one in the tokens' list and
+    ## increments the current token index
     result = self.tokens[self.current]
     inc(self.current)
 
 
 proc peek(self: Parser): Token =
+    ## Returns the next token without consuming it
     return self.tokens[self.current]
 
 
 proc previous(self: Parser): Token =
+    ## Returns the previously consumed token
     return self.tokens[self.current - 1]
 
 
 proc check(self: Parser, kind: TokenType): bool =
+    ## Checks if the next token is of the expected type
+    ## without consuming it
     return self.peek().kind == kind
 
 
 proc match(self: var Parser, kind: TokenType): bool =
+    ## Calls self.check() and advances consumes a token if 
+    ## the expected token is encountered, in which case true
+    ## is returned. False is returned otherwise
     if not self.check(kind): return false
     discard self.advance()
     return true
 
 
 proc parseError(self: var Parser, token: Token, message: string) =
-    if self.panicMode:
+    ## Notifies the user about parsing errors, writing them to 
+    ## the standard error file. This parser is designed to report
+    ## all syntatical errors inside a file in one go, rather than
+    ## stopping at the first error occurrence. This allows a user
+    ## to identify and fix multiple errors without running the parser
+    ## multiple times
+    if self.panicMode:    # This serves to identify wheter an error already occurred, in which case we return
         return
     self.panicMode = true
     self.hadError = true
-    echo &"Traceback (most recent call last):"
-    echo &"  File '{self.file}', line {token.line}, at '{token.lexeme}'"
-    echo &"ParseError: {message}"
+    stderr.write(&"A fatal error occurred while parsing '{self.file}', line {token.line}, at '{token.lexeme}' -> {message}")
 
 
 proc consume(self: var Parser, expected: TokenType, message: string) =
+    ## Attempts to consume a token if it is of the expected type
+    ## or raises a parsing error with the given message otherwise
     if self.peek().kind == expected:
         discard self.advance()
         return
@@ -93,40 +111,57 @@ proc consume(self: var Parser, expected: TokenType, message: string) =
 
 
 proc currentChunk(self: ref Compiler): var Chunk =
+    ## Returns the current chunk being compiled
     result = self.function.chunk
 
 
 proc compileError(self: ref Compiler, message: string) =
-    echo &"Traceback (most recent call last):"
-    echo &"  File '{self.file}', line {self.parser.peek.line}, at '{self.parser.peek.lexeme}'"
-    echo &"CompileError: {message}"
+    ## Notifies the user about an error occurred during
+    ## compilation, writing to the standard error file
+    stderr.write(&"A fatal error occurred while compiling '{self.file}', line {self.parser.peek().line}, at '{self.parser.peek().lexeme}' -> {message}")
     self.parser.hadError = true
     self.parser.panicMode = true
 
 
 proc emitByte(self: ref Compiler, byt: OpCode|uint8) =
+    ## Emits a single bytecode instruction and writes it
+    ## to the current chunk being compiled
+
     self.currentChunk.writeChunk(uint8 byt, self.parser.previous.line)
 
 
 proc emitBytes(self: ref Compiler, byt1: OpCode|uint8, byt2: OpCode|uint8) =
+    ## Emits multiple bytes instead of a single one, this is useful
+    ## to emit operators along with their operands or for multi-byte
+    ## instructions that are longer than one byte
     self.emitByte(uint8 byt1)
     self.emitByte(uint8 byt2)
 
 
 proc emitBytes(self: ref Compiler, bytarr: array[3, uint8]) =
+    ## Handy helper method to write an array of 3 bytes into
+    ## the current chunk, calling emiteByte(s) on each of its
+    ## elements
     self.emitBytes(bytarr[0], bytarr[1])
     self.emitByte(bytarr[2])
 
 
 proc makeConstant(self: ref Compiler, val: Value): uint8 =
+    ## Adds a constant (literal) to the current chunk's
+    ## constants table
     result = uint8 self.currentChunk.addConstant(val)
 
 
 proc makeLongConstant(self: ref Compiler, val: Value): array[3, uint8] =
+    ## Does the same as makeConstant(), but encodes the index in the
+    ## chunk's constant table as an array (which is later reconstructed
+    ## into an integer at runtime) to store more than 256 constants in the table
     result = self.currentChunk.writeConstant(val)
 
 
 proc emitConstant(self: ref Compiler, value: Value) =
+    ## Emits a Constant or ConstantLong instruction along
+    ## with its operand
     if self.currentChunk().consts.values.len > 255:
         self.emitByte(OpCode.ConstantLong)
         self.emitBytes(self.makeLongConstant(value))
@@ -134,32 +169,41 @@ proc emitConstant(self: ref Compiler, value: Value) =
         self.emitBytes(OpCode.Constant, self.makeConstant(value))
 
 
-proc getRule(kind: TokenType): ParseRule  # Forward declarations
+proc getRule(kind: TokenType): ParseRule  # Forward declarations for later use
 proc statement(self: ref Compiler)
 proc declaration(self: ref Compiler)
 proc initCompiler*(context: FunctionType, enclosing: ref Compiler = nil, parser: Parser = initParser(@[], ""), file: string): ref Compiler
 
 
 proc endCompiler(self: ref Compiler): ptr Function =
+    ## Ends the current compiler instance and returns its
+    ## compiled bytecode wrapped around a function object, 
+    ## also emitting a return instruction with nil as operand.
+    ## Because of this, all functions implicitly return nil
+    ## if no return statement is supplied
     self.emitByte(OpCode.Nil)
     self.emitByte(OpCode.Return)
     return self.function
 
 
 proc parsePrecedence(self: ref Compiler, precedence: Precedence) =
+    ## Parses expressions using pratt's elegant algorithm to precedence parsing
     discard self.parser.advance()
     var prefixRule = getRule(self.parser.previous.kind).prefix
-    if prefixRule == nil:
+    if prefixRule == nil:   # If there is no prefix rule than an expression is expected
         self.parser.parseError(self.parser.previous, "Expecting expression")
         return
-    var canAssign = precedence <= Precedence.Assignment
-    self.prefixRule(canAssign)
+    var canAssign = precedence <= Precedence.Assignment   # This is used to detect invalid assignment targets
+    # such as "hello" = 3;
+    self.prefixRule(canAssign)   # otherwise call the prefix rule (e.g. for binary negation)
     if self.parser.previous.kind == EOF:
-        self.parser.current -= 1
+        self.parser.current -= 1    # If we're at EOF, we bail out and restore the EOF terminator so that
+        # the parser behaves accordingly later on
         return
-    while precedence <= (getRule(self.parser.peek.kind).precedence):
+    while precedence <= (getRule(self.parser.peek.kind).precedence):  # This will parse all expressions with the same precedence
+    # or lower to the current expression
         var infixRule = getRule(self.parser.advance.kind).infix
-        if self.parser.peek.kind != EOF:
+        if self.parser.peek().kind != EOF:
             self.infixRule(canAssign)
         else:
             self.parser.parseError(self.parser.previous, "Expecting expression, got EOF")
@@ -168,12 +212,14 @@ proc parsePrecedence(self: ref Compiler, precedence: Precedence) =
 
 
 proc expression(self: ref Compiler) =
-    self.parsePrecedence(Precedence.Assignment)
+    ## Parses expressions
+    self.parsePrecedence(Precedence.Assignment)  # The highest-level expression is assignment
 
 
 proc binary(self: ref Compiler, canAssign: bool) =
-    var operator = self.parser.previous.kind
-    var rule = getRule(operator)
+    ## Parses binary operators
+    var operator = self.parser.previous().kind
+    var rule = getRule(operator)  
     self.parsePrecedence(Precedence((int rule.precedence) + 1))
     case operator:
         of PLUS:
@@ -211,10 +257,12 @@ proc binary(self: ref Compiler, canAssign: bool) =
         of BAND:
             self.emitByte(OpCode.Band)
         else:
-            return
+            discard # Unreachable
 
 
 proc unary(self: ref Compiler, canAssign: bool) =
+    ## Parses unary expressions such as negation or
+    ## binary inversion
     var operator = self.parser.previous().kind
     if self.parser.peek().kind != EOF:
         self.parsePrecedence(Precedence.Unary)
@@ -233,48 +281,66 @@ proc unary(self: ref Compiler, canAssign: bool) =
 
 
 template markObject*(self: ref Compiler, obj: untyped): untyped =
+    ## Marks compile-time objects (since those take up memory as well)
+    ## for the VM to reclaim space later on
     self.objects.add(obj)
     obj
 
 
 proc strVal(self: ref Compiler, canAssign: bool) =
+    ## Parses string literals
     var str = self.parser.previous().lexeme
-    var delimiter = &"{str[0]}"
+    var delimiter = &"{str[0]}"    # TODO: Add proper escape sequences support
     str = str.unescape(delimiter, delimiter)
     self.emitConstant(Value(kind: OBJECT, obj: self.markObject(newString(str))))
 
 
 proc bracketAssign(self: ref Compiler, canAssign: bool) =
+    ## Parses assignments such as a[0] = "something"
     discard # TODO -> Implement this
 
 
 proc bracket(self: ref Compiler, canAssign: bool) =
+    ## Parses slice expressions, such as "hello"[0]
+    ## Slice can take up to two arguments, a start
+    ## and an end index in the chosen iterable.
+    ## Both arguments are optional, so doing "hi"[::]
+    ## will basically copy the string into a new object.
+    ## Indexes start from 0, and while the start index is
+    ## inclusive, the end index is not. If an end index is 
+    ## not specified like this "hello"[0:], then the it is
+    ## assumed to be the length of the iterable. Likewise,
+    ## if the start index is missing, it is assumed to be 0.
+    ## Like in Python, using an end index that's out of bounds
+    ## will not raise an error. Doing "hello"[0:999] will just
+    ## return the whole string instead 
     if self.parser.peek.kind == COLON:
         self.emitByte(OpCode.Nil)
         discard self.parser.advance()
-        if self.parser.peek.kind == RS:
+        if self.parser.peek().kind == RS:
             self.emitByte(OpCode.Nil)
         else:
             self.parsePrecedence(Precedence.Term)
         self.emitByte(OpCode.SliceRange)
     else:
         self.parsePrecedence(Precedence.Term)
-        if self.parser.peek.kind == RS:
+        if self.parser.peek().kind == RS:
             self.emitByte(OpCode.Slice)
-        elif self.parser.peek.kind == COLON:
+        elif self.parser.peek().kind == COLON:
             discard self.parser.advance()
-            if self.parser.peek.kind == RS:
+            if self.parser.peek().kind == RS:
                 self.emitByte(OpCode.Nil)
             else:
                 self.parsePrecedence(Precedence.Term)
             self.emitByte(OpCode.SliceRange)
-    if self.parser.peek.kind == EQ:
+    if self.parser.peek().kind == EQ:
         discard self.parser.advance()
         self.parsePrecedence(Precedence.Term)
     self.parser.consume(TokenType.RS, "Expecting ']' after slice expression")
 
 
 proc literal(self: ref Compiler, canAssign: bool) =
+    ## Parses literal values such as true, nan and inf
     case self.parser.previous().kind:
         of TRUE:
             self.emitByte(OpCode.True)
@@ -291,11 +357,15 @@ proc literal(self: ref Compiler, canAssign: bool) =
 
 
 proc number(self: ref Compiler, canAssign: bool) =
+    ## Parses numerical constants
     var value = self.parser.previous().literal
     self.emitConstant(value)
 
 
 proc grouping(self: ref Compiler, canAssign: bool) =
+    ## Parses parenthesized expressions. The only interesting
+    ## semantic about parentheses is that they allow lower-precedence
+    ## expressions where a higher precedence one is expected
     if self.parser.match(EOF):
         self.parser.parseError(self.parser.previous, "Expecting ')'")
     elif self.parser.match(RP):
@@ -306,12 +376,29 @@ proc grouping(self: ref Compiler, canAssign: bool) =
 
 
 proc synchronize(self: ref Compiler) =
+    ## Synchronizes the parser's state. This is useful when
+    ## dealing with parsing errors. When an error occurs, we
+    ## note it with our nice panicMode and hadError fields, but
+    ## that in itself doesn't allow the parser to go forward
+    ## in the code and report other possible errors. On the 
+    ## other hand, attempting to start parsing the source
+    ## right after an error has occurred could lead to a 
+    ## cascade of unhelpful error messages that complicate
+    ## debugging issues. So, when an error occurs, we try
+    ## to get back into a state that at least allows us to keep
+    ## parsing and pretend the error never happened (the code
+    ## would not be compiled anyway so we might as well tell the
+    ## user if anything else is wrong with their code). The parser
+    ## will skip to the next valid token for a statement, like an
+    ## if or a for loop or a class declaration, and then keep
+    ## parsing from there. Note that hadError is never reset, but
+    ## panidMode is
     self.parser.panicMode = false
-    while self.parser.peek.kind != EOF:
+    while self.parser.peek().kind != EOF:   # Infinite loops are bad, so we must take EOF into account
         if self.parser.previous().kind == SEMICOLON:
             return
-        case self.parser.peek.kind:
-            of TokenType.CLASS, FUN, VAR, TokenType.FOR, IF, TokenType.WHILE, RETURN:
+        case self.parser.peek().kind:
+            of TokenType.CLASS, FUN, VAR, TokenType.FOR, IF, TokenType.WHILE, RETURN:   # We found a statement boundary, so the parser bails out
                 return
             else:
                 discard
@@ -319,20 +406,35 @@ proc synchronize(self: ref Compiler) =
 
 
 proc identifierConstant(self: ref Compiler, tok: Token): uint8 =
+    ## Emits instructions for identifiers
     return self.makeConstant(Value(kind: OBJECT, obj: self.markObject(newString(tok.lexeme))))
 
 
 proc identifierLongConstant(self: ref Compiler, tok: Token): array[3, uint8] =
+    ## Same as identifierConstant, but this is used when the constant table is longer
+    ## than 255 elements
     return self.makeLongConstant(Value(kind: OBJECT, obj: self.markObject(newString(tok.lexeme))))
 
 
 proc addLocal(self: ref Compiler, name: Token) =
+    ## Stores a local variable. Local name resolution
+    ## happens at compile time rather than runtime,
+    ## unlike global variables which are treated differently.
+    ## Note that at first, a local is in a special "uninitialized"
+    ## state, this is useful to detect errors such as var a = a; 
+    ## inside local scopes
     var local = Local(name: name, depth: -1)
     inc(self.localCount)
     self.locals.add(local)
 
 
 proc declareVariable(self: ref Compiler) =
+    ## Declares a variable, this is only useful
+    ## for local variables, there is no way to
+    ## "declare" a global at compile time. This
+    ## assumption works because locals
+    ## and temporaries have stack semantics inside
+    ## local scopes
     if self.scopeDepth == 0:
         return
     var name = self.parser.previous()
@@ -340,6 +442,7 @@ proc declareVariable(self: ref Compiler) =
 
 
 proc parseVariable(self: ref Compiler, message: string): uint8 =
+    ## Parses variables and declares them
     self.parser.consume(ID, message)
     self.declareVariable()
     if self.scopeDepth > 0:
@@ -348,6 +451,9 @@ proc parseVariable(self: ref Compiler, message: string): uint8 =
 
 
 proc parseLongVariable(self: ref Compiler, message: string): array[3, uint8] =
+    ## Parses variables and declares them. This is used in place
+    ## of parseVariable when there's more than 255 constants
+    ## in the chunk table
     self.parser.consume(ID, message)
     self.declareVariable()
     if self.scopeDepth > 0:
@@ -356,12 +462,18 @@ proc parseLongVariable(self: ref Compiler, message: string): array[3, uint8] =
 
 
 proc markInitialized(self: ref Compiler) =
+    ## Marks the latest defined global as 
+    ## initialized and ready for use
     if self.scopeDepth == 0:
         return
     self.locals[self.localCount - 1].depth = self.scopeDepth
 
 
 proc defineVariable(self: ref Compiler, idx: uint8) =
+    ## Defines a variable, emitting appropriate
+    ## instructions if we're in the local scope
+    ## or marking the last local as initialized
+    ## otherwise
     if self.scopeDepth > 0:
         self.markInitialized()
         return
@@ -369,6 +481,8 @@ proc defineVariable(self: ref Compiler, idx: uint8) =
 
 
 proc defineVariable(self: ref Compiler, idx: array[3, uint8]) =
+    ## Same as defineVariable, but this is used when
+    ## there's more than 255 locals in the chunk's table
     if self.scopeDepth > 0:
         self.markInitialized()
         return
@@ -377,6 +491,8 @@ proc defineVariable(self: ref Compiler, idx: array[3, uint8]) =
 
 
 proc resolveLocal(self: ref Compiler, name: Token): int =
+    ## Resolves a local variable and catches errors such as
+    ## var a = a
     var i = self.localCount - 1
     for local in reversed(self.locals):
         if local.name.lexeme == name.lexeme:
@@ -388,6 +504,8 @@ proc resolveLocal(self: ref Compiler, name: Token): int =
 
 
 proc namedVariable(self: ref Compiler, tok: Token, canAssign: bool) =
+    ## Handles local and global variables assignment, as well
+    ## as variable resolution.
     var arg = self.resolveLocal(tok)
     var
         get: OpCode
@@ -407,6 +525,9 @@ proc namedVariable(self: ref Compiler, tok: Token, canAssign: bool) =
 
 
 proc namedLongVariable(self: ref Compiler, tok: Token, canAssign: bool) =
+    ## Handles local and global variables assignment, as well
+    ## as variable resolution. This is only called when the constants
+    ## table's length exceeds 255
     var arg = self.resolveLocal(tok)
     var casted = cast[array[3, uint8]](arg)
     var
@@ -430,6 +551,8 @@ proc namedLongVariable(self: ref Compiler, tok: Token, canAssign: bool) =
 
 
 proc variable(self: ref Compiler, canAssign: bool) =
+    ## Emits the code to declare a variable,
+    ## both locally and globally
     if self.locals.len < 255:
         self.namedVariable(self.parser.previous(), canAssign)
     else:
@@ -437,6 +560,9 @@ proc variable(self: ref Compiler, canAssign: bool) =
 
 
 proc varDeclaration(self: ref Compiler) =
+    ## Parses a variable declaration, taking into account
+    ## the possibility that the chunk table could already
+    ## be bigger than 255 elements
     var shortName: uint8
     var longName: array[3, uint8]
     var useShort: bool = true
@@ -457,6 +583,9 @@ proc varDeclaration(self: ref Compiler) =
 
 
 proc expressionStatement(self: ref Compiler) =
+    ## Parses an expression statement, which is
+    ## an expression followed by a semicolon. It then
+    ## emits a pop instruction 
     self.expression()
     self.parser.consume(SEMICOLON, "Missing semicolon after expression")
     self.emitByte(OpCode.Pop)
@@ -484,16 +613,25 @@ proc deleteVariable(self: ref Compiler, canAssign: bool) =
 
 
 proc parseBlock(self: ref Compiler) =
+    ## Parses a block statement, which is basically
+    ## a list of other statements
     while not self.parser.check(RB) and not self.parser.check(EOF):
         self.declaration()
     self.parser.consume(RB, "Expecting '}' after block statement")
 
 
 proc beginScope(self: ref Compiler) =
+    ## Begins a scope by increasing the
+    ## current scope depth. This is literally 
+    ## all it takes to create a scope, since the
+    ## only semantically interesting behavior of
+    ## scopes is a change in names resolution
     inc(self.scopeDepth)
 
 
 proc endScope(self: ref Compiler) =
+    ## Ends a scope, popping off any local that
+    ## was created inside it along the way
     self.scopeDepth = self.scopeDepth - 1
     while self.localCount > 0 and self.locals[self.localCount - 1].depth > self.scopeDepth:
         self.emitByte(OpCode.Pop)
@@ -501,6 +639,9 @@ proc endScope(self: ref Compiler) =
 
 
 proc emitJump(self: ref Compiler, opcode: OpCode): int =
+    ## Emits a jump instruction with a placeholder offset
+    ## that is later patched, check patchJump for more info
+    ## about how jumps work
     self.emitByte(opcode)
     self.emitByte(0xff)
     self.emitByte(0xff)
@@ -508,6 +649,19 @@ proc emitJump(self: ref Compiler, opcode: OpCode): int =
 
 
 proc patchJump(self: ref Compiler, offset: int) =
+    ## Patches a previously emitted jump instruction.
+    ## Since it's impossible to know how much code
+    ## needs to be jumped before compiling the code
+    ## itself, jumps are first encoded with a placeholder
+    ## offset. Then, after the code that has to be jumped
+    ## over has been compiled, its size is known and the
+    ## previously emitted offset is replaced with the actual
+    ## jump size.
+    ## Note that, due to how the language is designed,
+    ## only up to 2^16 bytecode instructions can
+    ## be jumped over, so the size of the if/else conditions
+    ## or loops is limited (hopefully 65 thousands and change
+    ## instructions are enough for everyone)
     var jump = self.currentChunk.code.len - offset - 2
     if jump > (int uint16.high):
         self.compileError("too much code to jump over")
@@ -517,6 +671,7 @@ proc patchJump(self: ref Compiler, offset: int) =
 
 
 proc ifStatement(self: ref Compiler) =
+    ## Parses if statements in a C-style fashion
     self.parser.consume(LP, "The if condition must be parenthesized")
     if self.parser.peek.kind != EOF:
         self.expression()
@@ -539,6 +694,7 @@ proc ifStatement(self: ref Compiler) =
 
 
 proc emitLoop(self: ref Compiler, start: int) =
+    ## Creates a loop and emits related instructions.
     self.emitByte(OpCode.Loop)
     var offset = self.currentChunk.code.len - start + 2
     if offset > (int uint16.high):
@@ -549,6 +705,9 @@ proc emitLoop(self: ref Compiler, start: int) =
 
 
 proc endLooping(self: ref Compiler) =
+    ## This method is used to make
+    ## the break statement work and patch
+    ## it with a jump instruction
     if self.loop.loopEnd != -1:
         self.patchJump(self.loop.loopEnd)
         self.emitByte(OpCode.Pop)
@@ -564,6 +723,7 @@ proc endLooping(self: ref Compiler) =
 
 
 proc whileStatement(self: ref Compiler) =
+    ## Parses while loops in a C-style fashion
     var loop = Loop(depth: self.scopeDepth, outer: self.loop, start: self.currentChunk.code.len, alive: true, loopEnd: -1)
     self.loop = loop
     self.parser.consume(LP, "The loop condition must be parenthesized")
@@ -587,6 +747,7 @@ proc whileStatement(self: ref Compiler) =
 
 
 proc forStatement(self: ref Compiler) =
+    ## Parses for loops in a C-style fashion
     self.beginScope()
     self.parser.consume(LP, "The loop condition must be parenthesized")
     if self.parser.peek.kind != EOF:
@@ -634,6 +795,9 @@ proc forStatement(self: ref Compiler) =
 
 
 proc parseBreak(self: ref Compiler) =
+    ## Parses break statements. A break
+    ## statement causes the current loop
+    ## to exit and jump to its end
     if not self.loop.alive:
         self.parser.parseError(self.parser.previous, "'break' outside loop")
     else:
@@ -645,6 +809,7 @@ proc parseBreak(self: ref Compiler) =
         discard self.emitJump(OpCode.Break)
 
 proc parseAnd(self: ref Compiler, canAssign: bool) =
+    ## Parses expressions such as a and b
     var jump = self.emitJump(OpCode.JumpIfFalse)
     self.emitByte(OpCode.Pop)
     self.parsePrecedence(Precedence.And)
@@ -652,6 +817,7 @@ proc parseAnd(self: ref Compiler, canAssign: bool) =
 
 
 proc parseOr(self: ref Compiler, canAssign: bool) =
+    ## Parses expressions such as a or b
     var elseJump = self.emitJump(OpCode.JumpIfFalse)
     var endJump = self.emitJump(OpCode.Jump)
     self.patchJump(elseJump)
@@ -661,6 +827,9 @@ proc parseOr(self: ref Compiler, canAssign: bool) =
 
 
 proc continueStatement(self: ref Compiler) =
+    ## Parses continue statements inside loops.
+    ## The continue statements causes the loop to skip
+    ## to the next iteration
     if not self.loop.alive:
         self.parser.parseError(self.parser.previous, "'continue' outside loop")
     else:
@@ -673,6 +842,10 @@ proc continueStatement(self: ref Compiler) =
 
 
 proc parseFunction(self: ref Compiler, funType: FunctionType) =
+    ## Parses function declarations. Functions can have
+    ## keyword arguments (WIP), but once a parameter is declared
+    ## as a keyword one, all subsequent parameters must be 
+    ## keyword ones as well
     var self = initCompiler(funType, self, self.parser, self.file)
     self.beginScope()
     self.parser.consume(LP, "Expecting '(' after function name")
@@ -721,6 +894,8 @@ proc parseFunction(self: ref Compiler, funType: FunctionType) =
 
 
 proc funDeclaration(self: ref Compiler) =
+    ## Parses function declarations and declares
+    ## them in the current scope
     var funName = self.parseVariable("expecting function name")
     self.markInitialized()
     self.parseFunction(FunctionType.FUNC)
@@ -728,6 +903,7 @@ proc funDeclaration(self: ref Compiler) =
 
 
 proc argumentList(self: ref Compiler): uint8 =
+    ## Parses arguments passed to function calls
     result = 0
     if not self.parser.check(RP):
         while true:
@@ -742,11 +918,14 @@ proc argumentList(self: ref Compiler): uint8 =
 
 
 proc call(self: ref Compiler, canAssign: bool) =
+    ## Emits appropriate bytecode to call
+    ## a function
     var argCount = self.argumentList()
     self.emitBytes(OpCode.Call, argCount)
 
 
 proc statement(self: ref Compiler) =
+    ## Parses statements
     if self.parser.match(TokenType.FOR):
         self.forStatement()
     elif self.parser.match(IF):
@@ -766,6 +945,7 @@ proc statement(self: ref Compiler) =
 
 
 proc declaration(self: ref Compiler) =
+    ## Parses declarations
     if self.parser.match(FUN):
         self.funDeclaration()
     elif self.parser.match(VAR):
@@ -776,7 +956,8 @@ proc declaration(self: ref Compiler) =
         self.synchronize()
 
 
-var rules: array[TokenType, ParseRule] = [
+# The array of all parse rules
+const rules: array[TokenType, ParseRule] = [
     makeRule(nil, binary, Precedence.Term), # PLUS
     makeRule(unary, binary, Precedence.Term), # MINUS
     makeRule(nil, binary, Precedence.Factor), # SLASH
@@ -835,10 +1016,15 @@ var rules: array[TokenType, ParseRule] = [
 
 
 proc getRule(kind: TokenType): ParseRule =
+    ## Returns an appropriate precedence rule
+    ## object for a given token type
     result = rules[kind]
 
 
 proc compile*(self: ref Compiler, source: string): ptr Function =
+    ## Compiles a source string into a function
+    ## object. This wires up all the code
+    ## inside the parser and the lexer
     var scanner = initLexer(source, self.file)
     var tokens = scanner.lex()
     if not scanner.errored:
@@ -855,9 +1041,11 @@ proc compile*(self: ref Compiler, source: string): ptr Function =
 
 
 proc initCompiler*(context: FunctionType, enclosing: ref Compiler = nil, parser: Parser = initParser(@[], ""), file: string): ref Compiler =
+    ## Initializes a new compiler object and returns a reference
+    ## to it
     result = new(Compiler)
     result.parser = parser
-    result.function = nil
+    result.function = nil   # Garbage collection paranoia
     result.locals = @[]
     result.scopeDepth = 0
     result.localCount = 0
@@ -870,10 +1058,10 @@ proc initCompiler*(context: FunctionType, enclosing: ref Compiler = nil, parser:
     result.locals.add(Local(depth: 0, name: Token(kind: EOF, lexeme: "")))
     inc(result.localCount)
     result.function = result.markObject(newFunction())
-    if context != SCRIPT:
+    if context != SCRIPT:   # If we're compiling a function, we give it its name
         result.function.name = newString(enclosing.parser.previous().lexeme)
 
-# so that the compiler can be executed on its own
+# This wat the compiler can be executed on its own
 # without the VM
 when isMainModule:
     var compiler: ref Compiler = initCompiler(SCRIPT, file="test")

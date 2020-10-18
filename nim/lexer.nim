@@ -1,10 +1,12 @@
-# A simple tokenizer implementation with one character of lookahead.
-# This module has been designed to be easily extendible in its functionality
-# given that JAPL is in a state of high activity and many features are
-# being added along the way. To add support for a new keyword, just create
-# an appropriate TokenType entry in the enum in the file at meta/tokenotype.nim
-# and then add it to the constant RESERVED table. A similar approach applies for
-# other tokens, but multi-character ones require more tweaking
+## A simple tokenizer implementation with one character of lookahead.
+## This module has been designed to be easily extendible in its functionality
+## given that JAPL is in a state of high activity and many features are
+## being added along the way. To add support for a new keyword, just create
+## an appropriate TokenType entry in the enum in the file at meta/tokentype.nim
+## and then add it to the constant RESERVED table. A similar approach applies for
+## other tokens, but multi-character ones require more tweaking.
+## Since this lexer scans the given source string character by character, unicode
+## identifiers are not supported
 
 import system
 import strutils
@@ -14,7 +16,7 @@ import meta/tokentype
 import meta/tokenobject
 import meta/valueobject
 
-
+# Table of all tokens except reserved keywords
 const TOKENS = to_table({
               '(': TokenType.LP, ')': TokenType.RP,
               '{': TokenType.LB, '}': TokenType.RB,
@@ -29,6 +31,7 @@ const TOKENS = to_table({
               '&': TokenType.BAND, '|': TokenType.BOR,
               '~': TokenType.TILDE})
 
+# Constant table storing all the reserved keywords for JAPL
 const RESERVED = to_table({
                 "or": TokenType.OR, "and": TokenType.AND,
                 "class": TokenType.CLASS, "fun": TokenType.FUN,
@@ -51,15 +54,21 @@ type
         errored*: bool
         file*: string
 
+
 func initLexer*(source: string, file: string): Lexer =
-  result = Lexer(source: source, tokens: @[], line: 1, start: 0, current: 0, errored: false, file: file)
+    ## Initializes the lexer
+    result = Lexer(source: source, tokens: @[], line: 1, start: 0, current: 0, errored: false, file: file)
 
 
 proc done(self: Lexer): bool =
+    ## Returns true if we reached EOF
     result = self.current >= self.source.len
 
 
 proc step(self: var Lexer): char =
+    ## Steps one character forward in the
+    ## source file. A null terminator is returned
+    ## if the lexer is at EOF
     if self.done():
         return '\0'
     self.current = self.current + 1
@@ -67,6 +76,10 @@ proc step(self: var Lexer): char =
 
 
 proc peek(self: Lexer): char =
+    ## Returns the current character in the
+    ## source file without consuming it.
+    ## A null terminator is returned
+    ## if the lexer is at EOF
     if self.done():
         result = '\0'
     else:
@@ -74,15 +87,23 @@ proc peek(self: Lexer): char =
 
 
 proc match(self: var Lexer, what: char): bool =
+    ## Returns true if the next character matches
+    ## the given character, and consumes it.
+    ## Otherwise, false is returned
     if self.done():
         return false
     elif self.peek() != what:
         return false
-    self.current = self.current + 1
+    self.current += 1
     return true
 
 
 proc peekNext(self: Lexer): char =
+    ## Returns the next character
+    ## in the source file without
+    ## consuming it.
+    ## A null terminator is returned
+    ## if the lexer is at EOF
     if self.current + 1 >= self.source.len:
         result = '\0'
     else:
@@ -90,6 +111,7 @@ proc peekNext(self: Lexer): char =
 
 
 proc createToken(self: var Lexer, tokenType: TokenType, literal: Value): Token =
+    ## Creates a token object for later use in the parser
     result = Token(kind: tokenType,
                    lexeme: self.source[self.start..<self.current],
                    literal: literal,
@@ -98,14 +120,13 @@ proc createToken(self: var Lexer, tokenType: TokenType, literal: Value): Token =
 
 
 proc parseString(self: var Lexer, delimiter: char) =
+    ## Parses string literals
     while self.peek() != delimiter and not self.done():
         if self.peek() == '\n':
             self.line = self.line + 1
         discard self.step()
     if self.done():
-        echo "Traceback (most recent call last):"
-        echo &"  File '{self.file}', line {self.line} at '{self.peek()}'"
-        echo &"SyntaxError: Unterminated string literal"
+        stderr.write(&"A fatal error occurred while parsing '{self.file}', line {self.line} at '{self.peek()}' -> Unterminated string literal")
         self.errored = true
     discard self.step()
     let value = self.source[self.start..<self.current].asStr() # Get the value between quotes
@@ -114,6 +135,10 @@ proc parseString(self: var Lexer, delimiter: char) =
 
 
 proc parseNumber(self: var Lexer) =
+    ## Parses numeric literals
+    # TODO: Move the integer conversion to the
+    # compiler for finer error reporting and
+    # handling
     while isDigit(self.peek()):
         discard self.step()
     try:
@@ -127,13 +152,14 @@ proc parseNumber(self: var Lexer) =
             var value = parseInt(self.source[self.start..<self.current]).asInt()
             self.tokens.add(self.createToken(TokenType.NUMBER, value))
     except ValueError:
-        echo "Traceback (most recent call last):"
-        echo &"  File '{self.file}', line {self.line} at '{self.peek()}'"
-        echo "OverflowError: integer is too big to convert to int64"
+        stderr.write(&"A fatal error occurred while parsing '{self.file}', line {self.line} at '{self.peek()}' -> integer is too big to convert to int64")
         self.errored = true
 
 
 proc parseIdentifier(self: var Lexer) =
+    ## Parses identifiers, note that
+    ## multi-character tokens such as 
+    ## UTF runes are not supported
     while self.peek().isAlphaNumeric():
         discard self.step()
     var text: string = self.source[self.start..<self.current]
@@ -145,13 +171,17 @@ proc parseIdentifier(self: var Lexer) =
 
 
 proc parseComment(self: var Lexer) =
+    ## Parses multi-line comments. They start
+    ## with /* and end with */, and can be nested.
+    ## A missing comment terminator will raise an
+    ## error
     var closed = false
     while not self.done():
         var finish = self.peek() & self.peekNext()
         if finish == "/*":   # Nested comments
             discard self.step()
             discard self.step()
-            self.parseComment()
+            self.parseComment()   # Recursively parse any other enclosing comments
         elif finish == "*/":
             closed = true
             discard self.step()   # Consume the two ends
@@ -160,14 +190,15 @@ proc parseComment(self: var Lexer) =
         discard self.step()
     if self.done() and not closed:
         self.errored = true
-        echo "Traceback (most recent call last):"
-        echo &"  File '{self.file}', line {self.line} at '{self.peek()}'"
-        echo &"SyntaxError: Unexpected EOF"
+        stderr.write(&"A fatal error occurred while parsing '{self.file}', line {self.line} at '{self.peek()}' -> Unexpected EOF")
 
 
 proc scanToken(self: var Lexer) =
+    ## Scans a single token. This method is
+    ## called iteratively until the source
+    ## file reaches EOF
     var single = self.step()
-    if single in [' ', '\t', '\r']:
+    if single in [' ', '\t', '\r']:  # We skip whitespaces, tabs and 
         return
     elif single == '\n':
         self.line += 1
@@ -201,12 +232,12 @@ proc scanToken(self: var Lexer) =
             self.tokens.add(self.createToken(TOKENS[single], asStr(&"{single}")))
     else:
         self.errored = true
-        echo "Traceback (most recent call last):"
-        echo &"  File '{self.file}', line {self.line} at '{self.peek()}'"
-        echo &"SyntaxError: Unexpected character '{single}'"
+        stderr.write(&"A fatal error occurred while parsing '{self.file}', line {self.line} at '{self.peek()}' -> Unexpected token '{single}'")
 
 
 proc lex*(self: var Lexer): seq[Token] =
+    ## Lexes a source file, converting a stream
+    ## of characters into a series of tokens
     while not self.done():
         self.start = self.current
         self.scanToken()

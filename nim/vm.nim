@@ -1,26 +1,20 @@
+## The JAPL runtime environment, or virtual machine. This is
+## a stack-based bytecode VM.
+
 import algorithm
-import strutils
 import strformat
 import math
 import lenientops
 import common
 import compiler
 import tables
-import util/debug
 import meta/chunk
 import meta/valueobject
 import types/exceptions
 import types/objecttype
 import types/stringtype
 import types/functiontype
-import bitops
 import memory
-
-
-proc `**`(a, b: int): int = pow(a.float, b.float).int
-
-
-proc `**`(a, b: float): float = pow(a, b)
 
 
 type

@@ -1,10 +1,10 @@
-# This module handles all memory allocation and deallocation for the entire
-# JAPL runtime. Forcing the entire language to route memory allocation
-# into a single module makes it easy to track how much memory we have allocated
-# and simplifies the implementation of a garbage collector.
-# To also make our life as language implementers easier, the internals of the
-# interpreter (which means the tokenizer, the compiler the debugger,
-# and some parts of the Virtual Machine) will use nim's GC
+## This module handles all memory allocation and deallocation for the entire
+## JAPL runtime. Forcing the entire language to route memory allocation
+## into a single module makes it easy to track how much memory we have allocated
+## and simplifies the implementation of a garbage collector.
+## To also make our life as language implementers easier, the internals of the
+## interpreter (which means the tokenizer, the compiler the debugger,
+## and some parts of the Virtual Machine) will use nim's GC
 
 
 import segfaults
@@ -18,7 +18,7 @@ proc reallocate*(pointer: pointer, oldSize: int, newSize: int): pointer =
             return nil
         result = realloc(pointer, newSize)
     except NilAccessError:
-        echo "MemoryError: could not allocate memory, segmentation fault"
+        echo "A fatal error occurred -> could not allocate memory, segmentation fault"
         quit(71)
 
 
