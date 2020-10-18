@@ -98,7 +98,7 @@ proc slice(self: var VM): bool =
     case peeked.kind:
         of OBJECT:
             case peeked.obj.kind:
-                of ObjectTypes.STRING:
+                of ObjectType.String:
                     var str = peeked.toStr()
                     if not idx.isInt():
                         self.error(newTypeError("string indeces must be integers"))
@@ -129,7 +129,7 @@ proc sliceRange(self: var VM): bool =
     case popped.kind:
         of OBJECT:
             case popped.obj.kind:
-                of ObjectTypes.STRING:
+                of ObjectType.String:
                     var str = popped.toStr()
                     if sliceEnd.isNil():
                         sliceEnd = Value(kind: INTEGER, intValue: len(str))
@@ -177,7 +177,7 @@ proc call(self: var VM, function: ptr Function, argCount: uint8): bool =
 proc callValue(self: var VM, callee: Value, argCount: uint8): bool =
     if callee.isObj():
         case callee.obj.kind:
-            of ObjectTypes.FUNCTION:
+            of ObjectType.Function:
                 return self.call(cast[ptr Function](callee.obj), argCount)
             else:
                 discard
@@ -225,9 +225,9 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                 else:
                     var res = float res
                     if res == Inf:
-                        self.push(Value(kind: ValueTypes.INF))
+                        self.push(Value(kind: ValueType.Inf))
                     elif res == -Inf:
-                        self.push(Value(kind: MINF))
+                        self.push(Value(kind: ValueType.Minf))
                     else:
                        self.push(Value(kind: DOUBLE, floatValue: float res))
             elif leftVal.isInt() and rightVal.isFloat():
@@ -237,9 +237,9 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                 else:
                     var res = float res
                     if res == Inf:
-                        self.push(Value(kind: ValueTypes.INF))
+                        self.push(Value(kind: ValueType.Inf))
                     elif res == -Inf:
-                        self.push(Value(kind: MINF))
+                        self.push(Value(kind: ValueType.Minf))
                     else:
                        self.push(Value(kind: DOUBLE, floatValue: float res))
             elif leftVal.isFloat() and rightVal.isFloat():
@@ -249,23 +249,24 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                 else:
                     var res = float res
                     if res == Inf:
-                        self.push(Value(kind: ValueTypes.INF))
+                        self.push(Value(kind: ValueType.Inf))
                     elif res == -Inf:
-                        self.push(Value(kind: MINF))
+                        self.push(Value(kind: ValueType.Minf))
                     else:
                        self.push(Value(kind: DOUBLE, floatValue: float res))
             else:
                 var tmp = `op`(leftVal.toInt(), rightVal.toInt())
+                var res = float tmp
                 if tmp is int:
-                    self.push(Value(kind: INTEGER, intValue: int tmp))
+                    self.push(Value(kind: ValueType.Integer, intValue: int tmp))
                 elif res == Inf:
-                    self.push(Value(kind: ValueTypes.INF))
+                    self.push(Value(kind: ValueType.Inf))
                 elif res == -Inf:
-                    self.push(Value(kind: MINF))
+                    self.push(Value(kind: ValueType.Minf))
                 elif tmp is bool:
-                    self.push(Value(kind: BOOL, boolValue: bool tmp))
+                    self.push(Value(kind: ValueType.Bool, boolValue: bool tmp))
                 else:
-                    self.push(Value(kind: DOUBLE, floatValue: float tmp))
+                    self.push(Value(kind: ValueType.Double, floatValue: float tmp))
         else:
             self.error(newTypeError(&"unsupported binary operator for objects of type '{leftVal.typeName()}' and '{rightVal.typeName()}'"))
             return RUNTIME_ERROR
@@ -316,29 +317,29 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
             stdout.write("]\n")
             discard disassembleInstruction(frame.function.chunk, frame.ip - 1)
         case opcode:
-            of OP_CONSTANT:
+            of OpCode.Constant:
                 var constant: Value = readConstant()
                 self.push(constant)
-            of OP_CONSTANT_LONG:
+            of OpCode.ConstantLong:
                 var constant: Value = readLongConstant()
                 self.push(constant)
-            of OP_NEGATE:
+            of OpCode.Negate:
                 var cur = self.pop()
                 case cur.kind:
-                    of DOUBLE:
+                    of ValueType.Double:
                         cur.floatValue = -cur.toFloat()
                         self.push(cur)
-                    of INTEGER:
+                    of ValueType.Integer:
                         cur.intValue = -cur.toInt()
                         self.push(cur)
-                    of ValueTypes.INF:
-                        self.push(Value(kind: MINF))
-                    of ValueTypes.MINF:
-                        self.push(Value(kind: ValueTypes.INF))
+                    of ValueType.Inf:
+                        self.push(Value(kind: ValueType.Minf))
+                    of ValueType.Minf:
+                        self.push(Value(kind: ValueType.Inf))
                     else:
                         self.error(newTypeError(&"unsupported unary operator for object of type '{cur.typeName()}'"))
                         return RUNTIME_ERROR
-            of OP_ADD:
+            of OpCode.Add:
                 if self.peek(0).isObj() and self.peek(1).isObj():
                     if self.peek(0).isStr() and self.peek(1).isStr():
                         var r = self.peek(0).toStr()
@@ -352,23 +353,23 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                         return RUNTIME_ERROR
                 else:
                     binOp(`+`, isNum)
-            of OP_SHL:
+            of OpCode.Shl:
                 binBitWise(`shl`)
-            of OP_SHR:
+            of OpCode.Shr:
                 binBitWise(`shr`)
-            of OP_XOR:
+            of OpCode.Xor:
                 binBitWise(`xor`)
-            of OP_BOR:
+            of OpCode.Bor:
                 binBitWise(bitor)
-            of OP_BNOT:
+            of OpCode.Bnot:
                 unBitWise(bitnot)
-            of OP_BAND:
+            of OpCode.Band:
                 binBitWise(bitand)
-            of OP_SUBTRACT:
+            of OpCode.Subtract:
                 binOp(`-`, isNum)
-            of OP_DIVIDE:
+            of OpCode.Divide:
                 binOp(`/`, isNum)
-            of OP_MULTIPLY:
+            of OpCode.Multiply:
                 if self.peek(0).isInt() and self.peek(1).isObj():
                     if self.peek(1).isStr():
                         var r = self.pop().toInt()   # We don't peek here because integers are not garbage collected (not by us at least)
@@ -391,23 +392,23 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                         return RUNTIME_ERROR
                 else:
                     binOp(`*`, isNum)
-            of OP_MOD:
+            of OpCode.Mod:
                 binOp(floorMod, isNum)
-            of OP_POW:
+            of OpCode.Pow:
                 binOp(`**`, isNum)
-            of OP_TRUE:
-                self.push(Value(kind: BOOL, boolValue: true))
-            of OP_FALSE:
-                self.push(Value(kind: BOOL, boolValue: false))
-            of OP_NIL:
-                self.push(Value(kind: NIL))
-            of OP_NAN:
-                self.push(Value(kind: ValueTypes.NAN))
-            of OP_INF:
-                self.push(Value(kind: ValueTypes.INF))
-            of OP_NOT:
+            of OpCode.True:
+                self.push(Value(kind: ValueType.Bool, boolValue: true)) # TODO asBool() ?
+            of OpCode.False:
+                self.push(Value(kind: ValueType.Bool, boolValue: false))
+            of OpCode.Nil:
+                self.push(Value(kind: ValueType.Nil))
+            of OpCode.Nan:
+                self.push(Value(kind: ValueType.Nan))
+            of OpCode.Inf:
+                self.push(Value(kind: ValueType.Inf))
+            of OpCode.Not:
                 self.push(Value(kind: BOOL, boolValue: isFalsey(self.pop())))
-            of OP_EQUAL:
+            of OpCode.Equal:
                 var a = self.pop()
                 var b = self.pop()
                 if a.isFloat() and b.isInt():
@@ -415,17 +416,17 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                 elif b.isFloat() and a.isInt():
                     a = Value(kind: DOUBLE, floatValue: float a.toInt())
                 self.push(Value(kind: BOOL, boolValue: valuesEqual(a, b)))
-            of OP_LESS:
+            of OpCode.Less:
                 binOp(`<`, isNum)
-            of OP_GREATER:
+            of OpCode.Greater:
                 binOp(`>`, isNum)
-            of OP_SLICE:
+            of OpCode.Slice:
                 if not self.slice():
                     return RUNTIME_ERROR
-            of OP_SLICE_RANGE:
+            of OpCode.SliceRange:
                 if not self.sliceRange():
                     return RUNTIME_ERROR
-            of OP_DEFINE_GLOBAL:
+            of OpCode.DefineGlobal:
                 if frame.function.chunk.consts.values.len > 255:
                     var constant = readLongConstant().toStr()
                     self.globals[constant] = self.peek(0)
@@ -433,7 +434,7 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                     var constant = readConstant().toStr()
                     self.globals[constant] = self.peek(0)
                 discard self.pop()   # This will help when we have a custom GC
-            of OP_GET_GLOBAL:
+            of OpCode.GetGlobal:
                 if frame.function.chunk.consts.values.len > 255:
                     var constant = readLongConstant().toStr()
                     if constant notin self.globals:
@@ -448,7 +449,7 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                         return RUNTIME_ERROR
                     else:
                         self.push(self.globals[constant])
-            of OP_SET_GLOBAL:
+            of OpCode.SetGlobal:
                 if frame.function.chunk.consts.values.len > 255:
                     var constant = readLongConstant().toStr()
                     if constant notin self.globals:
@@ -463,7 +464,7 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                         return RUNTIME_ERROR
                     else:
                         self.globals[constant] = self.peek(0)
-            of OP_DELETE_GLOBAL:
+            of OpCode.DeleteGlobal:
                 # This OpCode, as well as OP_DELETE_LOCAL, is currently unused due to issues with the GC
                 if frame.function.chunk.consts.values.len > 255:
                     var constant = readLongConstant().toStr()
@@ -479,77 +480,79 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                         return RUNTIME_ERROR
                     else:
                         self.globals.del(constant)
-            of OP_GET_LOCAL:
+            of OpCode.GetLocal:
                 if frame.len > 255:
                     var slot = readBytes()
                     self.push(frame[slot])
                 else:
                     var slot = readByte()
                     self.push(frame[int slot])
-            of OP_SET_LOCAL:
+            of OpCode.SetLocal:
                 if frame.len > 255:
                     var slot = readBytes()
                     frame[slot] = self.peek(0)
                 else:
                     var slot = readByte()
                     frame[int slot] = self.peek(0)
-            of OP_DELETE_LOCAL:
+            of OpCode.DeleteLocal:
                 # Unused due to GC potential issues
                 if frame.len > 255:
                     var slot = readBytes()
                     frame.delete(slot)
+                    # TODO unimplemented
                 else:
                     var slot = readByte()
+                    # TODO unimplemented
                     frame.delete(int slot)
-            of OP_POP:
+            of OpCode.Pop:
                 self.lastPop = self.pop()
-            of OP_JUMP_IF_FALSE:
+            of OpCode.JumpIfFalse:
                 var offset = readShort()
                 if isFalsey(self.peek(0)):
                     frame.ip += int offset
-            of OP_JUMP:
+            of OpCode.Jump:
                 var offset = readShort()
                 frame.ip += int offset
-            of OP_LOOP:
+            of OpCode.Loop:
                 var offset = readShort()
                 frame.ip -= int offset
-            of OP_CALL:
+            of OpCode.Call:
                 var argCount = readByte()
                 if not self.callValue(self.peek(int argCount), argCount):
                     return RUNTIME_ERROR
                 frame = self.frames[self.frameCount - 1]
-            of OP_BREAK:
+            of OpCode.Break:
                 discard
-            of OP_RETURN:
+            of OpCode.Return:
                 var retResult = self.pop()
                 if repl:
                     if not self.lastPop.isNil():
                         echo stringify(self.lastPop)
-                        self.lastPop = Value(kind: NIL)
+                        self.lastPop = Value(kind: ValueType.Nil) # TODO: asNil()?
                 self.frameCount -= 1
                 discard self.frames.pop()
                 if self.frameCount == 0:
                     discard self.pop()
                     return OK
                 self.push(retResult)
-                self.stackTop = len(frame.slots) - 1
+                self.stackTop = len(frame.slots) - 1 # TODO
                 frame = self.frames[self.frameCount - 1]
 
 
 proc freeObject(obj: ptr Obj, debug: bool) =
     case obj.kind:
-        of ObjectTypes.STRING:
+        of ObjectType.String:
             var str = cast[ptr String](obj)
             if debug:
                 echo &"Freeing string object with value '{stringify(str)}' of length {str.len}"
             discard freeArray(char, str.str, str.len)
-            discard free(ObjectTypes.STRING, obj)
-        of ObjectTypes.FUNCTION:
+            discard free(ObjectType.String, obj)
+        of ObjectType.Function:
             var fun = cast[ptr Function](obj)
             if debug:
                 echo &"Freeing function object with value '{stringify(fun)}'"
             fun.chunk.freeChunk()
-            discard free(ObjectTypes.FUNCTION, fun)
+            discard free(ObjectType.Function, fun)
         else:
             discard
 
@@ -576,15 +579,19 @@ proc freeVM*(self: var VM, debug: bool) =
 
 proc initVM*(): VM =
     setControlCHook(handleInterrupt)
-    result = VM(lastPop: Value(kind: NIL), objects: @[], globals: initTable[string, Value](), source: "", file: "")
+    result = VM(lastPop: Value(kind: ValueType.Nil), objects: @[], globals: initTable[string, Value](), source: "", file: "")
+    # TODO asNil() ?
 
 
 proc interpret*(self: var VM, source: string, debug: bool = false, repl: bool = false, file: string): InterpretResult =
     self.resetStack()
-    var compiler = initCompiler(addr self, SCRIPT, file=file)
+    var compiler = initCompiler(SCRIPT, file=file)
     var compiled = compiler.compile(source)
     self.source = source
     self.file = file
+    self.objects = compiler.objects # TODO: 
+    # revisit the best way to transfer marked objects from the compiler
+    # to the vm
     if compiled == nil:
         return COMPILE_ERROR
     self.push(Value(kind: OBJECT, obj: compiled))

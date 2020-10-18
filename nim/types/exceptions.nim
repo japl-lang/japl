@@ -14,31 +14,31 @@ proc stringify*(self: ptr JAPLException): string =
 
 
 proc newTypeError*(message: string): ptr JAPLException =
-    result = allocateObj(JAPLException, ObjectTypes.EXCEPTION)
+    result = allocateObj(JAPLException, ObjectType.Exception)
     result.errName = newString("TypeError")
     result.message = newString(message)
 
 
 proc newIndexError*(message: string): ptr JAPLException =
-    result = allocateObj(JAPLException, ObjectTypes.EXCEPTION)
+    result = allocateObj(JAPLException, ObjectType.Exception)
     result.errName = newString("IndexError")
     result.message = newString(message)
 
 
 proc newReferenceError*(message: string): ptr JAPLException =
-    result = allocateObj(JAPLException, ObjectTypes.EXCEPTION)
+    result = allocateObj(JAPLException, ObjectType.Exception)
     result.errName = newString("ReferenceError")
     result.message = newString(message)
 
 
 proc newInterruptedError*(message: string): ptr JAPLException =
-    result = allocateObj(JAPLException, ObjectTypes.EXCEPTION)
+    result = allocateObj(JAPLException, ObjectType.Exception)
     result.errName = newString("InterruptedError")
     result.message = newString(message)
 
 
 proc newRecursionError*(message: string): ptr JAPLException =
-    result = allocateObj(JAPLException, ObjectTypes.EXCEPTION)
+    result = allocateObj(JAPLException, ObjectType.Exception)
     result.errName = newString("RecursionError")
     result.message = newString(message)
 

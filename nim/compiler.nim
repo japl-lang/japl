@@ -10,22 +10,36 @@ import meta/tokentype
 import meta/looptype
 import types/stringtype
 import types/functiontype
+import types/objecttype
 import tables
-
+when isMainModule:
+    import util/debug
 
 type
-    Precedence = enum
-        PREC_NONE,
-        PREC_ASSIGNMENT,
-        PREC_OR,
-        PREC_AND,
-        PREC_EQUALITY,
-        PREC_COMPARISON,
-        PREC_TERM,
-        PREC_FACTOR,
-        PREC_UNARY,
-        PREC_CALL,
-        PREC_PRIMARY
+    Compiler* = object
+        ## The state of the compiler
+        enclosing*: ref Compiler
+        function*: ptr Function
+        context*: FunctionType
+        locals*: seq[Local]
+        localCount*: int
+        scopeDepth*: int
+        parser*: Parser
+        loop*: Loop
+        objects*: seq[ptr Obj]
+        file*: string
+    Precedence {.pure.} = enum
+        None,
+        Assignment,
+        Or,
+        And,
+        Equality,
+        Comparison,
+        Term,
+        Factor,
+        Unary,
+        Call,
+        Primary
 
     ParseFn = proc(self: ref Compiler, canAssign: bool): void
 
@@ -114,21 +128,21 @@ proc makeLongConstant(self: ref Compiler, val: Value): array[3, uint8] =
 
 proc emitConstant(self: ref Compiler, value: Value) =
     if self.currentChunk().consts.values.len > 255:
-        self.emitByte(OP_CONSTANT_LONG)
+        self.emitByte(OpCode.ConstantLong)
         self.emitBytes(self.makeLongConstant(value))
     else:
-        self.emitBytes(OP_CONSTANT, self.makeConstant(value))
+        self.emitBytes(OpCode.Constant, self.makeConstant(value))
 
 
 proc getRule(kind: TokenType): ParseRule  # Forward declarations
 proc statement(self: ref Compiler)
 proc declaration(self: ref Compiler)
-proc initCompiler*(vm: ptr VM, context: FunctionType, enclosing: ref Compiler = nil, parser: Parser = initParser(@[], ""), file: string): ref Compiler
+proc initCompiler*(context: FunctionType, enclosing: ref Compiler = nil, parser: Parser = initParser(@[], ""), file: string): ref Compiler
 
 
 proc endCompiler(self: ref Compiler): ptr Function =
-    self.emitByte(OP_NIL)
-    self.emitByte(OP_RETURN)
+    self.emitByte(OpCode.Nil)
+    self.emitByte(OpCode.Return)
     return self.function
 
 
@@ -138,7 +152,7 @@ proc parsePrecedence(self: ref Compiler, precedence: Precedence) =
     if prefixRule == nil:
         self.parser.parseError(self.parser.previous, "Expecting expression")
         return
-    var canAssign = precedence <= PREC_ASSIGNMENT
+    var canAssign = precedence <= Precedence.Assignment
     self.prefixRule(canAssign)
     if self.parser.previous.kind == EOF:
         self.parser.current -= 1
@@ -154,7 +168,7 @@ proc parsePrecedence(self: ref Compiler, precedence: Precedence) =
 
 
 proc expression(self: ref Compiler) =
-    self.parsePrecedence(PREC_ASSIGNMENT)
+    self.parsePrecedence(Precedence.Assignment)
 
 
 proc binary(self: ref Compiler, canAssign: bool) =
@@ -163,39 +177,39 @@ proc binary(self: ref Compiler, canAssign: bool) =
     self.parsePrecedence(Precedence((int rule.precedence) + 1))
     case operator:
         of PLUS:
-            self.emitByte(OP_ADD)
+            self.emitByte(OpCode.Add)
         of MINUS:
-            self.emitByte(OP_SUBTRACT)
+            self.emitByte(OpCode.Subtract)
         of SLASH:
-            self.emitByte(OP_DIVIDE)
+            self.emitByte(OpCode.Divide)
         of STAR:
-            self.emitByte(OP_MULTIPLY)
+            self.emitByte(OpCode.Multiply)
         of MOD:
-            self.emitByte(OP_MOD)
+            self.emitByte(OpCode.Mod)
         of POW:
-            self.emitByte(OP_POW)
+            self.emitByte(OpCode.Pow)
         of NE:
-            self.emitBytes(OP_EQUAL, OP_NOT)
+            self.emitBytes(OpCode.Equal, OpCode.Not)
         of DEQ:
-            self.emitByte(OP_EQUAL)
+            self.emitByte(OpCode.Equal)
         of GT:
-            self.emitByte(OP_GREATER)
+            self.emitByte(OpCode.Greater)
         of GE:
-            self.emitBytes(OP_LESS, OP_NOT)
+            self.emitBytes(OpCode.Less, OpCode.Not)
         of LT:
-            self.emitByte(OP_LESS)
+            self.emitByte(OpCode.Less)
         of LE:
-            self.emitBytes(OP_GREATER, OP_NOT)
+            self.emitBytes(OpCode.Greater, OpCode.Not)
         of CARET:
-           self.emitByte(OP_XOR)
+           self.emitByte(OpCode.Xor)
         of SHL:
-            self.emitByte(OP_SHL)
+            self.emitByte(OpCode.Shl)
         of SHR:
-            self.emitByte(OP_SHR)
+            self.emitByte(OpCode.Shr)
         of BOR:
-            self.emitByte(OP_BOR)
+            self.emitByte(OpCode.Bor)
         of BAND:
-            self.emitByte(OP_BAND)
+            self.emitByte(OpCode.Band)
         else:
             return
 
@@ -203,23 +217,23 @@ proc binary(self: ref Compiler, canAssign: bool) =
 proc unary(self: ref Compiler, canAssign: bool) =
     var operator = self.parser.previous().kind
     if self.parser.peek().kind != EOF:
-        self.parsePrecedence(PREC_UNARY)
+        self.parsePrecedence(Precedence.Unary)
     else:
         self.parser.parseError(self.parser.previous, "Expecting expression, got EOF")
         return
     case operator:
         of MINUS:
-            self.emitByte(OP_NEGATE)
+            self.emitByte(OpCode.Negate)
         of NEG:
-            self.emitByte(OP_NOT)
+            self.emitByte(OpCode.Not)
         of TILDE:
-            self.emitByte(OP_BNOT)
+            self.emitByte(OpCode.Bnot)
         else:
             return
 
 
 template markObject*(self: ref Compiler, obj: untyped): untyped =
-    self.vm.objects.add(obj)
+    self.objects.add(obj)
     obj
 
 
@@ -236,42 +250,42 @@ proc bracketAssign(self: ref Compiler, canAssign: bool) =
 
 proc bracket(self: ref Compiler, canAssign: bool) =
     if self.parser.peek.kind == COLON:
-        self.emitByte(OP_NIL)
+        self.emitByte(OpCode.Nil)
         discard self.parser.advance()
         if self.parser.peek.kind == RS:
-            self.emitByte(OP_NIL)
+            self.emitByte(OpCode.Nil)
         else:
-            self.parsePrecedence(PREC_TERM)
-        self.emitByte(OP_SLICE_RANGE)
+            self.parsePrecedence(Precedence.Term)
+        self.emitByte(OpCode.SliceRange)
     else:
-        self.parsePrecedence(PREC_TERM)
+        self.parsePrecedence(Precedence.Term)
         if self.parser.peek.kind == RS:
-            self.emitByte(OP_SLICE)
+            self.emitByte(OpCode.Slice)
         elif self.parser.peek.kind == COLON:
             discard self.parser.advance()
             if self.parser.peek.kind == RS:
-                self.emitByte(OP_NIL)
+                self.emitByte(OpCode.Nil)
             else:
-                self.parsePrecedence(PREC_TERM)
-            self.emitByte(OP_SLICE_RANGE)
+                self.parsePrecedence(Precedence.Term)
+            self.emitByte(OpCode.SliceRange)
     if self.parser.peek.kind == EQ:
         discard self.parser.advance()
-        self.parsePrecedence(PREC_TERM)
+        self.parsePrecedence(Precedence.Term)
     self.parser.consume(TokenType.RS, "Expecting ']' after slice expression")
 
 
 proc literal(self: ref Compiler, canAssign: bool) =
     case self.parser.previous().kind:
         of TRUE:
-            self.emitByte(OP_TRUE)
+            self.emitByte(OpCode.True)
         of FALSE:
-            self.emitByte(OP_FALSE)
+            self.emitByte(OpCode.False)
         of TokenType.NIL:
-            self.emitByte(OP_NIL)
+            self.emitByte(OpCode.Nil)
         of TokenType.INF:
-            self.emitByte(OP_INF)
+            self.emitByte(OpCode.Inf)
         of TokenType.NAN:
-            self.emitByte(OP_NAN)
+            self.emitByte(OpCode.Nan)
         else:
             discard  # Unreachable
 
@@ -285,7 +299,7 @@ proc grouping(self: ref Compiler, canAssign: bool) =
     if self.parser.match(EOF):
         self.parser.parseError(self.parser.previous, "Expecting ')'")
     elif self.parser.match(RP):
-        self.emitByte(OP_NIL)
+        self.emitByte(OpCode.Nil)
     else:
         self.expression()
         self.parser.consume(RP, "Expecting ')' after parentheszed expression")
@@ -351,14 +365,14 @@ proc defineVariable(self: ref Compiler, idx: uint8) =
     if self.scopeDepth > 0:
         self.markInitialized()
         return
-    self.emitBytes(OP_DEFINE_GLOBAL, idx)
+    self.emitBytes(OpCode.DefineGlobal, idx)
 
 
 proc defineVariable(self: ref Compiler, idx: array[3, uint8]) =
     if self.scopeDepth > 0:
         self.markInitialized()
         return
-    self.emitByte(OP_DEFINE_GLOBAL)
+    self.emitByte(OpCode.DefineGlobal)
     self.emitBytes(idx)
 
 
@@ -379,11 +393,11 @@ proc namedVariable(self: ref Compiler, tok: Token, canAssign: bool) =
         get: OpCode
         set: OpCode
     if arg != -1:
-        get = OP_GET_LOCAL
-        set = OP_SET_LOCAL
+        get = OpCode.GetLocal
+        set = OpCode.SetLocal
     else:
-        get = OP_GET_GLOBAL
-        set = OP_SET_GLOBAL
+        get = OpCode.GetGlobal
+        set = OpCode.SetGlobal
         arg = int self.identifierConstant(tok)
     if self.parser.match(EQ) and canAssign:
         self.expression()
@@ -399,11 +413,11 @@ proc namedLongVariable(self: ref Compiler, tok: Token, canAssign: bool) =
         get: OpCode
         set: OpCode
     if arg != -1:
-        get = OP_GET_LOCAL
-        set = OP_SET_LOCAL
+        get = OpCode.GetLocal
+        set = OpCode.SetLocal
     else:
-        get = OP_GET_GLOBAL
-        set = OP_SET_GLOBAL
+        get = OpCode.GetGlobal
+        set = OpCode.SetGlobal
         casted = self.identifierLongConstant(tok)
     if self.parser.match(EQ) and canAssign:
         self.expression()
@@ -434,7 +448,7 @@ proc varDeclaration(self: ref Compiler) =
     if self.parser.match(EQ):
         self.expression()
     else:
-        self.emitByte(OP_NIL)
+        self.emitByte(OpCode.Nil)
     self.parser.consume(SEMICOLON, "Missing semicolon after var declaration")
     if useShort:
         self.defineVariable(shortName)
@@ -445,7 +459,7 @@ proc varDeclaration(self: ref Compiler) =
 proc expressionStatement(self: ref Compiler) =
     self.expression()
     self.parser.consume(SEMICOLON, "Missing semicolon after expression")
-    self.emitByte(OP_POP)
+    self.emitByte(OpCode.Pop)
 
 
 # TODO: This code will not be used right now as it might clash with the future GC, fix this to make it GC aware!
@@ -455,9 +469,9 @@ proc deleteVariable(self: ref Compiler, canAssign: bool) =
         self.compileError("cannot delete a literal")
     var code: OpCode
     if self.scopeDepth == 0:
-        code = OP_DELETE_GLOBAL
+        code = OpCode.DeleteGlobal
     else:
-        code = OP_DELETE_LOCAL
+        code = OpCode.DeleteLocal
     self.localCount = self.localCount - 1
     if self.currentChunk.consts.values.len < 255:
         var name = self.identifierConstant(self.parser.previous())
@@ -482,7 +496,7 @@ proc beginScope(self: ref Compiler) =
 proc endScope(self: ref Compiler) =
     self.scopeDepth = self.scopeDepth - 1
     while self.localCount > 0 and self.locals[self.localCount - 1].depth > self.scopeDepth:
-        self.emitByte(OP_POP)
+        self.emitByte(OpCode.Pop)
         self.localCount = self.localCount - 1
 
 
@@ -509,12 +523,12 @@ proc ifStatement(self: ref Compiler) =
         if self.parser.peek.kind != EOF:
             self.parser.consume(RP, "The if condition must be parenthesized")
         if self.parser.peek.kind != EOF:
-            var jump: int = self.emitJump(OP_JUMP_IF_FALSE)
-            self.emitByte(OP_POP)
+            var jump: int = self.emitJump(OpCode.JumpIfFalse)
+            self.emitByte(OpCode.Pop)
             self.statement()
-            var elseJump = self.emitJump(OP_JUMP)
+            var elseJump = self.emitJump(OpCode.Jump)
             self.patchJump(jump)
-            self.emitByte(OP_POP)
+            self.emitByte(OpCode.Pop)
             if self.parser.match(ELSE):
                 self.statement()
             self.patchJump(elseJump)
@@ -525,7 +539,7 @@ proc ifStatement(self: ref Compiler) =
 
 
 proc emitLoop(self: ref Compiler, start: int) =
-    self.emitByte(OP_LOOP)
+    self.emitByte(OpCode.Loop)
     var offset = self.currentChunk.code.len - start + 2
     if offset > (int uint16.high):
         self.compileError("loop body is too large")
@@ -537,11 +551,11 @@ proc emitLoop(self: ref Compiler, start: int) =
 proc endLooping(self: ref Compiler) =
     if self.loop.loopEnd != -1:
         self.patchJump(self.loop.loopEnd)
-        self.emitByte(OP_POP)
+        self.emitByte(OpCode.Pop)
     var i = self.loop.body
     while i < self.currentChunk.code.len:
-        if self.currentChunk.code[i] == uint OP_BREAK:
-            self.currentChunk.code[i] = uint8 OP_JUMP
+        if self.currentChunk.code[i] == uint OpCode.Break:
+            self.currentChunk.code[i] = uint8 OpCode.Jump
             self.patchJump(i + 1)
             i += 3
         else:
@@ -558,13 +572,13 @@ proc whileStatement(self: ref Compiler) =
         if self.parser.peek.kind != EOF:
             self.parser.consume(RP, "The loop condition must be parenthesized")
         if self.parser.peek.kind != EOF:
-            self.loop.loopEnd = self.emitJump(OP_JUMP_IF_FALSE)
-            self.emitByte(OP_POP)
+            self.loop.loopEnd = self.emitJump(OpCode.JumpIfFalse)
+            self.emitByte(OpCode.Pop)
             self.loop.body = self.currentChunk.code.len
             self.statement()
             self.emitLoop(self.loop.start)
             self.patchJump(self.loop.loopEnd)
-            self.emitByte(OP_POP)
+            self.emitByte(OpCode.Pop)
         else:
             self.parser.parseError(self.parser.previous, "Invalid syntax")
     else:
@@ -588,17 +602,17 @@ proc forStatement(self: ref Compiler) =
             self.expression()
             if self.parser.previous.kind != EOF:
                 self.parser.consume(SEMICOLON, "Expecting ';'")
-                self.loop.loopEnd = self.emitJump(OP_JUMP_IF_FALSE)
-                self.emitByte(OP_POP)
+                self.loop.loopEnd = self.emitJump(OpCode.JumpIfFalse)
+                self.emitByte(OpCode.Pop)
             else:
                 self.parser.current -= 1
                 self.parser.parseError(self.parser.previous, "Invalid syntax")
         if not self.parser.match(RP):
-            var bodyJump = self.emitJump(OP_JUMP)
+            var bodyJump = self.emitJump(OpCode.Jump)
             var incrementStart = self.currentChunk.code.len
             if self.parser.peek.kind != EOF:
                 self.expression()
-                self.emitByte(OP_POP)
+                self.emitByte(OpCode.Pop)
                 self.parser.consume(RP, "The loop condition must be parenthesized")
                 self.emitLoop(self.loop.start)
                 self.loop.start = incrementStart
@@ -612,7 +626,7 @@ proc forStatement(self: ref Compiler) =
             self.parser.parseError(self.parser.previous, "Invalid syntax")
         if self.loop.loopEnd != -1:
             self.patchJump(self.loop.loopEnd)
-            self.emitByte(OP_POP)
+            self.emitByte(OpCode.Pop)
     else:
         self.parser.parseError(self.parser.previous, "The loop condition must be parenthesized")
     self.endLooping()
@@ -626,23 +640,23 @@ proc parseBreak(self: ref Compiler) =
         self.parser.consume(SEMICOLON, "missing semicolon after statement")
         var i = self.localCount - 1
         while i >= 0 and self.locals[i].depth > self.loop.depth:
-            self.emitByte(OP_POP)
+            self.emitByte(OpCode.Pop)
             i -= 1
-        discard self.emitJump(OP_BREAK)
+        discard self.emitJump(OpCode.Break)
 
 proc parseAnd(self: ref Compiler, canAssign: bool) =
-    var jump = self.emitJump(OP_JUMP_IF_FALSE)
-    self.emitByte(OP_POP)
-    self.parsePrecedence(PREC_AND)
+    var jump = self.emitJump(OpCode.JumpIfFalse)
+    self.emitByte(OpCode.Pop)
+    self.parsePrecedence(Precedence.And)
     self.patchJump(jump)
 
 
 proc parseOr(self: ref Compiler, canAssign: bool) =
-    var elseJump = self.emitJump(OP_JUMP_IF_FALSE)
-    var endJump = self.emitJump(OP_JUMP)
+    var elseJump = self.emitJump(OpCode.JumpIfFalse)
+    var endJump = self.emitJump(OpCode.Jump)
     self.patchJump(elseJump)
-    self.emitByte(OP_POP)
-    self.parsePrecedence(PREC_OR)
+    self.emitByte(OpCode.Pop)
+    self.parsePrecedence(Precedence.Or)
     self.patchJump(endJump)
 
 
@@ -653,13 +667,13 @@ proc continueStatement(self: ref Compiler) =
         self.parser.consume(SEMICOLON, "missing semicolon after statement")
         var i = self.localCount - 1
         while i >= 0 and self.locals[i].depth > self.loop.depth:
-            self.emitByte(OP_POP)
+            self.emitByte(OpCode.Pop)
             i -= 1
         self.emitLoop(self.loop.start)
 
 
 proc parseFunction(self: ref Compiler, funType: FunctionType) =
-    var self = initCompiler(self.vm, funType, self, self.parser, self.file)
+    var self = initCompiler(funType, self, self.parser, self.file)
     self.beginScope()
     self.parser.consume(LP, "Expecting '(' after function name")
     if self.parser.hadError:
@@ -700,9 +714,9 @@ proc parseFunction(self: ref Compiler, funType: FunctionType) =
     var fun = self.endCompiler()
     self = self.enclosing
     if self.currentChunk.consts.values.len < 255:
-        self.emitBytes(OP_CONSTANT, self.makeConstant(Value(kind: OBJECT, obj: fun)))
+        self.emitBytes(OpCode.Constant, self.makeConstant(Value(kind: OBJECT, obj: fun)))
     else:
-        self.emitByte(OP_CONSTANT_LONG)
+        self.emitByte(OpCode.ConstantLong)
         self.emitBytes(self.makeLongConstant(Value(kind: OBJECT, obj: fun)))
 
 
@@ -729,7 +743,7 @@ proc argumentList(self: ref Compiler): uint8 =
 
 proc call(self: ref Compiler, canAssign: bool) =
     var argCount = self.argumentList()
-    self.emitBytes(OP_CALL, argCount)
+    self.emitBytes(OpCode.Call, argCount)
 
 
 proc statement(self: ref Compiler) =
@@ -763,60 +777,60 @@ proc declaration(self: ref Compiler) =
 
 
 var rules: array[TokenType, ParseRule] = [
-    makeRule(nil, binary, PREC_TERM), # PLUS
-    makeRule(unary, binary, PREC_TERM), # MINUS
-    makeRule(nil, binary, PREC_FACTOR), # SLASH
-    makeRule(nil, binary, PREC_FACTOR), # STAR
-    makeRule(unary, nil, PREC_NONE), # NEG
-    makeRule(nil, binary, PREC_EQUALITY), # NE
-    makeRule(nil, nil, PREC_NONE), # EQ
-    makeRule(nil, binary, PREC_COMPARISON), # DEQ
-    makeRule(nil, binary, PREC_COMPARISON), # LT
-    makeRule(nil, binary, PREC_COMPARISON), # GE
-    makeRule(nil, binary, PREC_COMPARISON), # LE
-    makeRule(nil, binary, PREC_FACTOR), # MOD
-    makeRule(nil, binary, PREC_FACTOR), # POW
-    makeRule(nil, binary, PREC_COMPARISON), # GT
-    makeRule(grouping, call, PREC_CALL), # LP
-    makeRule(nil, nil, PREC_NONE), # RP
-    makeRule(nil, bracket, PREC_CALL), # LS
-    makeRule(nil, nil, PREC_NONE), # LB
-    makeRule(nil, nil, PREC_NONE), # RB
-    makeRule(nil, nil, PREC_NONE), # COMMA
-    makeRule(nil, nil, PREC_NONE), # DOT
-    makeRule(variable, nil, PREC_NONE), # ID
-    makeRule(nil, nil, PREC_NONE), # RS
-    makeRule(number, nil, PREC_NONE), # NUMBER
-    makeRule(strVal, nil, PREC_NONE), # STR
-    makeRule(nil, nil, PREC_NONE), # SEMICOLON
-    makeRule(nil, parseAnd, PREC_AND), # AND
-    makeRule(nil, nil, PREC_NONE), # CLASS
-    makeRule(nil, nil, PREC_NONE), # ELSE
-    makeRule(nil, nil, PREC_NONE), # FOR
-    makeRule(nil, nil, PREC_NONE), # FUN
-    makeRule(literal, nil, PREC_NONE), # FALSE
-    makeRule(nil, nil, PREC_NONE), # IF
-    makeRule(literal, nil, PREC_NONE), # NIL
-    makeRule(nil, nil, PREC_NONE), # RETURN
-    makeRule(nil, nil, PREC_NONE), # SUPER
-    makeRule(nil, nil, PREC_NONE), # THIS
-    makeRule(nil, parseOr, PREC_OR), # OR
-    makeRule(literal, nil, PREC_NONE), # TRUE
-    makeRule(nil, nil, PREC_NONE), # VAR
-    makeRule(nil, nil, PREC_NONE), # WHILE
-    makeRule(nil, nil, PREC_NONE), # DEL  # TODO: Fix del statement to make it GC-aware
-    makeRule(nil, nil, PREC_NONE), # BREAK
-    makeRule(nil, nil, PREC_NONE), # EOF
-    makeRule(nil, nil, PREC_NONE), # COLON
-    makeRule(nil, nil, PREC_NONE), # CONTINUE
-    makeRule(nil, binary, PREC_TERM), # CARET
-    makeRule(nil, binary, PREC_TERM), # SHL
-    makeRule(nil, binary, PREC_TERM), # SHR
-    makeRule(literal, nil, PREC_NONE), # INF
-    makeRule(literal, nil, PREC_NONE), # NAN
-    makeRule(nil, binary, PREC_TERM), # BAND
-    makeRule(nil, binary, PREC_TERM), # BOR
-    makeRule(unary, nil, PREC_TERM), # TILDE
+    makeRule(nil, binary, Precedence.Term), # PLUS
+    makeRule(unary, binary, Precedence.Term), # MINUS
+    makeRule(nil, binary, Precedence.Factor), # SLASH
+    makeRule(nil, binary, Precedence.Factor), # STAR
+    makeRule(unary, nil, Precedence.None), # NEG
+    makeRule(nil, binary, Precedence.Equality), # NE
+    makeRule(nil, nil, Precedence.None), # EQ
+    makeRule(nil, binary, Precedence.Comparison), # DEQ
+    makeRule(nil, binary, Precedence.Comparison), # LT
+    makeRule(nil, binary, Precedence.Comparison), # GE
+    makeRule(nil, binary, Precedence.Comparison), # LE
+    makeRule(nil, binary, Precedence.Factor), # MOD
+    makeRule(nil, binary, Precedence.Factor), # POW
+    makeRule(nil, binary, Precedence.Comparison), # GT
+    makeRule(grouping, call, Precedence.Call), # LP
+    makeRule(nil, nil, Precedence.None), # RP
+    makeRule(nil, bracket, Precedence.Call), # LS
+    makeRule(nil, nil, Precedence.None), # LB
+    makeRule(nil, nil, Precedence.None), # RB
+    makeRule(nil, nil, Precedence.None), # COMMA
+    makeRule(nil, nil, Precedence.None), # DOT
+    makeRule(variable, nil, Precedence.None), # ID
+    makeRule(nil, nil, Precedence.None), # RS
+    makeRule(number, nil, Precedence.None), # NUMBER
+    makeRule(strVal, nil, Precedence.None), # STR
+    makeRule(nil, nil, Precedence.None), # SEMICOLON
+    makeRule(nil, parseAnd, Precedence.And), # AND
+    makeRule(nil, nil, Precedence.None), # CLASS
+    makeRule(nil, nil, Precedence.None), # ELSE
+    makeRule(nil, nil, Precedence.None), # FOR
+    makeRule(nil, nil, Precedence.None), # FUN
+    makeRule(literal, nil, Precedence.None), # FALSE
+    makeRule(nil, nil, Precedence.None), # IF
+    makeRule(literal, nil, Precedence.None), # NIL
+    makeRule(nil, nil, Precedence.None), # RETURN
+    makeRule(nil, nil, Precedence.None), # SUPER
+    makeRule(nil, nil, Precedence.None), # THIS
+    makeRule(nil, parseOr, Precedence.Or), # OR
+    makeRule(literal, nil, Precedence.None), # TRUE
+    makeRule(nil, nil, Precedence.None), # VAR
+    makeRule(nil, nil, Precedence.None), # WHILE
+    makeRule(nil, nil, Precedence.None), # DEL  # TODO: Fix del statement to make it GC-aware
+    makeRule(nil, nil, Precedence.None), # BREAK
+    makeRule(nil, nil, Precedence.None), # EOF
+    makeRule(nil, nil, Precedence.None), # COLON
+    makeRule(nil, nil, Precedence.None), # CONTINUE
+    makeRule(nil, binary, Precedence.Term), # CARET
+    makeRule(nil, binary, Precedence.Term), # SHL
+    makeRule(nil, binary, Precedence.Term), # SHR
+    makeRule(literal, nil, Precedence.Term), # INF
+    makeRule(literal, nil, Precedence.Term), # NAN
+    makeRule(nil, binary, Precedence.Term), # BAND
+    makeRule(nil, binary, Precedence.Term), # BOR
+    makeRule(unary, nil, Precedence.Term), # TILDE
 ]
 
 
@@ -840,7 +854,7 @@ proc compile*(self: ref Compiler, source: string): ptr Function =
         return nil
 
 
-proc initCompiler*(vm: ptr VM, context: FunctionType, enclosing: ref Compiler = nil, parser: Parser = initParser(@[], ""), file: string): ref Compiler =
+proc initCompiler*(context: FunctionType, enclosing: ref Compiler = nil, parser: Parser = initParser(@[], ""), file: string): ref Compiler =
     result = new(Compiler)
     result.parser = parser
     result.function = nil
@@ -848,7 +862,7 @@ proc initCompiler*(vm: ptr VM, context: FunctionType, enclosing: ref Compiler = 
     result.scopeDepth = 0
     result.localCount = 0
     result.loop = Loop(alive: false, loopEnd: -1)
-    result.vm = vm
+    result.objects = @[]
     result.context = context
     result.enclosing = enclosing
     result.file = file
@@ -859,3 +873,9 @@ proc initCompiler*(vm: ptr VM, context: FunctionType, enclosing: ref Compiler = 
     if context != SCRIPT:
         result.function.name = newString(enclosing.parser.previous().lexeme)
 
+# so that the compiler can be executed on its own
+# without the VM
+when isMainModule:
+    var compiler: ref Compiler = initCompiler(SCRIPT, file="test")
+    var compiled = compiler.compile(stdin.readLine())
+    disassembleChunk(compiled.chunk, "test")

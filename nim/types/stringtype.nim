@@ -46,7 +46,7 @@ proc valuesEqual*(a: ptr String, b: ptr String): bool =
 
 proc newString*(str: string): ptr String =
     # TODO -> Unicode
-    result = allocateObj(String, ObjectTypes.STRING)
+    result = allocateObj(String, ObjectType.String)
     result.str = allocate(UncheckedArray[char], char, len(str))
     for i in 0..len(str) - 1:
         result.str[i] = str[i]

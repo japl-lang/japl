@@ -210,6 +210,6 @@ proc lex*(self: var Lexer): seq[Token] =
     while not self.done():
         self.start = self.current
         self.scanToken()
-    self.tokens.add(Token(kind: EOF, lexeme: "EOF", literal: Value(kind: ValueTypes.NIL), line: self.line))
+    self.tokens.add(Token(kind: EOF, lexeme: "EOF", literal: Value(kind: ValueType.Nil), line: self.line))
     return self.tokens
 

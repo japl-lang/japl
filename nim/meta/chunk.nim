@@ -1,82 +1,113 @@
+## The module dedicated to the type Chunk.
+## A chunk is a piece of bytecode.
+
 import valueobject
 
 
 type
-    OpCode* = enum
-        OP_CONSTANT = 0u8,
-        OP_CONSTANT_LONG,
-        OP_RETURN,
-        OP_NEGATE,
-        OP_ADD,
-        OP_SUBTRACT,
-        OP_DIVIDE,
-        OP_MULTIPLY,
-        OP_POW,
-        OP_MOD,
-        OP_NIL,
-        OP_TRUE,
-        OP_FALSE,
-        OP_GREATER,
-        OP_LESS,
-        OP_EQUAL,
-        OP_NOT,
-        OP_SLICE,
-        OP_SLICE_RANGE,
-        OP_POP,
-        OP_DEFINE_GLOBAL,
-        OP_GET_GLOBAL,
-        OP_SET_GLOBAL,
-        OP_DELETE_GLOBAL,
-        OP_SET_LOCAL,
-        OP_GET_LOCAL,
-        OP_DELETE_LOCAL,
-        OP_JUMP_IF_FALSE,
-        OP_JUMP,
-        OP_LOOP,
-        OP_BREAK,
-        OP_SHR,
-        OP_SHL,
-        OP_NAN,
-        OP_INF,
-        OP_XOR,
-        OP_CALL,
-        OP_BOR,
-        OP_BAND,
-        OP_BNOT
+    OpCode* {.pure.} = enum
+        ## Enum of possible opcodes.
+        Constant = 0u8,
+        ConstantLong,
+        Return,
+        Negate,
+        Add,
+        Subtract,
+        Divide,
+        Multiply,
+        Pow,
+        Mod,
+        Nil,
+        True,
+        False,
+        Greater,
+        Less,
+        Equal,
+        Not,
+        Slice,
+        SliceRange,
+        Pop,
+        DefineGlobal,
+        GetGlobal,
+        SetGlobal,
+        DeleteGlobal,
+        SetLocal,
+        GetLocal,
+        DeleteLocal,
+        JumpIfFalse,
+        Jump,
+        Loop,
+        Break,
+        Shr,
+        Shl,
+        Nan,
+        Inf,
+        Xor,
+        Call,
+        Bor,
+        Band,
+        Bnot
 
 
     Chunk* = ref object
+        ## A piece of bytecode.
+        ## Consts represents (TODO newdoc)
+        ## Code represents (TODO newdoc)
+        ## Lines represents (TODO newdoc)
         consts*: ValueArray
         code*: seq[uint8]
         lines*: seq[int]
 
+const simpleInstructions* = {OpCode.Return, OpCode.Add, OpCode.Multiply,
+                             OpCode.Divide, OpCode.Subtract,
+                             OpCode.Mod, OpCode.Pow, OpCode.Nil,
+                             OpCode.True, OpCode.False, OpCode.Nan,
+                             OpCode.Inf, OpCode.Shl, OpCode.Shr,
+                             OpCode.Xor, OpCode.Not, OpCode.Equal,
+                             OpCode.Greater, OpCode.Less, OpCode.Slice,
+                             OpCode.SliceRange, OpCode.Pop, OpCode.DefineGlobal,
+                             OpCode.GetGlobal, OpCode.SetGlobal,
+                             OpCode.DeleteGlobal}
+const constantInstructions* = {OpCode.Constant}
+const constantLongInstructions* = {OpCode.ConstantLong}
+const byteInstructions* = {OpCode.SetLocal, OpCode.GetLocal, OpCode.DeleteLocal,
+                           OpCode.Call}
+const jumpInstructions* = {OpCode.JumpIfFalse, OpCode.Jump, OpCode.Loop}
 
-proc initChunk*(): Chunk =
+
+proc newChunk*(): Chunk =
+    ## The constructor for the type Chunk
     result = Chunk(consts: ValueArray(values: @[]), code: @[], lines: @[])
 
 
-proc writeChunk*(self: Chunk, byt: uint8, line: int) =
-    self.code.add(byt)
+proc writeChunk*(self: Chunk, newByte: uint8, line: int) =
+    ## Appends newByte at line to a chunk.
+    self.code.add(newByte)
     self.lines.add(line)
 
 
 proc writeChunk*(self: Chunk, bytes: array[3, uint8], line: int) =
-    for byt in bytes:
-        self.writeChunk(byt, line)
+    ## Appends bytes (an array of 3 bytes) to a chunk
+    for cByte in bytes:
+        self.writeChunk(cByte, line)
 
 
-proc freeChunk*(self: var Chunk) =
+proc freeChunk*(self: Chunk) =
+    ## Resets a chunk to its initial value.
     self.consts = ValueArray(values: @[])
     self.code = @[]
     self.lines = @[]
 
 
-proc addConstant*(chunk: var Chunk, constant: Value): int =
-    chunk.consts.values.add(constant)
-    return len(chunk.consts.values) - 1  # The index of the constant
+proc addConstant*(self: Chunk, constant: Value): int =
+    ## Adds a constant to a chunk. Returns its index. 
+    self.consts.values.add(constant)
+    return self.consts.values.high()  # The index of the constant
 
 
-proc writeConstant*(chunk: var Chunk, constant: Value): array[3, uint8] =
-    let index = chunk.addConstant(constant)
+proc writeConstant*(self: Chunk, constant: Value): array[3, uint8] =
+    ## Writes a constant to a chunk. Returns its index casted to an array.
+    ## TODO newdoc
+    let index = self.addConstant(constant)
     result = cast[array[3, uint8]](index)
 

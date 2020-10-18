@@ -1,9 +1,8 @@
-import vm
 import strformat
 import parseopt
 import os
 import common
-
+import vm
 
 proc repl(debug: bool = false) =
     var bytecodeVM = initVM()
