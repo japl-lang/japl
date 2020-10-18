@@ -20,13 +20,13 @@ at [this](https://craftinginterpreters.com) link, where he describes the impleme
 - Multi-line comments (`/* like this */`)
 - Nested comments
 - Modulo division (`%`) and exponentiation (`**`)
-- `OP_CONSTANT_LONG` OpCode is implemented
+- `OP_CONSTANT_LONG` is implemented
 - Differentiation between integers and floating point numbers
 - `inf` and `nan` types
 - Possibility to have more than 255 locals in scope at any given time
 - String slicing, with start:end syntax as well
 - Strings are not interned (may change in the future)
-- All entities are actually objects, even builtins (at least externally) 
+- All entities are actually objects, even builtins
 - Bitwise operators (AND, OR, XOR, NOT)
 - Functions default and keyword arguments (__WIP__)
 - A proper import system (__Coming soon__)
@@ -40,7 +40,8 @@ at [this](https://craftinginterpreters.com) link, where he describes the impleme
 - Multiple GC implementations which can be chosen at runtime or via CLI: bare refcount, refcount + generational GC, M&S (__Coming soon__)
 - Exceptions (__Coming soon__)
 - Optional JIT Compilation (__Coming soon__)
-
+- Some syntax changes (maybe), e.g. get rid of semicolons
+- Prototypes based system instead of classes (maybe)
 
 Other than that, JAPL features closures, function definitions, classes, inheritance and static scoping. You can check
 the provided example `.jpl` files in the repo to find out more about its syntax.
@@ -49,6 +50,9 @@ the provided example `.jpl` files in the repo to find out more about its syntax.
 
 This project is currently a WIP (Work in Progress) and is not optimized nor complete.
 The first version of the interpreter is written in Python, but a bytecode stack-based VM written in nim is being developed right now.
+
+Also, the design of the language may change at any moment and all the source inside this repo
+is alpha code quality, for now. 
 
 For other useful information, check the LICENSE file in this repo.
 
@@ -59,3 +63,4 @@ If you want to contribute, feel free to send a PR!
 Right now there are some major issues with the virtual machine which need to be addressed
 before the development can proceed, and some help is ~~desperately needed~~ greatly appreciated!
 
+You can also contact me using the information available [here](https://github.com/nocturn9x)
