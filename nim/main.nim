@@ -4,11 +4,11 @@ import os
 import common
 import vm
 
-proc repl(debug: bool = false) =
+proc repl() =
     var bytecodeVM = initVM()
     echo &"JAPL {JAPL_VERSION} ({JAPL_RELEASE}, {CompileDate} {CompileTime})"
     echo &"[Nim {NimVersion} on {hostOs} ({hostCPU})]"
-    if debug:
+    when DEBUG_TRACE_VM:
         echo "Debugger enabled, expect verbose output\n"
         echo "==== Runtime Constants ====\n"
         echo &"- FRAMES_MAX -> {FRAMES_MAX}"
@@ -20,30 +20,31 @@ proc repl(debug: bool = false) =
             source = readLine(stdin)
         except IOError:
             echo ""
-            bytecodeVM.freeVM(debug)
+            bytecodeVM.freeVM()
             break
         except KeyboardInterrupt:
             echo ""
-            bytecodeVM.freeVM(debug)
+            bytecodeVM.freeVM()
             break
         if source == "":
             continue
-        if source == "//clear" or source == "// clear":
-            echo "\x1Bc"
-            echo &"JAPL {JAPL_VERSION} ({JAPL_RELEASE}, {CompileDate} {CompileTime})"
-            echo &"[Nim {NimVersion} on {hostOs} ({hostCPU})]"
-            continue
+        when DEBUG_TRACE_VM:
+            if source == "//clear" or source == "// clear":
+                echo "\x1Bc"
+                echo &"JAPL {JAPL_VERSION} ({JAPL_RELEASE}, {CompileDate} {CompileTime})"
+                echo &"[Nim {NimVersion} on {hostOs} ({hostCPU})]"
+                continue
         else:
-            var result = bytecodeVM.interpret(source, debug, true, "stdin")
-            if debug:
+            var result = bytecodeVM.interpret(source, true, "stdin")
+            when DEBUG_TRACE_VM:
                 echo &"Result: {result}"
-    if debug:
+    when DEBUG_TRACE_VM:
         echo "==== Debugger exits ===="
 
 
-proc main(file: string = "", debug: bool = false) =
+proc main(file: string = "") =
     if file == "":
-        repl(debug)
+        repl()
     else:
         var sourceFile: File
         try:
@@ -57,26 +58,25 @@ proc main(file: string = "", debug: bool = false) =
         except IOError:
             echo &"Error: '{file}' could not be read, probably you don't have the permission to read it"
         var bytecodeVM = initVM()
-        if debug:
+        when DEBUG_TRACE_VM:
             echo "Debugger enabled, expect verbose output\n"
             echo "==== VM Constants ====\n"
             echo &"- FRAMES_MAX -> {FRAMES_MAX}"
             echo "==== Code starts ====\n"
-        var result = bytecodeVM.interpret(source, debug, false, file)
-        if debug:
+        var result = bytecodeVM.interpret(source, false, file)
+        when DEBUG_TRACE_VM:
             echo &"Result: {result}"
-        bytecodeVM.freeVM(debug)
-        if debug:
+        bytecodeVM.freeVM()
+        when DEBUG_TRACE_VM:
             echo "==== Code ends ===="
 
 
 when isMainModule:
     var optParser = initOptParser(commandLineParams())
     var file: string = ""
-    var debug: bool = false
     if paramCount() > 0:
-        if paramCount() notin 1..<3:
-            echo "usage: japl [filename] [--debug]"
+        if paramCount() notin 1..<2:
+            echo "usage: japl [filename]"
             quit()
     for kind, key, value in optParser.getopt():
         case kind:
@@ -84,12 +84,13 @@ when isMainModule:
                 file = key
             of cmdLongOption:
                 if key == "debug":
-                    debug = true
+                    echo "Debug mode must be enabled in common.nim!"
+                    quit()
                 else:
                     echo &"Unkown option '{key}'"
                     quit()
             else:
-                echo "usage: japl [filename] [--debug]"
+                echo "usage: japl [filename]"
                 quit()
-    main(file, debug)
+    main(file)
 

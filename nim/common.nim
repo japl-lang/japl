@@ -1,5 +1,5 @@
 # Common functionality and objects shared across the entire JAPL ecosystem.
-# This module exists to avoid recursive dependencies
+# This module exists mainly to avoid recursive dependencies
 
 
 import tables
@@ -16,15 +16,17 @@ import types/stringtype
 const FRAMES_MAX* = 4
 const JAPL_VERSION* = "0.2.0"
 const JAPL_RELEASE* = "alpha"
-
+const DEBUG_TRACE_VM* = true
+const DEBUG_TRACE_GC* = true
+const DEBUG_TRACE_ALLOCATION* = true
+const DEBUG_TRACE_COMPILER* = true
 
 
 type
     CallFrame* = ref object
         function*: ptr Function
         ip*: int
-        slotA*: int
-        slotB*: int
+        slot*: int
         stack*: seq[Value]
 
     VM* = ref object
@@ -52,11 +54,11 @@ type
 
 
 proc getAbsIndex(self: CallFrame, idx: int): int =
-    return idx + len(self.stack[self.slotA..self.slotB]) - 1
+    return idx + len(self.stack[self.slot..len(self.stack) - 1]) - 1
 
 
 proc getView*(self: CallFrame): seq[Value] =
-    result = self.stack[self.slotA..self.slotB]
+    result = self.stack[self.slot..len(self.stack) - 1]
 
 
 proc len*(self: CallFrame): int =
@@ -68,11 +70,17 @@ proc `[]`*(self: CallFrame, idx: int): Value =
 
 
 proc `[]=`*(self: CallFrame, idx: int, val: Value) =
-    if idx notin self.slotA..self.slotB:
+    if idx < self.slot:
         raise newException(IndexError, "CallFrame index out of range")
     self.stack[self.getAbsIndex(idx)] = val
 
 
+proc delete*(self: CallFrame, idx: int) = 
+    if idx < self.slot:
+        raise newException(IndexError, "CallFrame index out of range")
+    self.stack.delete(idx)
+
+    
 func stringify*(value: Value): string =
     case value.kind:
         of INTEGER:

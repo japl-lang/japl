@@ -2,6 +2,8 @@
 ## a stack-based bytecode VM.
 
 import algorithm
+import bitops
+import strutils
 import strformat
 import math
 import lenientops
@@ -15,6 +17,15 @@ import types/objecttype
 import types/stringtype
 import types/functiontype
 import memory
+when DEBUG_TRACE_VM:
+    import util/debug
+
+
+
+proc `**`(a, b: int): int = pow(a.float, b.float).int
+
+
+proc `**`(a, b: float): float = pow(a, b)
 
 
 type
@@ -81,7 +92,7 @@ proc peek*(self: var VM, distance: int): Value =
     return self.stack[self.stackTop - distance - 1]
 
 
-template addObject*(self: ptr VM, obj: untyped): untyped =
+template addObject*(self: ptr VM, obj: ptr Obj): untyped =
     self.objects.add(obj)
     obj
 
@@ -179,7 +190,7 @@ proc callValue(self: var VM, callee: Value, argCount: uint8): bool =
     return false
 
 
-proc run(self: var VM, debug, repl: bool): InterpretResult =
+proc run(self: var VM, repl: bool): InterpretResult =
     var frame = self.frames[self.frameCount - 1]
     template readByte: untyped =
         inc(frame.ip)
@@ -285,7 +296,7 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
         {.computedgoto.}
         instruction = readByte()
         opcode = OpCode(instruction)
-        if debug:   # Consider moving this elsewhere
+        when DEBUG_TRACE_VM:
             stdout.write("Current VM stack status: [")
             for v in self.stack:
                 stdout.write(stringify(v))
@@ -529,45 +540,46 @@ proc run(self: var VM, debug, repl: bool): InterpretResult =
                     discard self.pop()
                     return OK
                 self.push(retResult)
-                self.stackTop = len(frame.slots) - 1 # TODO
+                self.stackTop = len(frame.getView()) - 1 # TODO
                 frame = self.frames[self.frameCount - 1]
 
 
-proc freeObject(obj: ptr Obj, debug: bool) =
+proc freeObject(obj: ptr Obj) =
     case obj.kind:
-        of ObjectType.String:
-            var str = cast[ptr String](obj)
-            if debug:
-                echo &"Freeing string object with value '{stringify(str)}' of length {str.len}"
-            discard freeArray(char, str.str, str.len)
-            discard free(ObjectType.String, obj)
-        of ObjectType.Function:
+        of ObjectType.Function:   # Having function before string is important so that 
+        # the function's name is never freed before the object itself
             var fun = cast[ptr Function](obj)
-            if debug:
+            when DEBUG_TRACE_ALLOCATION:
                 echo &"Freeing function object with value '{stringify(fun)}'"
             fun.chunk.freeChunk()
             discard free(ObjectType.Function, fun)
+        of ObjectType.String:
+            var str = cast[ptr String](obj)
+            when DEBUG_TRACE_ALLOCATION:
+                echo &"Freeing string object with value '{stringify(str)}' of length {str.len}"
+            discard freeArray(char, str.str, str.len)
+            discard free(ObjectType.String, obj)
         else:
             discard
 
 
-proc freeObjects(self: var VM, debug: bool) =
+proc freeObjects(self: var VM) =
     var objCount = len(self.objects)
     for obj in reversed(self.objects):
-        freeObject(obj, debug)
+        freeObject(obj)
         discard self.objects.pop()
-    if debug:
+    when DEBUG_TRACE_ALLOCATION:
         echo &"Freed {objCount} objects"
 
 
-proc freeVM*(self: var VM, debug: bool) =
-    if debug:
+proc freeVM*(self: var VM) =
+    when DEBUG_TRACE_ALLOCATION:
         echo "\nFreeing all allocated memory before exiting"
     unsetControlCHook()
     try:
-        self.freeObjects(debug)
+        self.freeObjects()
     except NilAccessError:
-        echo "MemoryError: could not free memory, exiting"
+        stderr.write("A fatal error occurred -> could not free memory, segmentation fault\n")
         quit(71)
 
 
@@ -577,7 +589,7 @@ proc initVM*(): VM =
     # TODO asNil() ?
 
 
-proc interpret*(self: var VM, source: string, debug: bool = false, repl: bool = false, file: string): InterpretResult =
+proc interpret*(self: var VM, source: string, repl: bool = false, file: string): InterpretResult =
     self.resetStack()
     var compiler = initCompiler(SCRIPT, file=file)
     var compiled = compiler.compile(source)
@@ -590,12 +602,12 @@ proc interpret*(self: var VM, source: string, debug: bool = false, repl: bool = 
         return COMPILE_ERROR
     self.push(Value(kind: OBJECT, obj: compiled))
     discard self.callValue(Value(kind: OBJECT, obj: compiled), 0)
-    if debug:
-        echo "==== Real-time VM debugging ====\n"
+    when DEBUG_TRACE_VM:
+        echo "==== VM debugger starts ====\n"
     try:
-        result = self.run(debug, repl)
+        result = self.run(repl)
     except KeyboardInterrupt:
         self.error(newInterruptedError(""))
         return RUNTIME_ERROR
-    if debug:
-        echo "==== Real-time debugging ends ====\n"
+    when DEBUG_TRACE_VM:
+        echo "==== VM debugger ends ====\n"

@@ -1,8 +1,5 @@
-## All entities in JAPL are objects. Currently, this module serves more
-## as a logical root rather than an actual implementation, but it will
-## be needed in the future when more and more default methods are added
-## to objects, without having to add a (possibly redundant) implementation
-## into each specific file in the types directory
+## Base structure for objects in JAPL, all
+## types inherit from this simple structure
 
 
 type
@@ -17,26 +14,93 @@ type
 
 
 func objType*(obj: ptr Obj): ObjectType =
+    ## Returns the type of the object
     return obj.kind
 
 
 proc stringify*(obj: ptr Obj): string =
+    ## Returns a string representation
+    ## of the object
     result = "<object (built-in type)>"
 
 
 proc typeName*(obj: ptr Obj): string =
+    ## This method should return the
+    ## name of the object type
     result = "object"
 
 
 proc isFalsey*(obj: ptr Obj): bool =
+    ## Returns wheter the object should
+    ## be considered a falsey value 
+    ## or not. Returns true if the
+    ## object IS falsey
     result = false
 
 
 proc valuesEqual*(a: ptr Obj, b: ptr Obj): bool =
-    # probably a TODO, correct me if I'm wrong
+    ## Base method to compare 2 objects. 
+    ## Should never be used in normal
+    ## circumstances, as it is not reliable.
+    ## This is only a last option if an object
+    ## hasn't this method defined
     result = a.kind == b.kind
 
 
 proc hash*(self: ptr Obj): uint32 =
-    # probably a TODO, correct me if I'm wrong
+    # TODO: Make this actually useful
     result = 2166136261u32
+
+
+proc add(self, other: ptr Obj): ptr Obj =
+    ## Returns the result of self + other
+    ## or nil if the operation is unsupported
+    result = nil  # Not defined for base objects!
+
+
+proc sub(self, other: ptr Obj): ptr Obj = 
+    ## Returns the result of self - other
+    ## or nil if the operation is unsupported
+    result = nil
+
+
+proc mul(self, other: ptr Obj): ptr Obj = 
+    ## Returns the result of self * other
+    ## or nil if the operation is unsupported 
+    result = nil
+
+
+proc trueDiv(self, other: ptr Obj): ptr Obj =
+    ## Returns the result of self / other
+    ## or nil if the operation is unsupported
+    result = nil
+
+
+proc exp(self, other: ptr Obj): ptr Obj =
+    ## Returns the result of self ** other
+    ## or nil if the operation is unsupported
+    result = nil
+
+
+proc binaryAnd(self, other: ptr Obj): ptr Obj =
+    ## Returns the result of self & other
+    ## or nil if the operation is unsupported
+    result = nil
+
+
+proc binaryOr(self, other: ptr Obj): ptr Obj =
+    ## Returns the result of self | other
+    ## or nil if the operation is unsupported
+    result = nil
+
+
+proc binaryNot(self: ptr Obj): ptr Obj =
+    ## Returns the result of ~self
+    ## or nil if the operation is unsupported
+    result = nil
+
+
+proc binaryXor(self, other: ptr Obj): ptr Obj =
+    ## Returns the result of self ^ other
+    ## or nil if the operation is unsupported
+    result = nil
