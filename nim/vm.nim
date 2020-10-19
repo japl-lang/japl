@@ -174,7 +174,7 @@ proc call(self: var VM, function: ptr Function, argCount: uint8): bool =
     if self.frameCount == FRAMES_MAX:
         self.error(newRecursionError("max recursion depth exceeded"))
         return false
-    var frame = CallFrame(function: function, ip: 0, slot: argCount + 1, stack: self.stack)
+    var frame = CallFrame(function: function, ip: 0, slot: argCount, stack: self.stack)
     self.frames.add(frame)
     self.frameCount += 1
     return true

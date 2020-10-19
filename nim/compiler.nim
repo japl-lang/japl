@@ -924,6 +924,20 @@ proc call(self: ref Compiler, canAssign: bool) =
     self.emitBytes(OpCode.Call, argCount)
 
 
+proc returnStatement(self: ref Compiler) =
+    ## Parses return statements and emits
+    ## appropriate bytecode instructions
+    ## for them
+    if self.context == SCRIPT:
+        self.compileError("'return' outside function")
+    if self.parser.match(TokenType.SEMICOLON):   # Empty return
+        self.emitByte(OpCode.Nil)
+        self.emitByte(OpCode.Return)
+    else:
+        self.expression()
+        self.parser.consume(TokenType.SEMICOLON, "missing semicolon after return statement")
+        self.emitByte(OpCode.Return)
+
 proc statement(self: ref Compiler) =
     ## Parses statements
     if self.parser.match(TokenType.FOR):
@@ -932,6 +946,8 @@ proc statement(self: ref Compiler) =
         self.ifStatement()
     elif self.parser.match(TokenType.WHILE):
         self.whileStatement()
+    elif self.parser.match(TokenType.RETURN):
+        self.returnStatement()
     elif self.parser.match(CONTINUE):
         self.continueStatement()
     elif self.parser.match(BREAK):
