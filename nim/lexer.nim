@@ -126,7 +126,7 @@ proc parseString(self: var Lexer, delimiter: char) =
             self.line = self.line + 1
         discard self.step()
     if self.done():
-        stderr.write(&"A fatal error occurred while parsing '{self.file}', line {self.line} at '{self.peek()}' -> Unterminated string literal")
+        stderr.write(&"A fatal error occurred while parsing '{self.file}', line {self.line} at '{self.peek()}' -> Unterminated string literal\n")
         self.errored = true
     discard self.step()
     let value = self.source[self.start..<self.current].asStr() # Get the value between quotes
@@ -152,13 +152,13 @@ proc parseNumber(self: var Lexer) =
             var value = parseInt(self.source[self.start..<self.current]).asInt()
             self.tokens.add(self.createToken(TokenType.NUMBER, value))
     except ValueError:
-        stderr.write(&"A fatal error occurred while parsing '{self.file}', line {self.line} at '{self.peek()}' -> integer is too big to convert to int64")
+        stderr.write(&"A fatal error occurred while parsing '{self.file}', line {self.line} at '{self.peek()}' -> integer is too big to convert to int64\n")
         self.errored = true
 
 
 proc parseIdentifier(self: var Lexer) =
     ## Parses identifiers, note that
-    ## multi-character tokens such as 
+    ## multi-character tokens such as
     ## UTF runes are not supported
     while self.peek().isAlphaNumeric():
         discard self.step()
@@ -190,7 +190,7 @@ proc parseComment(self: var Lexer) =
         discard self.step()
     if self.done() and not closed:
         self.errored = true
-        stderr.write(&"A fatal error occurred while parsing '{self.file}', line {self.line} at '{self.peek()}' -> Unexpected EOF")
+        stderr.write(&"A fatal error occurred while parsing '{self.file}', line {self.line} at '{self.peek()}' -> Unexpected EOF\n")
 
 
 proc scanToken(self: var Lexer) =
@@ -198,7 +198,7 @@ proc scanToken(self: var Lexer) =
     ## called iteratively until the source
     ## file reaches EOF
     var single = self.step()
-    if single in [' ', '\t', '\r']:  # We skip whitespaces, tabs and 
+    if single in [' ', '\t', '\r']:  # We skip whitespaces, tabs and other useless characters
         return
     elif single == '\n':
         self.line += 1
@@ -232,7 +232,7 @@ proc scanToken(self: var Lexer) =
             self.tokens.add(self.createToken(TOKENS[single], asStr(&"{single}")))
     else:
         self.errored = true
-        stderr.write(&"A fatal error occurred while parsing '{self.file}', line {self.line} at '{self.peek()}' -> Unexpected token '{single}'")
+        stderr.write(&"A fatal error occurred while parsing '{self.file}', line {self.line} at '{self.peek()}' -> Unexpected token '{single}'\n")
 
 
 proc lex*(self: var Lexer): seq[Token] =

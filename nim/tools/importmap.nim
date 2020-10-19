@@ -21,7 +21,7 @@ func newNim(path: string, imports: seq[string]) : Nim =
 var
   project: seq[Nim]
 let
-  toIgnore: HashSet[string] = toHashSet(["os", #non-exhaustive! 
+  toIgnore: HashSet[string] = toHashSet(["os", #non-exhaustive!
     # maybe not even neccessary with the dep listing in sort()
     # but sort() is unfinished
     "strutils",

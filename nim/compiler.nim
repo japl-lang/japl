@@ -1,3 +1,4 @@
+## The JAPL bytecode compiler
 
 
 import strutils
@@ -63,7 +64,7 @@ proc advance(self: var Parser): Token =
 
 
 proc peek(self: Parser): Token =
-    ## Returns the next token without consuming it
+    ## Returns the current token without consuming it
     return self.tokens[self.current]
 
 
@@ -73,14 +74,14 @@ proc previous(self: Parser): Token =
 
 
 proc check(self: Parser, kind: TokenType): bool =
-    ## Checks if the next token is of the expected type
+    ## Checks if the current token is of the expected type
     ## without consuming it
     return self.peek().kind == kind
 
 
 proc match(self: var Parser, kind: TokenType): bool =
-    ## Calls self.check() and advances consumes a token if 
-    ## the expected token is encountered, in which case true
+    ## Calls self.check() and consumes a token if the expected
+    ## token type is encountered, in which case true
     ## is returned. False is returned otherwise
     if not self.check(kind): return false
     discard self.advance()
@@ -88,7 +89,7 @@ proc match(self: var Parser, kind: TokenType): bool =
 
 
 proc parseError(self: var Parser, token: Token, message: string) =
-    ## Notifies the user about parsing errors, writing them to 
+    ## Notifies the user about parsing errors, writing them to
     ## the standard error file. This parser is designed to report
     ## all syntatical errors inside a file in one go, rather than
     ## stopping at the first error occurrence. This allows a user
@@ -98,13 +99,13 @@ proc parseError(self: var Parser, token: Token, message: string) =
         return
     self.panicMode = true
     self.hadError = true
-    stderr.write(&"A fatal error occurred while parsing '{self.file}', line {token.line}, at '{token.lexeme}' -> {message}")
+    stderr.write(&"A fatal error occurred while parsing '{self.file}', line {token.line}, at '{token.lexeme}' -> {message}\n")
 
 
 proc consume(self: var Parser, expected: TokenType, message: string) =
     ## Attempts to consume a token if it is of the expected type
     ## or raises a parsing error with the given message otherwise
-    if self.peek().kind == expected:
+    if self.check(expected):
         discard self.advance()
         return
     self.parseError(self.peek(), message)
@@ -118,7 +119,7 @@ proc currentChunk(self: ref Compiler): var Chunk =
 proc compileError(self: ref Compiler, message: string) =
     ## Notifies the user about an error occurred during
     ## compilation, writing to the standard error file
-    stderr.write(&"A fatal error occurred while compiling '{self.file}', line {self.parser.peek().line}, at '{self.parser.peek().lexeme}' -> {message}")
+    stderr.write(&"A fatal error occurred while compiling '{self.file}', line {self.parser.peek().line}, at '{self.parser.peek().lexeme}' -> {message}\n")
     self.parser.hadError = true
     self.parser.panicMode = true
 
@@ -177,7 +178,7 @@ proc initCompiler*(context: FunctionType, enclosing: ref Compiler = nil, parser:
 
 proc endCompiler(self: ref Compiler): ptr Function =
     ## Ends the current compiler instance and returns its
-    ## compiled bytecode wrapped around a function object, 
+    ## compiled bytecode wrapped around a function object,
     ## also emitting a return instruction with nil as operand.
     ## Because of this, all functions implicitly return nil
     ## if no return statement is supplied
@@ -219,7 +220,7 @@ proc expression(self: ref Compiler) =
 proc binary(self: ref Compiler, canAssign: bool) =
     ## Parses binary operators
     var operator = self.parser.previous().kind
-    var rule = getRule(operator)  
+    var rule = getRule(operator)
     self.parsePrecedence(Precedence((int rule.precedence) + 1))
     case operator:
         of PLUS:
@@ -301,19 +302,19 @@ proc bracketAssign(self: ref Compiler, canAssign: bool) =
 
 
 proc bracket(self: ref Compiler, canAssign: bool) =
-    ## Parses slice expressions, such as "hello"[0]
+    ## Parses slice expressions, such as "hello"[0].
     ## Slice can take up to two arguments, a start
     ## and an end index in the chosen iterable.
     ## Both arguments are optional, so doing "hi"[::]
     ## will basically copy the string into a new object.
     ## Indexes start from 0, and while the start index is
-    ## inclusive, the end index is not. If an end index is 
+    ## inclusive, the end index is not. If an end index is
     ## not specified like this "hello"[0:], then the it is
     ## assumed to be the length of the iterable. Likewise,
     ## if the start index is missing, it is assumed to be 0.
     ## Like in Python, using an end index that's out of bounds
     ## will not raise an error. Doing "hello"[0:999] will just
-    ## return the whole string instead 
+    ## return the whole string instead
     if self.parser.peek.kind == COLON:
         self.emitByte(OpCode.Nil)
         discard self.parser.advance()
@@ -380,9 +381,9 @@ proc synchronize(self: ref Compiler) =
     ## dealing with parsing errors. When an error occurs, we
     ## note it with our nice panicMode and hadError fields, but
     ## that in itself doesn't allow the parser to go forward
-    ## in the code and report other possible errors. On the 
+    ## in the code and report other possible errors. On the
     ## other hand, attempting to start parsing the source
-    ## right after an error has occurred could lead to a 
+    ## right after an error has occurred could lead to a
     ## cascade of unhelpful error messages that complicate
     ## debugging issues. So, when an error occurs, we try
     ## to get back into a state that at least allows us to keep
@@ -421,7 +422,7 @@ proc addLocal(self: ref Compiler, name: Token) =
     ## happens at compile time rather than runtime,
     ## unlike global variables which are treated differently.
     ## Note that at first, a local is in a special "uninitialized"
-    ## state, this is useful to detect errors such as var a = a; 
+    ## state, this is useful to detect errors such as var a = a;
     ## inside local scopes
     var local = Local(name: name, depth: -1)
     inc(self.localCount)
@@ -462,7 +463,7 @@ proc parseLongVariable(self: ref Compiler, message: string): array[3, uint8] =
 
 
 proc markInitialized(self: ref Compiler) =
-    ## Marks the latest defined global as 
+    ## Marks the latest defined global as
     ## initialized and ready for use
     if self.scopeDepth == 0:
         return
@@ -585,7 +586,7 @@ proc varDeclaration(self: ref Compiler) =
 proc expressionStatement(self: ref Compiler) =
     ## Parses an expression statement, which is
     ## an expression followed by a semicolon. It then
-    ## emits a pop instruction 
+    ## emits a pop instruction
     self.expression()
     self.parser.consume(SEMICOLON, "Missing semicolon after expression")
     self.emitByte(OpCode.Pop)
@@ -601,10 +602,9 @@ proc deleteVariable(self: ref Compiler, canAssign: bool) =
         code = OpCode.DeleteGlobal
     else:
         code = OpCode.DeleteLocal
-    self.localCount = self.localCount - 1
+        self.localCount = self.localCount - 1
     if self.currentChunk.consts.values.len < 255:
         var name = self.identifierConstant(self.parser.previous())
-        self.locals.delete(name)
         self.emitBytes(code, name)
     else:
         var name = self.identifierLongConstant(self.parser.previous())
@@ -622,7 +622,7 @@ proc parseBlock(self: ref Compiler) =
 
 proc beginScope(self: ref Compiler) =
     ## Begins a scope by increasing the
-    ## current scope depth. This is literally 
+    ## current scope depth. This is literally
     ## all it takes to create a scope, since the
     ## only semantically interesting behavior of
     ## scopes is a change in names resolution
@@ -828,7 +828,7 @@ proc parseOr(self: ref Compiler, canAssign: bool) =
 
 proc continueStatement(self: ref Compiler) =
     ## Parses continue statements inside loops.
-    ## The continue statements causes the loop to skip
+    ## The continue statement causes the loop to skip
     ## to the next iteration
     if not self.loop.alive:
         self.parser.parseError(self.parser.previous, "'continue' outside loop")
@@ -844,7 +844,7 @@ proc continueStatement(self: ref Compiler) =
 proc parseFunction(self: ref Compiler, funType: FunctionType) =
     ## Parses function declarations. Functions can have
     ## keyword arguments (WIP), but once a parameter is declared
-    ## as a keyword one, all subsequent parameters must be 
+    ## as a keyword one, all subsequent parameters must be
     ## keyword ones as well
     var self = initCompiler(funType, self, self.parser, self.file)
     self.beginScope()
@@ -957,7 +957,7 @@ proc declaration(self: ref Compiler) =
 
 
 # The array of all parse rules
-const rules: array[TokenType, ParseRule] = [
+var rules: array[TokenType, ParseRule] = [
     makeRule(nil, binary, Precedence.Term), # PLUS
     makeRule(unary, binary, Precedence.Term), # MINUS
     makeRule(nil, binary, Precedence.Factor), # SLASH
@@ -1061,9 +1061,18 @@ proc initCompiler*(context: FunctionType, enclosing: ref Compiler = nil, parser:
     if context != SCRIPT:   # If we're compiling a function, we give it its name
         result.function.name = newString(enclosing.parser.previous().lexeme)
 
-# This wat the compiler can be executed on its own
+# This way the compiler can be executed on its own
 # without the VM
 when isMainModule:
     var compiler: ref Compiler = initCompiler(SCRIPT, file="test")
-    var compiled = compiler.compile(stdin.readLine())
-    disassembleChunk(compiled.chunk, "test")
+    echo "JAPL Compiler REPL"
+    while true:
+        try:
+            stdout.write("=> ")
+            var compiled = compiler.compile(stdin.readLine())
+            if compiled != nil:
+                disassembleChunk(compiled.chunk, "test")
+        except IOError:
+            echo ""
+            break
+
