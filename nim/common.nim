@@ -73,7 +73,7 @@ proc `[]=`*(self: CallFrame, idx: int, val: Value) =
     self.stack[self.getAbsIndex(idx)] = val
 
 
-proc delete*(self: CallFrame, idx: int) = 
+proc delete*(self: CallFrame, idx: int) =
     if idx < self.slot:
         raise newException(IndexError, "CallFrame index out of range")
     self.stack.delete(idx)
@@ -110,10 +110,10 @@ proc initParser*(tokens: seq[Token], file: string): Parser =
 
 
 proc hashFloat(f: float): uint32 =
+    # TODO: Any improvement?
     result = 2166136261u32
     result = result xor uint32 f
     result *= 16777619
-    return result
 
 
 proc hash*(value: Value): uint32 =
@@ -152,7 +152,7 @@ func isFalsey*(value: Value): bool =
         of INTEGER:
             result = value.toInt() == 0
         of DOUBLE:
-            result = value.toFloat() > 0.0
+            result = value.toFloat() == 0.0
         of NIL:
             result = true
         of ValueType.Inf, ValueType.Minf:
