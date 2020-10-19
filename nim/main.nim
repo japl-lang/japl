@@ -26,15 +26,12 @@ proc repl() =
             echo ""
             bytecodeVM.freeVM()
             break
-        if source == "":
+        if source == "//clear" or source == "// clear":
+            echo "\x1Bc"
+            echo &"JAPL {JAPL_VERSION} ({JAPL_RELEASE}, {CompileDate} {CompileTime})"
+            echo &"[Nim {NimVersion} on {hostOs} ({hostCPU})]"
             continue
-        when DEBUG_TRACE_VM:
-            if source == "//clear" or source == "// clear":
-                echo "\x1Bc"
-                echo &"JAPL {JAPL_VERSION} ({JAPL_RELEASE}, {CompileDate} {CompileTime})"
-                echo &"[Nim {NimVersion} on {hostOs} ({hostCPU})]"
-                continue
-        else:
+        elif source != "":
             var result = bytecodeVM.interpret(source, true, "stdin")
             when DEBUG_TRACE_VM:
                 echo &"Result: {result}"
@@ -64,9 +61,9 @@ proc main(file: string = "") =
             echo &"- FRAMES_MAX -> {FRAMES_MAX}"
             echo "==== Code starts ====\n"
         var result = bytecodeVM.interpret(source, false, file)
+        bytecodeVM.freeVM()
         when DEBUG_TRACE_VM:
             echo &"Result: {result}"
-        bytecodeVM.freeVM()
         when DEBUG_TRACE_VM:
             echo "==== Code ends ===="
 
@@ -83,12 +80,13 @@ when isMainModule:
             of cmdArgument:
                 file = key
             of cmdLongOption:
-                if key == "debug":
-                    echo "Debug mode must be enabled in common.nim!"
-                    quit()
-                else:
-                    echo &"Unkown option '{key}'"
-                    quit()
+                case key:
+                    of "debug":
+                        echo "Debug mode must be enabled via common.nim!"
+                        quit()
+                    else:
+                        echo &"Unkown option '{key}'"
+                        quit()
             else:
                 echo "usage: japl [filename]"
                 quit()

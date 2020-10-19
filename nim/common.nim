@@ -3,11 +3,9 @@
 
 
 import tables
-import strformat
 import strutils
 import meta/valueobject
 import meta/tokenobject
-import meta/looptype
 import types/objecttype
 import types/functiontype
 import types/stringtype
@@ -16,7 +14,7 @@ import types/stringtype
 const FRAMES_MAX* = 4
 const JAPL_VERSION* = "0.2.0"
 const JAPL_RELEASE* = "alpha"
-const DEBUG_TRACE_VM* = true
+const DEBUG_TRACE_VM* = false
 const DEBUG_TRACE_GC* = true
 const DEBUG_TRACE_ALLOCATION* = true
 const DEBUG_TRACE_COMPILER* = true
@@ -80,7 +78,7 @@ proc delete*(self: CallFrame, idx: int) =
         raise newException(IndexError, "CallFrame index out of range")
     self.stack.delete(idx)
 
-    
+
 func stringify*(value: Value): string =
     case value.kind:
         of INTEGER:

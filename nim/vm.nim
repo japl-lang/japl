@@ -93,8 +93,9 @@ proc peek*(self: var VM, distance: int): Value =
 
 
 template addObject*(self: ptr VM, obj: ptr Obj): untyped =
-    self.objects.add(obj)
-    obj
+    let temp = obj
+    self.objects.add(temp)
+    temp
 
 
 proc slice(self: var VM): bool =
