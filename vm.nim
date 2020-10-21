@@ -38,10 +38,14 @@ type
 
 
 func handleInterrupt() {.noconv.} =
+    ## Raises an appropriate exception
+    ## to let us catch and handle
+    ## Ctrl+C gracefully
     raise newException(KeyboardInterrupt, "Ctrl+C")
 
 
 proc resetStack*(self: var VM) =
+    ## Resets the VM stack to a blank state
     self.stack = @[]
     self.frames = @[]
     self.frameCount = 0
@@ -50,6 +54,7 @@ proc resetStack*(self: var VM) =
 
 
 proc error*(self: var VM, error: ptr JAPLException) =
+    ## Reports runtime errors with a nice traceback
     var previous = ""  # All this stuff seems overkill, but it makes the traceback look nicer
     var repCount = 0   # and if we are here we are far beyond a point where performance matters
     var mainReached = false
@@ -79,26 +84,36 @@ proc error*(self: var VM, error: ptr JAPLException) =
 
 
 proc pop*(self: var VM): Value =
+    ## Pops a value off the stack
     result = self.stack.pop()
     self.stackTop -= 1
 
 
 proc push*(self: var VM, value: Value) =
+    ## Pushes a value onto the stack
     self.stack.add(value)
     self.stackTop += 1
 
 
 proc peek*(self: var VM, distance: int): Value =
+    ## Peeks a value (at a given disnatance from the
+    ## current index) from the stack
     return self.stack[self.stackTop - distance - 1]
 
 
 template addObject*(self: ptr VM, obj: ptr Obj): untyped =
+    ## Stores an object in the VM's internal
+    ## list of objects in order to reclaim
+    ## its memory later
     let temp = obj
     self.objects.add(temp)
     temp
 
 
 proc slice(self: var VM): bool =
+    ## Handles single-operator slice expressions
+    ## (consider moving this to an appropriate
+    ## slice method)
     var idx = self.pop()
     var peeked = self.pop()
     case peeked.kind:
@@ -129,6 +144,8 @@ proc slice(self: var VM): bool =
 
 
 proc sliceRange(self: var VM): bool =
+    ## Handles slices when there's both a start
+    ## and an end index (even implicit ones)
     var sliceEnd = self.pop()
     var sliceStart = self.pop()
     var popped = self.pop()
@@ -167,6 +184,8 @@ proc sliceRange(self: var VM): bool =
 
 
 proc call(self: var VM, function: ptr Function, argCount: uint8): bool =
+    ## Sets up the call frame and performs error checking
+    ## when calling callables
     var argCount = int argCount
     if argCount != function.arity:
         self.error(newTypeError(&"function '{stringify(function.name)}' takes {function.arity} argument(s), got {argCount}"))
@@ -174,45 +193,63 @@ proc call(self: var VM, function: ptr Function, argCount: uint8): bool =
     if self.frameCount == FRAMES_MAX:
         self.error(newRecursionError("max recursion depth exceeded"))
         return false
-    var frame = CallFrame(function: function, ip: 0, slot: argCount, stack: self.stack)
+    var frame = CallFrame(function: function, ip: 0, slot: argCount, endSlot: self.stackTop, stack: self.stack)   # TODO: 
+    # Check why this raises NilAccessError when high recursion limit is hit
     self.frames.add(frame)
     self.frameCount += 1
     return true
 
 
 proc callValue(self: var VM, callee: Value, argCount: uint8): bool =
-    if callee.isObj():
+    ## Wrapper around call() to do type checking
+    if callee.isObj():    # TODO: Consider adding a callable() method
         case callee.obj.kind:
             of ObjectType.Function:
                 return self.call(cast[ptr Function](callee.obj), argCount)
             else:
-                discard
+                discard  # Not callable
     self.error(newTypeError(&"object of type '{callee.typeName}' is not callable"))
     return false
 
 
 proc run(self: var VM, repl: bool): InterpretResult =
+    ## Chews trough bytecode instructions executing
+    ## them one at a time, this is the runtime's
+    ## main loop
     var frame = self.frames[self.frameCount - 1]
     template readByte: untyped =
+        ## Reads a single byte from the current
+        ## frame's chunk of bytecode
         inc(frame.ip)
         frame.function.chunk.code[frame.ip - 1]
     template readBytes: untyped =
+        ## Reads and decodes 3 bytes from the
+        ## current frame's chunk into an integer
         var arr = [readByte(), readByte(), readByte()]
         var index: int
         copyMem(index.addr, unsafeAddr(arr), sizeof(arr))
         index
     template readShort: untyped =
+        ## Reads a 16 bit number from the 
+        ## current frame's chunk
         inc(frame.ip)
         inc(frame.ip)
         cast[uint16]((frame.function.chunk.code[frame.ip - 2] shl 8) or frame.function.chunk.code[frame.ip - 1])
     template readConstant: Value =
+        ## Reads a constant from the current
+        ## frame's constant table
         frame.function.chunk.consts.values[int(readByte())]
     template readLongConstant: Value =
+        ## Reads a long constant from the
+        ## current frame's constant table
         var arr = [readByte(), readByte(), readByte()]
         var idx: int
         copyMem(idx.addr, unsafeAddr(arr), sizeof(arr))
         frame.function.chunk.consts.values[idx]
     template binOp(op, check) =
+        ## Performs binary operations on types,
+        ## this will be soon ditched in favor
+        ## of a more idiomatic a.op(b)
         var rightVal {.inject.} = self.pop()
         var leftVal {.inject.} = self.pop()
         if leftVal.isInf():
@@ -277,6 +314,7 @@ proc run(self: var VM, repl: bool): InterpretResult =
             self.error(newTypeError(&"unsupported binary operator for objects of type '{leftVal.typeName()}' and '{rightVal.typeName()}'"))
             return RUNTIME_ERROR
     template binBitWise(op): untyped =
+        ## Handles binary bitwise operators
         var rightVal {.inject.} = self.pop()
         var leftVal {.inject.} = self.pop()
         if isInt(leftVal) and isInt(rightVal):
@@ -285,19 +323,20 @@ proc run(self: var VM, repl: bool): InterpretResult =
             self.error(newTypeError(&"unsupported binary operator for objects of type '{leftVal.typeName()}' and '{rightVal.typeName()}'"))
             return RUNTIME_ERROR
     template unBitWise(op): untyped =
-            var leftVal {.inject.} = self.pop()
-            if isInt(leftVal):
-                self.push(Value(kind: INTEGER, intValue: `op`(leftVal.toInt())))
-            else:
-                self.error(newTypeError(&"unsupported unary operator for object of type '{leftVal.typeName()}'"))
-                return RUNTIME_ERROR
+        ## Handles unary bitwise operators
+        var leftVal {.inject.} = self.pop()
+        if isInt(leftVal):
+            self.push(Value(kind: INTEGER, intValue: `op`(leftVal.toInt())))
+        else:
+            self.error(newTypeError(&"unsupported unary operator for object of type '{leftVal.typeName()}'"))
+            return RUNTIME_ERROR
     var instruction: uint8
     var opcode: OpCode
     while true:
-        {.computedgoto.}
+        {.computedgoto.}   # See https://nim-lang.org/docs/manual.html#pragmas-computedgoto-pragma
         instruction = readByte()
         opcode = OpCode(instruction)
-        when DEBUG_TRACE_VM:
+        when DEBUG_TRACE_VM:    # Insight inside the VM
             stdout.write("Current VM stack status: [")
             for v in self.stack:
                 stdout.write(stringify(v))
@@ -322,7 +361,7 @@ proc run(self: var VM, repl: bool): InterpretResult =
                 stdout.write(", ")
             stdout.write("]\n")
             discard disassembleInstruction(frame.function.chunk, frame.ip - 1)
-        case opcode:
+        case opcode:   # Main OpCodes dispatcher
             of OpCode.Constant:
                 var constant: Value = readConstant()
                 self.push(constant)
@@ -471,7 +510,7 @@ proc run(self: var VM, repl: bool): InterpretResult =
                     else:
                         self.globals[constant] = self.peek(0)
             of OpCode.DeleteGlobal:
-                # This OpCode, as well as OP_DELETE_LOCAL, is currently unused due to issues with the GC
+                # This OpCode, as well as DeleteLocal, is currently unused due to potential issues with the GC
                 if frame.function.chunk.consts.values.len > 255:
                     var constant = readLongConstant().toStr()
                     if constant notin self.globals:
@@ -505,10 +544,8 @@ proc run(self: var VM, repl: bool): InterpretResult =
                 if frame.len > 255:
                     var slot = readBytes()
                     frame.delete(slot)
-                    # TODO unimplemented
                 else:
                     var slot = readByte()
-                    # TODO unimplemented
                     frame.delete(int slot)
             of OpCode.Pop:
                 self.lastPop = self.pop()
@@ -532,7 +569,8 @@ proc run(self: var VM, repl: bool): InterpretResult =
             of OpCode.Return:
                 var retResult = self.pop()
                 if repl:
-                    if not self.lastPop.isNil():
+                    if not self.lastPop.isNil() and self.frameCount == 1:   # This is to avoid long outputs 
+                        # with recursive calls
                         echo stringify(self.lastPop)
                         self.lastPop = Value(kind: ValueType.Nil) # TODO: asNil()?
                 self.frameCount -= 1
@@ -546,6 +584,8 @@ proc run(self: var VM, repl: bool): InterpretResult =
 
 
 proc freeObject(obj: ptr Obj) =
+    ## Frees the associated memory
+    ## of an object
     case obj.kind:
         of ObjectType.Function:   # Having function before string is important so that 
         # the function's name is never freed before the object itself
@@ -565,6 +605,8 @@ proc freeObject(obj: ptr Obj) =
 
 
 proc freeObjects(self: var VM) =
+    ## Fress all the allocated objects
+    ## from the VM
     var objCount = len(self.objects)
     for obj in reversed(self.objects):
         freeObject(obj)
@@ -574,6 +616,7 @@ proc freeObjects(self: var VM) =
 
 
 proc freeVM*(self: var VM) =
+    ## Tears down the VM
     when DEBUG_TRACE_ALLOCATION:
         echo "\nFreeing all allocated memory before exiting"
     unsetControlCHook()
@@ -585,12 +628,14 @@ proc freeVM*(self: var VM) =
 
 
 proc initVM*(): VM =
+    ## Initializes the VM
     setControlCHook(handleInterrupt)
     result = VM(lastPop: Value(kind: ValueType.Nil), objects: @[], globals: initTable[string, Value](), source: "", file: "")
     # TODO asNil() ?
 
 
 proc interpret*(self: var VM, source: string, repl: bool = false, file: string): InterpretResult =
+    ## Interprets a source string containing JAPL code
     self.resetStack()
     var compiler = initCompiler(SCRIPT, file=file)
     var compiled = compiler.compile(source)

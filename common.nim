@@ -11,7 +11,7 @@ import types/functiontype
 import types/stringtype
 
 
-const FRAMES_MAX* = 4
+const FRAMES_MAX* = 400  # TODO: Inspect why the VM crashes if this exceeds 400
 const JAPL_VERSION* = "0.2.0"
 const JAPL_RELEASE* = "alpha"
 const DEBUG_TRACE_VM* = false
@@ -25,6 +25,7 @@ type
         function*: ptr Function
         ip*: int
         slot*: int
+        endSlot*: int
         stack*: seq[Value]
 
     VM* = ref object
@@ -51,12 +52,12 @@ type
         file*: string
 
 
-proc getAbsIndex(self: CallFrame, idx: int): int =
-    return idx + len(self.stack[self.slot..len(self.stack) - 1]) - 1
-
-
 proc getView*(self: CallFrame): seq[Value] =
-    result = self.stack[self.slot..len(self.stack) - 1]
+    result = self.stack[self.slot..self.endSlot - 1]
+
+
+proc getAbsIndex(self: CallFrame, idx: int): int =
+    return idx + len(self.getView()) - 1   # Inspect this code (locals, functions)
 
 
 proc len*(self: CallFrame): int =
@@ -64,7 +65,7 @@ proc len*(self: CallFrame): int =
 
 
 proc `[]`*(self: CallFrame, idx: int): Value =
-    result = self.getView()[idx]
+    result = self.stack[self.getAbsIndex(idx)]
 
 
 proc `[]=`*(self: CallFrame, idx: int, val: Value) =
@@ -74,7 +75,7 @@ proc `[]=`*(self: CallFrame, idx: int, val: Value) =
 
 
 proc delete*(self: CallFrame, idx: int) =
-    if idx < self.slot:
+    if idx < self.slot or idx > self.endSlot:
         raise newException(IndexError, "CallFrame index out of range")
     self.stack.delete(idx)
 
