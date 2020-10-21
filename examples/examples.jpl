@@ -7,6 +7,11 @@
 3 * (9 / 2);  // Parentheses for grouping
 8 % 2;  // Modulo division
 6 ** 9; // Exponentiation
+~5;  // Binary NOT
+2 ^ 5;  // XOR
+3 & 9; // AND
+9 | 3; // OR
+
 
 // Variable definition and assignment
 
@@ -21,11 +26,11 @@ var a = "global";
 var b = "global1";
 {  // open a new scope
     var b = "local";  // Shadow the global variable
-    print a;   // This falls back to the global scope
-    print b;
+    print(a;   // This falls back to the global scope
+    print(b;
 }
-print a;  
-print b;  // The outer scope isn't affected
+print(a);
+print(b)] // The outer scope isn't affected
 
 /*
 A multiline comment
@@ -37,23 +42,23 @@ yay!
 var n = 0;      
 while (n <= 10) {     // While loops
     if (n <= 5) {    // If statements
-        print n;
+        print(n);
     }
     n = n + 1;
 }
 
 for (var i = 0; i < 10; i = i + 1) {   // For loops
-   print i;
+   print(i);
 }
 
 
 // Functions
 
-print clock();  // Function calls
+print(clock());  // Function calls
 
 fun count(n) {   // Function definitions
   if (n > 1) count(n - 1);  // Recursion works
-  print n;
+  print(n);
 }
 
 count(3);
@@ -63,7 +68,7 @@ count(3);
 var a = "global";
 {
   fun showA() {
-    print a;
+    print(a);
   }
 
   showA();
@@ -77,7 +82,7 @@ fun makeCounter() {
   var i = 0;
   fun count() {
     i = i + 1;
-    print i;
+    print(i);
   }
 
   return count;
@@ -98,7 +103,7 @@ class Person {
     }
 
     greet() {    // Methods don't use the 'fun' keyword!
-        print "Hello, " + this.name;
+        print("Hello, " + this.name);  // this refers to the current instance
     }
 }
 
@@ -123,3 +128,12 @@ class Male < Person {   // Male inherits from person
 
 var mark = Male("Mark");
 mark.greet();
+
+// Strings
+
+"string slicing!"[0]; // 0-indexed
+"ranges work too"[0:5];
+"implicit end"[3:];  // Ends at the end of the string
+"implicit start"[:5]; // From 0 to 5
+"hello" + " world"; // Strings are immutable!
+"hello" * 3; //hellohellohello

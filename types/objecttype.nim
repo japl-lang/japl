@@ -1,10 +1,27 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+
+#  http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
 ## Base structure for objects in JAPL, all
 ## types inherit from this simple structure
 
 
 type
     ObjectType* {.pure.} = enum
-        ## The type of the object 
+        ## The type of the object
         ## (Also see meta/valueobject/ValueType)
         String, Exception, Function,
         Class, Module
@@ -32,14 +49,14 @@ proc typeName*(obj: ptr Obj): string =
 
 proc isFalsey*(obj: ptr Obj): bool =
     ## Returns wheter the object should
-    ## be considered a falsey value 
+    ## be considered a falsey value
     ## or not. Returns true if the
     ## object IS falsey
     result = false
 
 
 proc valuesEqual*(a: ptr Obj, b: ptr Obj): bool =
-    ## Base method to compare 2 objects. 
+    ## Base method to compare 2 objects.
     ## Should never be used in normal
     ## circumstances, as it is not reliable.
     ## This is only a last option if an object
@@ -58,15 +75,15 @@ proc add(self, other: ptr Obj): ptr Obj =
     result = nil  # Not defined for base objects!
 
 
-proc sub(self, other: ptr Obj): ptr Obj = 
+proc sub(self, other: ptr Obj): ptr Obj =
     ## Returns the result of self - other
     ## or nil if the operation is unsupported
     result = nil
 
 
-proc mul(self, other: ptr Obj): ptr Obj = 
+proc mul(self, other: ptr Obj): ptr Obj =
     ## Returns the result of self * other
-    ## or nil if the operation is unsupported 
+    ## or nil if the operation is unsupported
     result = nil
 
 

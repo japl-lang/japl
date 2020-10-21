@@ -1,3 +1,20 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+
+#  http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
 ## The JAPL runtime environment, or virtual machine. This is
 ## a stack-based bytecode VM.
 
@@ -96,7 +113,7 @@ proc push*(self: var VM, value: Value) =
 
 
 proc peek*(self: var VM, distance: int): Value =
-    ## Peeks a value (at a given disnatance from the
+    ## Peeks a value (at a given distance from the
     ## current index) from the stack
     return self.stack[self.stackTop - distance - 1]
 
@@ -230,7 +247,7 @@ proc run(self: var VM, repl: bool): InterpretResult =
         copyMem(index.addr, unsafeAddr(arr), sizeof(arr))
         index
     template readShort: untyped =
-        ## Reads a 16 bit number from the 
+        ## Reads a 16 bit number from the
         ## current frame's chunk
         inc(frame.ip)
         inc(frame.ip)
@@ -569,7 +586,7 @@ proc run(self: var VM, repl: bool): InterpretResult =
             of OpCode.Return:
                 var retResult = self.pop()
                 if repl:
-                    if not self.lastPop.isNil() and self.frameCount == 1:   # This is to avoid long outputs 
+                    if not self.lastPop.isNil() and self.frameCount == 1:   # This is to avoid long outputs
                         # with recursive calls
                         echo stringify(self.lastPop)
                         self.lastPop = Value(kind: ValueType.Nil) # TODO: asNil()?
@@ -587,8 +604,7 @@ proc freeObject(obj: ptr Obj) =
     ## Frees the associated memory
     ## of an object
     case obj.kind:
-        of ObjectType.Function:   # Having function before string is important so that 
-        # the function's name is never freed before the object itself
+        of ObjectType.Function:
             var fun = cast[ptr Function](obj)
             when DEBUG_TRACE_ALLOCATION:
                 echo &"Freeing function object with value '{stringify(fun)}'"
@@ -641,7 +657,7 @@ proc interpret*(self: var VM, source: string, repl: bool = false, file: string):
     var compiled = compiler.compile(source)
     self.source = source
     self.file = file
-    self.objects = compiler.objects # TODO: 
+    self.objects = compiler.objects # TODO:
     # revisit the best way to transfer marked objects from the compiler
     # to the vm
     if compiled == nil:
