@@ -16,7 +16,12 @@
 ## types inherit from this simple structure
 
 import tables
-import ../meta/chunk
+<<<<<<< HEAD
+import ../meta/japlvalue
+=======
+import ../types/objecttype
+
+>>>>>>> upstream/master
 
 type
     Chunk* = ref object
@@ -24,6 +29,7 @@ type
         ## Consts represents (TODO newdoc)
         ## Code represents (TODO newdoc)
         ## Lines represents (TODO newdoc)
+<<<<<<< HEAD
         consts*: ValueArray
         code*: seq[uint8]
         lines*: seq[int]
@@ -130,8 +136,13 @@ proc bool*(obj: ptr Obj): bool =
 
 
 proc eq*(a: ptr Obj, b: ptr Obj): bool =
-    ## Compares two
-    result = a.kind == b.kind
+    ## Compares two objects for equality
+    
+    if obj.kind != ObjectType.BaseObject:
+        var newObj = convert obj
+        result = newObj.eq()
+    else:
+        result = a.kind == b.kind
 
 
 proc hash*(self: ptr Obj): uint32 =
@@ -191,3 +202,8 @@ proc binaryXor(self, other: ptr Obj): ptr Obj =
     ## Returns the result of self ^ other
     ## or nil if the operation is unsupported
     result = nil
+=======
+        consts*: seq[ptr Obj]
+        code*: seq[uint8]
+        lines*: seq[int]
+>>>>>>> upstream/master

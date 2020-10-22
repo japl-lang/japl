@@ -26,11 +26,11 @@ var a = "global";
 var b = "global1";
 {  // open a new scope
     var b = "local";  // Shadow the global variable
-    print(a;   // This falls back to the global scope
-    print(b;
+    print(a);   // This falls back to the global scope
+    print(b);
 }
 print(a);
-print(b)] // The outer scope isn't affected
+print(b); // The outer scope isn't affected
 
 /*
 A multiline comment

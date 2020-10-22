@@ -12,8 +12,8 @@ fun factorial(n) {
 
 
 var start = clock();
-print "Computing factorials from 0 to 200";
+print("Computing factorials from 0 to 200");
 for (var i = 0; i < 201; i = i + 1) factorial(i);
 var result = clock() - start;
-print "Computed factorials in " + stringify(result) + " seconds";
+print("Computed factorials in " + stringify(result) + " seconds");
 
