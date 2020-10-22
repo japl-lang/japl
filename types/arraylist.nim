@@ -14,8 +14,7 @@
 
 # WIP - Not working
 
-import ../meta/valueobject
-import objecttype
+import ../meta/japlvalue
 import exceptions
 import ../memory
 

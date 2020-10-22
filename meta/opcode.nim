@@ -15,14 +15,7 @@
 ## The module dedicated to the Chunk type
 ## A chunk is a piece of bytecode.
 
-<<<<<<< HEAD:meta/opcode.nim
-<<<<<<< HEAD:meta/chunk.nim
-=======
 import japlvalue
->>>>>>> 7649cf6e3bdf4ce47c9c63bbdbe3e99a53274a8d:meta/opcode.nim
-=======
-import ../types/objecttype
->>>>>>> upstream/master:meta/chunk.nim
 
 type
     OpCode* {.pure.} = enum
@@ -69,19 +62,7 @@ type
         Bnot
 
 
-<<<<<<< HEAD:meta/chunk.nim
-    Chunk* = ref object
-        ## A piece of bytecode.
-        ## Consts is the chunk's constant table
-        ## Code contains the compiled bytecode
-        ## Lines maps bytecode instructions to lines
-        consts*: seq[ptr Obj]
-        code*: seq[uint8]
-        lines*: seq[int]    # TODO: Run-length encoding?
-
-=======
->>>>>>> 7649cf6e3bdf4ce47c9c63bbdbe3e99a53274a8d:meta/opcode.nim
-
+    
 const simpleInstructions* = {OpCode.Return, OpCode.Add, OpCode.Multiply,
                              OpCode.Divide, OpCode.Subtract,
                              OpCode.Mod, OpCode.Pow, OpCode.Nil,
@@ -123,13 +104,13 @@ proc freeChunk*(self: Chunk) =
     self.lines = @[]
 
 
-proc addConstant*(self: Chunk, constant: ptr Obj): int =
+proc addConstant*(self: Chunk, constant: Value): int =
     ## Adds a constant to a chunk. Returns its index. 
     self.consts.add(constant)
     return self.consts.high()  # The index of the constant
 
 
-proc writeConstant*(self: Chunk, constant: ptr Obj): array[3, uint8] =
+proc writeConstant*(self: Chunk, constant: Value): array[3, uint8] =
     ## Writes a constant to a chunk. Returns its index casted to an array.
     ## TODO newdoc
     let index = self.addConstant(constant)

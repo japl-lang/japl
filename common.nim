@@ -15,9 +15,10 @@
 
 import tables
 import strutils
-import meta/valuearray
 import meta/tokenobject
-import types/japlvalue
+import meta/japlvalue
+import types/stringtype
+import types/functiontype
 
 
 const FRAMES_MAX* = 400  # TODO: Inspect why the VM crashes if this exceeds 400
@@ -91,15 +92,15 @@ proc delete*(self: CallFrame, idx: int) =
 
 func stringify*(value: Value): string =
     case value.kind:
-        of INTEGER:
+        of ValueType.Integer:
             result = $value.toInt()
-        of DOUBLE:
+        of ValueType.Double:
             result = $value.toFloat()
-        of BOOL:
+        of ValueType.Bool:
             result = $value.toBool()
-        of NIL:
+        of ValueType.Nil:
             result = "nil"
-        of OBJECT:
+        of ValueType.Object:
             case value.obj.kind:
                 of ObjectType.String:
                     result = cast[ptr String](value.obj).stringify
@@ -111,7 +112,7 @@ func stringify*(value: Value): string =
             result = "nan"
         of ValueType.Inf:
             result = "inf"
-        of MINF:
+        of ValueType.Minf:
             result = "-inf"
 
 
@@ -131,16 +132,16 @@ proc hashFloat(f: float): uint32 =
 # TODO: Move this into an hash() method for objects
 proc hash*(value: Value): uint32 =
     case value.kind:
-        of INTEGER:
+        of ValueType.Integer:
             result = uint32 value.toInt()
-        of BOOL:
+        of ValueType.Bool:
             if value.boolValue:
                 result = uint32 1
             else:
                 result = uint32 0
-        of DOUBLE:
+        of ValueType.Double:
             result = hashFloat(value.toFloat())
-        of OBJECT:
+        of ValueType.Object:
             case value.obj.kind:
                 of ObjectType.String:
                     result = hash(cast[ptr String](value.obj))
@@ -153,9 +154,9 @@ proc hash*(value: Value): uint32 =
 # TODO: Move this into a bool() method for objects
 func isFalsey*(value: Value): bool =
     case value.kind:
-        of BOOL:
+        of ValueType.Bool:
             result = not value.toBool()
-        of OBJECT:
+        of ValueType.Object:
             case value.obj.kind:
                 of ObjectType.String:
                     result = cast[ptr String](value.obj).isFalsey()
@@ -163,11 +164,11 @@ func isFalsey*(value: Value): bool =
                     result = cast[ptr Function](value.obj).isFalsey()
                 else:
                     result = isFalsey(value.obj)
-        of INTEGER:
+        of ValueType.Integer:
             result = value.toInt() == 0
-        of DOUBLE:
+        of ValueType.Double:
             result = value.toFloat() == 0.0
-        of NIL:
+        of ValueType.Nil:
             result = true
         of ValueType.Inf, ValueType.Minf:
             result = false
@@ -181,9 +182,9 @@ func typeName*(value: Value): string =
         of ValueType.Bool, ValueType.Nil, ValueType.Double,
           ValueType.Integer, ValueType.Nan, ValueType.Inf:
             result = ($value.kind).toLowerAscii()
-        of MINF:
+        of ValueType.Minf:
            result = "inf"
-        of OBJECT:
+        of ValueType.Object:
             case value.obj.kind:
                 of ObjectType.String:
                     result = cast[ptr String](value.obj).typeName()
@@ -198,15 +199,15 @@ proc valuesEqual*(a: Value, b: Value): bool =
         result = false
     else:
         case a.kind:
-            of BOOL:
+            of ValueType.Bool:
                 result = a.toBool() == b.toBool()
-            of NIL:
+            of ValueType.Nil:
                 result = true
-            of INTEGER:
+            of ValueType.Integer:
                 result = a.toInt() == b.toInt()
-            of DOUBLE:
+            of ValueType.Double:
                 result = a.toFloat() == b.toFloat()
-            of OBJECT:
+            of ValueType.Object:
                 case a.obj.kind:
                     of ObjectType.String:
                         var a = cast[ptr String](a.obj)
@@ -220,7 +221,7 @@ proc valuesEqual*(a: Value, b: Value): bool =
                         result = valuesEqual(a.obj, b.obj)
             of ValueType.Inf:
                 result = b.kind == ValueType.Inf
-            of MINF:
+            of ValueType.Minf:
                 result = b.kind == ValueType.Minf
             of ValueType.Nan:
                 result = false
