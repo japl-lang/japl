@@ -15,8 +15,7 @@
 ## The module dedicated to the Chunk type
 ## A chunk is a piece of bytecode.
 
-import valueobject
-
+import japlvalue
 
 type
     OpCode* {.pure.} = enum
@@ -63,14 +62,6 @@ type
         Bnot
 
 
-    Chunk* = ref object
-        ## A piece of bytecode.
-        ## Consts represents (TODO newdoc)
-        ## Code represents (TODO newdoc)
-        ## Lines represents (TODO newdoc)
-        consts*: ValueArray
-        code*: seq[uint8]
-        lines*: seq[int]
 
 const simpleInstructions* = {OpCode.Return, OpCode.Add, OpCode.Multiply,
                              OpCode.Divide, OpCode.Subtract,
@@ -124,4 +115,4 @@ proc writeConstant*(self: Chunk, constant: Value): array[3, uint8] =
     ## TODO newdoc
     let index = self.addConstant(constant)
     result = cast[array[3, uint8]](index)
-
+  

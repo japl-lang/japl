@@ -19,29 +19,12 @@
 ## allocated on the heap, while the simpler ones live on the stack
 
 # import ../types/functiontype
-import ../types/objecttype
+import japlvalue
 import ../types/stringtype
 import strformat
 
 
 type
-    ValueType* {.pure.} = enum
-      # All possible value types (this is the VM's notion of 'type', not the end user's)
-      Integer, Double, Bool, Nil, Object, Nan, Inf, Minf
-    Value* = object
-        ## Represents an internal JAPL type
-        case kind*: ValueType
-            of ValueType.Integer:
-                intValue*: int
-            of ValueType.Double:
-                floatValue*: float
-            of ValueType.Bool:
-                boolValue*: bool
-            of ValueType.Nil, ValueType.Inf, ValueType.Nan, ValueType.Minf:
-                discard
-            of ValueType.Object:
-                obj*: ptr Obj
-
     ValueArray* = ref object
         values*: seq[Value]
 
