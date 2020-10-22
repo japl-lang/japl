@@ -16,7 +16,7 @@
 ## types inherit from this simple structure
 
 import tables
-import ../meta/chunk
+import ../meta/japlvalue
 
 
 type
@@ -105,8 +105,13 @@ proc bool*(obj: ptr Obj): bool =
 
 
 proc eq*(a: ptr Obj, b: ptr Obj): bool =
-    ## Compares two
-    result = a.kind == b.kind
+    ## Compares two objects for equality
+    
+    if obj.kind != ObjectType.BaseObject:
+        var newObj = convert obj
+        result = newObj.eq()
+    else:
+        result = a.kind == b.kind
 
 
 proc hash*(self: ptr Obj): uint32 =

@@ -42,7 +42,7 @@ proc hash*(self: ptr String): uint32 =
     return result
 
 
-proc valuesEqual*(a: ptr String, b: ptr String): bool =
+proc eq*(a: ptr String, b: ptr String): bool =
     if a.len != b.len:
         return false
     elif a.hash != b.hash:
