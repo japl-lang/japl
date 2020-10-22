@@ -22,11 +22,6 @@ import strformat
 import ../memory
 
 
-type String* = object of Obj
-    str*: ptr UncheckedArray[char]  # TODO -> Maybe ptr UncheckedArray[array[4, char]]?
-    len*: int
-
-
 proc stringify*(s: ptr String): string =
     result = ""
     for i in 0..<s.len:

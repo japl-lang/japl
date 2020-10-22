@@ -21,11 +21,6 @@ import strformat
 import ../memory
 
 
-type JAPLException* = object of Obj
-    errName*: ptr String
-    message*: ptr String
-
-
 proc stringify*(self: ptr JAPLException): string =
     return &"{self.errName.stringify}: {self.message.stringify}"
 

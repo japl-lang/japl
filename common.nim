@@ -18,28 +18,26 @@ import strutils
 import meta/valueobject
 import meta/tokenobject
 import types/objecttype
-import types/functiontype
-import types/stringtype
 
 
 const FRAMES_MAX* = 400  # TODO: Inspect why the VM crashes if this exceeds 400
 const JAPL_VERSION* = "0.2.0"
 const JAPL_RELEASE* = "alpha"
-const DEBUG_TRACE_VM* = false
-const DEBUG_TRACE_GC* = true
-const DEBUG_TRACE_ALLOCATION* = true
-const DEBUG_TRACE_COMPILER* = true
+const DEBUG_TRACE_VM* = true   # Traces VM execution
+const DEBUG_TRACE_GC* = true    # Traces the garbage collector (TODO)
+const DEBUG_TRACE_ALLOCATION* = true   # Traces memory allocation/deallocation (WIP)
+const DEBUG_TRACE_COMPILER* = true   # Traces the compiler (TODO)
 
 
 type
-    CallFrame* = ref object
+    CallFrame* = ref object    # FIXME: Call frames are broken (end indexes are likely wrong)
         function*: ptr Function
         ip*: int
         slot*: int
         endSlot*: int
         stack*: seq[Value]
 
-    VM* = ref object
+    VM* = ref object    # The VM object
         lastPop*: Value
         frameCount*: int
         source*: string
@@ -50,12 +48,12 @@ type
         globals*: Table[string, Value]
         file*: string
 
-    Local* = ref object
+    Local* = ref object   # A local variable
        name*: Token
        depth*: int
 
 
-    Parser* = ref object
+    Parser* = ref object  # A Parser object
         current*: int
         tokens*: seq[Token]
         hadError*: bool
@@ -68,7 +66,7 @@ proc getView*(self: CallFrame): seq[Value] =
 
 
 proc getAbsIndex(self: CallFrame, idx: int): int =
-    return idx + len(self.getView()) - 1   # Inspect this code (locals, functions)
+    return idx + len(self.getView()) - 1   # TODO: Inspect this code (locals, functions)
 
 
 proc len*(self: CallFrame): int =
@@ -117,6 +115,8 @@ func stringify*(value: Value): string =
             result = "-inf"
 
 
+## TODO: Move this stuff back to their respective module
+
 proc initParser*(tokens: seq[Token], file: string): Parser =
     result = Parser(current: 0, tokens: tokens, hadError: false, panicMode: false, file: file)
 
@@ -128,6 +128,7 @@ proc hashFloat(f: float): uint32 =
     result *= 16777619
 
 
+# TODO: Move this into an hash() method for objects
 proc hash*(value: Value): uint32 =
     case value.kind:
         of INTEGER:
@@ -149,6 +150,7 @@ proc hash*(value: Value): uint32 =
             result = uint32 0
 
 
+# TODO: Move this into a bool() method for objects
 func isFalsey*(value: Value): bool =
     case value.kind:
         of BOOL:
@@ -173,6 +175,7 @@ func isFalsey*(value: Value): bool =
             result = true
 
 
+# TODO: Move this to a toString() method for objects
 func typeName*(value: Value): string =
     case value.kind:
         of ValueType.Bool, ValueType.Nil, ValueType.Double,
@@ -189,7 +192,7 @@ func typeName*(value: Value): string =
                 else:
                     result = value.obj.typeName()
 
-
+# TODO: Move this to a eq() method for objects
 proc valuesEqual*(a: Value, b: Value): bool =
     if a.kind != b.kind:
         result = false

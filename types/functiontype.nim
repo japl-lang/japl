@@ -29,12 +29,6 @@ import tables
 
 
 type
-    Function* = object of Obj
-        name*: ptr String
-        arity*: int
-        optionals*: int
-        defaults*: Table[string, Value]
-        chunk*: Chunk
     FunctionType* = enum
         FUNC, SCRIPT
 

@@ -15,6 +15,8 @@
 ## Base structure for objects in JAPL, all
 ## types inherit from this simple structure
 
+import tables
+
 
 type
     ObjectType* {.pure.} = enum
@@ -25,9 +27,41 @@ type
     Obj* = object of RootObj
         kind*: ObjectType
         hashValue*: uint32
+    String* = object of Obj    # A string object
+        str*: ptr UncheckedArray[char]  # TODO -> Unicode support
+        len*: int
+    Function* = object of Obj
+        name*: ptr String
+        arity*: int
+        optionals*: int
+        defaults*: Table[string, Value]
+        chunk*: Chunk
+    JAPLException* = object of Obj
+        errName*: ptr String
+        message*: ptr String
 
 
-func objType*(obj: ptr Obj): ObjectType =
+
+
+
+# Maps enum types to actual JAPL object types
+const objectMapping = to_table({
+                               String: Obj,  # TODO
+                               Exception: Obj,
+                               Function: Obj,
+                               Class: Obj,
+                               Module: Obj
+                               })
+
+
+template `convert`(a: ptr Obj): untyped =
+    ## Performs conversions from a JAPL
+    ## supertype to a subtype
+
+    cast[ptr objectMapping[a.kind]](a)
+
+
+proc objType*(obj: ptr Obj): ObjectType =
     ## Returns the type of the object
     return obj.kind
 

@@ -583,8 +583,8 @@ proc run(self: var VM, repl: bool): InterpretResult =
             of OpCode.Return:
                 var retResult = self.pop()
                 if repl:
-                    if not self.lastPop.isNil() and self.frameCount == 1:   # This is to avoid long outputs
-                        # with recursive calls
+                    if not self.lastPop.isNil() and self.frameCount == 1:   # This is to avoid
+                        # useless output with recursive calls
                         echo stringify(self.lastPop)
                         self.lastPop = Value(kind: ValueType.Nil) # TODO: asNil()?
                 self.frameCount -= 1
@@ -604,13 +604,13 @@ proc freeObject(obj: ptr Obj) =
         of ObjectType.Function:
             var fun = cast[ptr Function](obj)
             when DEBUG_TRACE_ALLOCATION:
-                echo &"Freeing function object with value '{stringify(fun)}'"
+                echo &"DEBUG: Freeing function object with value '{stringify(fun)}'"
             fun.chunk.freeChunk()
             discard free(ObjectType.Function, fun)
         of ObjectType.String:
             var str = cast[ptr String](obj)
             when DEBUG_TRACE_ALLOCATION:
-                echo &"Freeing string object with value '{stringify(str)}' of length {str.len}"
+                echo &"DEBUG: Freeing string object with value '{stringify(str)}' of length {str.len}"
             discard freeArray(char, str.str, str.len)
             discard free(ObjectType.String, obj)
         else:
@@ -625,13 +625,13 @@ proc freeObjects(self: var VM) =
         freeObject(obj)
         discard self.objects.pop()
     when DEBUG_TRACE_ALLOCATION:
-        echo &"Freed {objCount} objects"
+        echo &"DEBUG: Freed {objCount} objects"
 
 
 proc freeVM*(self: var VM) =
     ## Tears down the VM
     when DEBUG_TRACE_ALLOCATION:
-        echo "\nFreeing all allocated memory before exiting"
+        echo "\nDEBUG: Freeing all allocated memory before exiting"
     unsetControlCHook()
     try:
         self.freeObjects()
