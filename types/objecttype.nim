@@ -16,49 +16,53 @@
 ## types inherit from this simple structure
 
 import tables
+import ../meta/chunk
 
 
 type
     ObjectType* {.pure.} = enum
-        ## The type of the object
-        ## (Also see meta/valueobject/ValueType)
+        ## All the possible object types
         String, Exception, Function,
-        Class, Module
+        Class, Module, BaseObject
     Obj* = object of RootObj
+        # The object that rules them all
         kind*: ObjectType
         hashValue*: uint32
     String* = object of Obj    # A string object
         str*: ptr UncheckedArray[char]  # TODO -> Unicode support
         len*: int
+    Integer* = object of Obj
+        # An integer object
+        intValue: int  # TODO: Bignum arithmetic
+    Float* = object of Obj
+        # A float object
+        floatValue: float
+    JAPLInf* = object of Float   # Inf is considered a float
+    JAPLNan* = object of Obj     # While (logically) NaN is a separate type altogether
     Function* = object of Obj
         name*: ptr String
         arity*: int
         optionals*: int
-        defaults*: Table[string, Value]
+        defaults*: Table[string, Obj]
         chunk*: Chunk
     JAPLException* = object of Obj
         errName*: ptr String
         message*: ptr String
 
 
-
-
-
-# Maps enum types to actual JAPL object types
-const objectMapping = to_table({
-                               String: Obj,  # TODO
-                               Exception: Obj,
-                               Function: Obj,
-                               Class: Obj,
-                               Module: Obj
-                               })
-
-
-template `convert`(a: ptr Obj): untyped =
+proc `convert`(a: ptr Obj): ptr Obj =
     ## Performs conversions from a JAPL
     ## supertype to a subtype
-
-    cast[ptr objectMapping[a.kind]](a)
+    
+    case a.kind:
+        of ObjectType.String:
+            result = cast[ptr String](a)
+        of ObjectType.Function:
+            result = cast[ptr Function](a)
+        of ObjectType.Class, ObjectType.Module, ObjectType.BaseObject:
+            discard  # TODO: Implement
+        else:
+            raise newException(Exception, "Attempted JAPL type conversion with unknown source object")
 
 
 proc objType*(obj: ptr Obj): ObjectType =
@@ -69,29 +73,39 @@ proc objType*(obj: ptr Obj): ObjectType =
 proc stringify*(obj: ptr Obj): string =
     ## Returns a string representation
     ## of the object
-    result = "<object (built-in type)>"
+    if obj.kind != ObjectType.BaseObject:    # NOTE: Consider how to reduce the boilerplate
+        var newObj = convert obj
+        result = newObj.stringify()
+    else:
+        result = "<object (built-in type)>"
 
 
 proc typeName*(obj: ptr Obj): string =
     ## This method should return the
     ## name of the object type
-    result = "object"
+    if obj.kind != ObjectType.BaseObject:
+        var newObj = convert obj
+        result = newObj.typeName()
+    else:
+        result = "object"
 
 
-proc isFalsey*(obj: ptr Obj): bool =
+
+proc bool*(obj: ptr Obj): bool =
     ## Returns wheter the object should
     ## be considered a falsey value
     ## or not. Returns true if the
-    ## object IS falsey
-    result = false
+    ## object is truthy, or false
+    ## if it is falsey
+    if obj.kind != ObjectType.BaseObject:
+        var newObj = convert obj
+        result = newObj.bool()
+    else:
+        result = false
 
 
-proc valuesEqual*(a: ptr Obj, b: ptr Obj): bool =
-    ## Base method to compare 2 objects.
-    ## Should never be used in normal
-    ## circumstances, as it is not reliable.
-    ## This is only a last option if an object
-    ## hasn't this method defined
+proc eq*(a: ptr Obj, b: ptr Obj): bool =
+    ## Compares two
     result = a.kind == b.kind
 
 

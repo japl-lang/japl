@@ -15,8 +15,6 @@
 ## The module dedicated to the Chunk type
 ## A chunk is a piece of bytecode.
 
-import valueobject
-
 
 type
     OpCode* {.pure.} = enum
@@ -65,12 +63,13 @@ type
 
     Chunk* = ref object
         ## A piece of bytecode.
-        ## Consts represents (TODO newdoc)
-        ## Code represents (TODO newdoc)
-        ## Lines represents (TODO newdoc)
-        consts*: ValueArray
+        ## Consts is the chunk's constant table
+        ## Code contains the compiled bytecode
+        ## Lines maps bytecode instructions to lines
+        consts*: seq[ptr Obj]
         code*: seq[uint8]
-        lines*: seq[int]
+        lines*: seq[int]    # TODO: Run-length encoding?
+
 
 const simpleInstructions* = {OpCode.Return, OpCode.Add, OpCode.Multiply,
                              OpCode.Divide, OpCode.Subtract,
