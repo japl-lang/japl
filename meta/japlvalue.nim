@@ -12,14 +12,39 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-## Base structure for objects in JAPL, all
+## Base structure for values and objects in JAPL, all
 ## types inherit from this simple structure
 
 import tables
 import ../meta/chunk
 
-
 type
+    Chunk* = ref object
+        ## A piece of bytecode.
+        ## Consts represents (TODO newdoc)
+        ## Code represents (TODO newdoc)
+        ## Lines represents (TODO newdoc)
+        consts*: ValueArray
+        code*: seq[uint8]
+        lines*: seq[int]
+        
+    ValueType* {.pure.} = enum
+      # All possible value types (this is the VM's notion of 'type', not the end user's)
+      Integer, Double, Bool, Nil, Object, Nan, Inf, Minf
+    Value* = object
+        ## Represents an internal JAPL type
+        case kind*: ValueType
+            of ValueType.Integer:
+                intValue*: int
+            of ValueType.Double:
+                floatValue*: float
+            of ValueType.Bool:
+                boolValue*: bool
+            of ValueType.Nil, ValueType.Inf, ValueType.Nan, ValueType.Minf:
+                discard
+            of ValueType.Object:
+                obj*: ptr Obj
+
     ObjectType* {.pure.} = enum
         ## All the possible object types
         String, Exception, Function,

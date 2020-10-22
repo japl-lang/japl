@@ -15,6 +15,10 @@
 ## The module dedicated to the Chunk type
 ## A chunk is a piece of bytecode.
 
+<<<<<<< HEAD:meta/chunk.nim
+=======
+import japlvalue
+>>>>>>> 7649cf6e3bdf4ce47c9c63bbdbe3e99a53274a8d:meta/opcode.nim
 
 type
     OpCode* {.pure.} = enum
@@ -61,6 +65,7 @@ type
         Bnot
 
 
+<<<<<<< HEAD:meta/chunk.nim
     Chunk* = ref object
         ## A piece of bytecode.
         ## Consts is the chunk's constant table
@@ -70,6 +75,8 @@ type
         code*: seq[uint8]
         lines*: seq[int]    # TODO: Run-length encoding?
 
+=======
+>>>>>>> 7649cf6e3bdf4ce47c9c63bbdbe3e99a53274a8d:meta/opcode.nim
 
 const simpleInstructions* = {OpCode.Return, OpCode.Add, OpCode.Multiply,
                              OpCode.Divide, OpCode.Subtract,
@@ -123,4 +130,4 @@ proc writeConstant*(self: Chunk, constant: Value): array[3, uint8] =
     ## TODO newdoc
     let index = self.addConstant(constant)
     result = cast[array[3, uint8]](index)
-
+  
