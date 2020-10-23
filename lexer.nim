@@ -29,7 +29,8 @@ import strformat
 import tables
 import meta/tokentype
 import meta/tokenobject
-import meta/valueobject
+import types/string
+import types/japlvalue
 
 # Table of all tokens except reserved keywords
 const TOKENS = to_table({

@@ -67,7 +67,7 @@ type
         name*: ptr String
         arity*: int
         optionals*: int
-        defaults*: Table[string, Obj]
+        defaults*: Table[string, Value]
         chunk*: Chunk
     JAPLException* = object of Obj
         errName*: ptr String

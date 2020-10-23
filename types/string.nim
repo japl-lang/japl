@@ -17,7 +17,7 @@
 # therefore immutable from the user's perspective. They are
 # natively ASCII encoded, but soon they will support for unicode.
 
-import ../meta/japlvalue
+import japlvalue
 import strformat
 import ../memory
 

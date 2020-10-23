@@ -1,3 +1,22 @@
+# Copyright 2020 Mattia Giambirtone
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+ 
+import japlvalue
+import string
+import function
+import exceptions
+import strutils
 
 func stringify*(value: Value): string =
     case value.kind:
@@ -53,21 +72,24 @@ func bool*(value: Value): bool =
         of ValueType.Nan:
             result = true
 
+func typeName*(obj: ptr Obj): string =
+    case obj.kind:
+        of ObjectType.String:
+            result = cast[ptr String](obj).typeName()
+        of ObjectType.Function:
+            result = cast[ptr Function](obj).typeName()
+        else:
+            result = "" # TODO unimplemented
+
 func typeName*(value: Value): string =
     case value.kind:
         of ValueType.Bool, ValueType.Nil, ValueType.Double,
           ValueType.Integer, ValueType.Nan, ValueType.Inf:
             result = ($value.kind).toLowerAscii()
         of ValueType.Minf:
-           result = "inf"
+            result = "inf"
         of ValueType.Object:
-            case value.obj.kind:
-                of ObjectType.String:
-                    result = cast[ptr String](value.obj).typeName()
-                of ObjectType.Function:
-                    result = cast[ptr Function](value.obj).typeName()
-                else:
-                    result = value.obj.typeName()
+            result = typeName(value.obj)
 
 proc eq*(a: Value, b: Value): bool =
     if a.kind != b.kind:
@@ -87,13 +109,14 @@ proc eq*(a: Value, b: Value): bool =
                     of ObjectType.String:
                         var a = cast[ptr String](a.obj)
                         var b = cast[ptr String](b.obj)
-                        result = valuesEqual(a, b)
+                        result = eq(a, b)
                     of ObjectType.Function:
                         var a = cast[ptr Function](a.obj)
                         var b = cast[ptr Function](b.obj)
-                        result = valuesEqual(a, b)
+                        result = eq(a, b)
                     else:
-                        result = valuesEqual(a.obj, b.obj)
+                        result = false # TODO unimplemented
+                        
             of ValueType.Inf:
                 result = b.kind == ValueType.Inf
             of ValueType.Minf:

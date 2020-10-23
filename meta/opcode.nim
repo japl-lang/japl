@@ -15,7 +15,7 @@
 ## The module dedicated to the Chunk type
 ## A chunk is a piece of bytecode.
 
-import japlvalue
+import ../types/japlvalue
 
 type
     OpCode* {.pure.} = enum

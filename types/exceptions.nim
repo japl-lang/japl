@@ -15,8 +15,8 @@
 
 ## Defines JAPL exceptions
 
-import objecttype
-import stringtype
+import string
+import japlvalue
 import strformat
 import ../memory
 
@@ -24,6 +24,8 @@ import ../memory
 proc stringify*(self: ptr JAPLException): string =
     return &"{self.errName.stringify}: {self.message.stringify}"
 
+proc isFalsey*(self: ptr JAPLException): bool =
+    return false
 
 proc newTypeError*(message: string): ptr JAPLException =
     result = allocateObj(JAPLException, ObjectType.Exception)

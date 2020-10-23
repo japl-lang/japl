@@ -16,9 +16,9 @@
 import tables
 import strutils
 import meta/tokenobject
-import meta/japlvalue
-import types/stringtype
-import types/functiontype
+import types/japlvalue
+import types/string
+import types/function
 
 
 const FRAMES_MAX* = 400  # TODO: Inspect why the VM crashes if this exceeds 400

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import tokentype
-import japlvalue
+import ../types/japlvalue
 
 # Token object
 

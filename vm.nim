@@ -24,12 +24,12 @@ import lenientops
 import common
 import compiler
 import tables
-import meta/chunk
-import meta/valueobject
+import meta/opcode
 import types/exceptions
-import types/objecttype
-import types/stringtype
-import types/functiontype
+import types/japlvalue
+import types/string
+import types/function
+import types/operations
 import memory
 when DEBUG_TRACE_VM:
     import util/debug
@@ -169,9 +169,9 @@ proc sliceRange(self: var VM): bool =
                 of ObjectType.String:
                     var str = popped.toStr()
                     if sliceEnd.isNil():
-                        sliceEnd = Value(kind: INTEGER, intValue: len(str))
+                        sliceEnd = Value(kind: ValueType.Integer, intValue: len(str))
                     if sliceStart.isNil():
-                        sliceStart = Value(kind: INTEGER, intValue: 0)
+                        sliceStart = Value(kind: ValueType.Integer, intValue: 0)
                     elif not sliceStart.isInt() or not sliceEnd.isInt():
                         self.error(newTypeError("string indeces must be integers"))
                         return false
@@ -183,7 +183,7 @@ proc sliceRange(self: var VM): bool =
                         self.push(Value(kind: OBJECT, obj: addObject(addr self, newString(""))))
                         return true
                     if sliceEnd.toInt() - 1 > len(str) - 1:
-                        sliceEnd = Value(kind: INTEGER, intValue: len(str))
+                        sliceEnd = Value(kind: ValueType.Integer, intValue: len(str))
                     if sliceStart.toInt() > sliceEnd.toInt():
                         self.push(Value(kind: OBJECT, obj: addObject(addr self, newString(""))))
                         return true

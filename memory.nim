@@ -23,7 +23,7 @@
 
 
 import segfaults
-import meta/japlvalue
+import types/japlvalue
 
 
 proc reallocate*(pointr: pointer, oldSize: int, newSize: int): pointer =
