@@ -27,7 +27,7 @@ import tables
 import meta/opcode
 import types/exceptions
 import types/japlvalue
-import types/string
+import types/stringtype
 import types/function
 import types/operations
 import memory
@@ -643,7 +643,8 @@ proc freeVM*(self: var VM) =
 proc initVM*(): VM =
     ## Initializes the VM
     setControlCHook(handleInterrupt)
-    result = VM(lastPop: Value(kind: ValueType.Nil), objects: @[], globals: initTable[string, Value](), source: "", file: "")
+    var globals: Table[string, Value] = initTable[string, Value]()
+    result = VM(lastPop: Value(kind: ValueType.Nil), objects: @[], globals: globals, source: "", file: "")
     # TODO asNil() ?
 
 

@@ -15,7 +15,7 @@
 
 ## Defines JAPL exceptions
 
-import string
+import stringtype
 import japlvalue
 import strformat
 import ../memory

@@ -13,7 +13,7 @@
 # limitations under the License.
  
 import japlvalue
-import string
+import stringtype
 import function
 import exceptions
 import strutils

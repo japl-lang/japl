@@ -29,7 +29,7 @@ import strformat
 import tables
 import meta/tokentype
 import meta/tokenobject
-import types/string
+import types/stringtype
 import types/japlvalue
 
 # Table of all tokens except reserved keywords

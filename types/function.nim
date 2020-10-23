@@ -19,7 +19,7 @@
 # code objects that can be compiled inside the JAPL runtime, pretty much
 # like in Python
 
-import string
+import stringtype
 import strformat
 import ../memory
 import ../meta/opcode

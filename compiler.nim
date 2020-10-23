@@ -25,7 +25,7 @@ import meta/tokenobject
 import meta/tokentype
 import meta/looptype
 import types/japlvalue
-import types/string
+import types/stringtype
 import types/function
 import tables
 when isMainModule:
