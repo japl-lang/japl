@@ -18,7 +18,6 @@
 import ../meta/opcode
 import ../types/japlvalue
 import ../types/operations
-import ../common
 import strformat
 
 

@@ -13,12 +13,10 @@
 # limitations under the License.
 
 
-import tables
-import strutils
 import meta/tokenobject
 import types/japlvalue
-import types/string
 import types/function
+import tables
 
 
 const FRAMES_MAX* = 400  # TODO: Inspect why the VM crashes if this exceeds 400

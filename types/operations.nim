@@ -43,7 +43,7 @@ func stringify*(value: Value): string =
         of ValueType.Minf:
             result = "-inf"
 
-func bool*(value: Value): bool =
+func isFalsey*(value: Value): bool =
     case value.kind:
         of ValueType.Bool:
             result = not value.toBool()
@@ -56,11 +56,11 @@ func bool*(value: Value): bool =
                 of ObjectType.Exception:
                     result = cast[ptr JaplException](value.obj).isFalsey()
                 of ObjectType.Class:
-                    result = cast[ptr JaplException](value.obj).isFalsey()
+                    result = cast[ptr JaplException](value.obj).isFalsey() # TODO Class
                 of ObjectType.Module:
-                    result = cast[ptr JaplException](value.obj).isFalsey()
+                    result = cast[ptr JaplException](value.obj).isFalsey() # TODO Module
                 of ObjectType.BaseObject:
-                    result = cast[ptr JaplException](value.obj).isFalsey()
+                    result = cast[ptr JaplException](value.obj).isFalsey() # TODO BaseObject
         of ValueType.Integer:
             result = value.toInt() == 0
         of ValueType.Double:

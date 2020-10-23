@@ -114,7 +114,7 @@ proc typeName*(obj: ptr Obj): string =
         result = "object"
 
 
-
+# TODO migrate to operations
 proc bool*(obj: ptr Obj): bool =
     ## Returns wheter the object should
     ## be considered a falsey value
@@ -127,7 +127,7 @@ proc bool*(obj: ptr Obj): bool =
     else:
         result = false
 
-
+# TODO migrate to operations
 proc eq*(a: ptr Obj, b: ptr Obj): bool =
     ## Compares two objects for equality
     
@@ -137,7 +137,7 @@ proc eq*(a: ptr Obj, b: ptr Obj): bool =
     else:
         result = a.kind == b.kind
 
-
+# TODO migrate to operations
 proc hash*(self: ptr Obj): uint32 =
     # TODO: Make this actually useful
     result = 2166136261u32
@@ -263,7 +263,7 @@ func toFloat*(value: Value): float =
     ## Converts a JAPL float to a nim float
     result = value.floatValue
 
-
+# TODO ambiguous naming: conflict with toString(value: Value) that does JAPL->JAPL
 func toStr*(value: Value): string =
     ## Converts a JAPL string into a nim string
     var strObj = cast[ptr String](value.obj)

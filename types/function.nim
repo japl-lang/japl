@@ -24,7 +24,6 @@ import strformat
 import ../memory
 import ../meta/opcode
 import japlvalue
-import tables
 
 
 type
