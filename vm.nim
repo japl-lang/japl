@@ -24,12 +24,12 @@ import lenientops
 import common
 import compiler
 import tables
-import meta/chunk
-import meta/valueobject
+import meta/opcode
 import types/exceptions
-import types/objecttype
+import types/japlvalue
 import types/stringtype
-import types/functiontype
+import types/function
+import types/operations
 import memory
 when DEBUG_TRACE_VM:
     import util/debug
@@ -169,9 +169,9 @@ proc sliceRange(self: var VM): bool =
                 of ObjectType.String:
                     var str = popped.toStr()
                     if sliceEnd.isNil():
-                        sliceEnd = Value(kind: INTEGER, intValue: len(str))
+                        sliceEnd = Value(kind: ValueType.Integer, intValue: len(str))
                     if sliceStart.isNil():
-                        sliceStart = Value(kind: INTEGER, intValue: 0)
+                        sliceStart = Value(kind: ValueType.Integer, intValue: 0)
                     elif not sliceStart.isInt() or not sliceEnd.isInt():
                         self.error(newTypeError("string indeces must be integers"))
                         return false
@@ -183,7 +183,7 @@ proc sliceRange(self: var VM): bool =
                         self.push(Value(kind: OBJECT, obj: addObject(addr self, newString(""))))
                         return true
                     if sliceEnd.toInt() - 1 > len(str) - 1:
-                        sliceEnd = Value(kind: INTEGER, intValue: len(str))
+                        sliceEnd = Value(kind: ValueType.Integer, intValue: len(str))
                     if sliceStart.toInt() > sliceEnd.toInt():
                         self.push(Value(kind: OBJECT, obj: addObject(addr self, newString(""))))
                         return true
@@ -252,14 +252,14 @@ proc run(self: var VM, repl: bool): InterpretResult =
     template readConstant: Value =
         ## Reads a constant from the current
         ## frame's constant table
-        frame.function.chunk.consts.values[int(readByte())]
+        frame.function.chunk.consts[int(readByte())]
     template readLongConstant: Value =
         ## Reads a long constant from the
         ## current frame's constant table
         var arr = [readByte(), readByte(), readByte()]
         var idx: int
         copyMem(idx.addr, unsafeAddr(arr), sizeof(arr))
-        frame.function.chunk.consts.values[idx]
+        frame.function.chunk.consts[idx]
     template binOp(op, check) =
         ## Performs binary operations on types,
         ## this will be soon ditched in favor
@@ -332,7 +332,7 @@ proc run(self: var VM, repl: bool): InterpretResult =
         var rightVal {.inject.} = self.pop()
         var leftVal {.inject.} = self.pop()
         if isInt(leftVal) and isInt(rightVal):
-            self.push(Value(kind: INTEGER, intValue: `op`(leftVal.toInt(), rightVal.toInt())))
+            self.push(Value(kind: ValueType.Integer, intValue: `op`(leftVal.toInt(), rightVal.toInt())))
         else:
             self.error(newTypeError(&"unsupported binary operator for objects of type '{leftVal.typeName()}' and '{rightVal.typeName()}'"))
             return RUNTIME_ERROR
@@ -340,7 +340,7 @@ proc run(self: var VM, repl: bool): InterpretResult =
         ## Handles unary bitwise operators
         var leftVal {.inject.} = self.pop()
         if isInt(leftVal):
-            self.push(Value(kind: INTEGER, intValue: `op`(leftVal.toInt())))
+            self.push(Value(kind: ValueType.Integer, intValue: `op`(leftVal.toInt())))
         else:
             self.error(newTypeError(&"unsupported unary operator for object of type '{leftVal.typeName()}'"))
             return RUNTIME_ERROR
@@ -466,15 +466,15 @@ proc run(self: var VM, repl: bool): InterpretResult =
             of OpCode.Inf:
                 self.push(Value(kind: ValueType.Inf))
             of OpCode.Not:
-                self.push(Value(kind: BOOL, boolValue: isFalsey(self.pop())))
+                self.push(Value(kind: ValueType.Bool, boolValue: isFalsey(self.pop())))
             of OpCode.Equal:
                 var a = self.pop()
                 var b = self.pop()
                 if a.isFloat() and b.isInt():
-                    b = Value(kind: DOUBLE, floatValue: float b.toInt())
+                    b = Value(kind: ValueType.Double, floatValue: float b.toInt())
                 elif b.isFloat() and a.isInt():
-                    a = Value(kind: DOUBLE, floatValue: float a.toInt())
-                self.push(Value(kind: BOOL, boolValue: valuesEqual(a, b)))
+                    a = Value(kind: ValueType.Double, floatValue: float a.toInt())
+                self.push(Value(kind: ValueType.Bool, boolValue: eq(a, b)))
             of OpCode.Less:
                 binOp(`<`, isNum)
             of OpCode.Greater:
@@ -486,7 +486,7 @@ proc run(self: var VM, repl: bool): InterpretResult =
                 if not self.sliceRange():
                     return RUNTIME_ERROR
             of OpCode.DefineGlobal:
-                if frame.function.chunk.consts.values.len > 255:
+                if frame.function.chunk.consts.len > 255:
                     var constant = readLongConstant().toStr()
                     self.globals[constant] = self.peek(0)
                 else:
@@ -494,7 +494,7 @@ proc run(self: var VM, repl: bool): InterpretResult =
                     self.globals[constant] = self.peek(0)
                 discard self.pop()   # This will help when we have a custom GC
             of OpCode.GetGlobal:
-                if frame.function.chunk.consts.values.len > 255:
+                if frame.function.chunk.consts.len > 255:
                     var constant = readLongConstant().toStr()
                     if constant notin self.globals:
                         self.error(newReferenceError(&"undefined name '{constant}'"))
@@ -509,7 +509,7 @@ proc run(self: var VM, repl: bool): InterpretResult =
                     else:
                         self.push(self.globals[constant])
             of OpCode.SetGlobal:
-                if frame.function.chunk.consts.values.len > 255:
+                if frame.function.chunk.consts.len > 255:
                     var constant = readLongConstant().toStr()
                     if constant notin self.globals:
                         self.error(newReferenceError(&"assignment to undeclared name '{constant}'"))
@@ -525,7 +525,7 @@ proc run(self: var VM, repl: bool): InterpretResult =
                         self.globals[constant] = self.peek(0)
             of OpCode.DeleteGlobal:
                 # This OpCode, as well as DeleteLocal, is currently unused due to potential issues with the GC
-                if frame.function.chunk.consts.values.len > 255:
+                if frame.function.chunk.consts.len > 255:
                     var constant = readLongConstant().toStr()
                     if constant notin self.globals:
                         self.error(newReferenceError(&"undefined name '{constant}'"))
@@ -643,7 +643,8 @@ proc freeVM*(self: var VM) =
 proc initVM*(): VM =
     ## Initializes the VM
     setControlCHook(handleInterrupt)
-    result = VM(lastPop: Value(kind: ValueType.Nil), objects: @[], globals: initTable[string, Value](), source: "", file: "")
+    var globals: Table[string, Value] = initTable[string, Value]()
+    result = VM(lastPop: Value(kind: ValueType.Nil), objects: @[], globals: globals, source: "", file: "")
     # TODO asNil() ?
 
 
@@ -659,8 +660,8 @@ proc interpret*(self: var VM, source: string, repl: bool = false, file: string):
     # to the vm
     if compiled == nil:
         return COMPILE_ERROR
-    self.push(Value(kind: OBJECT, obj: compiled))
-    discard self.callValue(Value(kind: OBJECT, obj: compiled), 0)
+    self.push(Value(kind: ValueType.Object, obj: compiled))
+    discard self.callValue(Value(kind: ValueType.Object, obj: compiled), 0)
     when DEBUG_TRACE_VM:
         echo "==== VM debugger starts ====\n"
     try:

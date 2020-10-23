@@ -19,13 +19,11 @@
 # code objects that can be compiled inside the JAPL runtime, pretty much
 # like in Python
 
-import objecttype
 import stringtype
 import strformat
 import ../memory
-import ../meta/chunk
-import ../meta/valueobject
-import tables
+import ../meta/opcode
+import japlvalue
 
 
 type
@@ -43,7 +41,7 @@ proc newFunction*(name: string = "", chunk: Chunk = newChunk(), arity: int = 0):
     result.chunk = chunk
 
 
-proc isFalsey*(fn: Function): bool =
+proc isFalsey*(fn: ptr Function): bool =
     return false
 
 

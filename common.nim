@@ -13,11 +13,10 @@
 # limitations under the License.
 
 
-import tables
-import strutils
-import meta/valueobject
 import meta/tokenobject
-import types/objecttype
+import types/japlvalue
+import types/function
+import tables
 
 
 const FRAMES_MAX* = 400  # TODO: Inspect why the VM crashes if this exceeds 400
@@ -89,31 +88,6 @@ proc delete*(self: CallFrame, idx: int) =
     self.stack.delete(idx)
 
 
-func stringify*(value: Value): string =
-    case value.kind:
-        of INTEGER:
-            result = $value.toInt()
-        of DOUBLE:
-            result = $value.toFloat()
-        of BOOL:
-            result = $value.toBool()
-        of NIL:
-            result = "nil"
-        of OBJECT:
-            case value.obj.kind:
-                of ObjectType.String:
-                    result = cast[ptr String](value.obj).stringify
-                of ObjectType.Function:
-                    result = cast[ptr Function](value.obj).stringify
-                else:
-                    result = value.obj.stringify()
-        of ValueType.Nan:
-            result = "nan"
-        of ValueType.Inf:
-            result = "inf"
-        of MINF:
-            result = "-inf"
-
 
 ## TODO: Move this stuff back to their respective module
 
@@ -131,16 +105,16 @@ proc hashFloat(f: float): uint32 =
 # TODO: Move this into an hash() method for objects
 proc hash*(value: Value): uint32 =
     case value.kind:
-        of INTEGER:
+        of ValueType.Integer:
             result = uint32 value.toInt()
-        of BOOL:
+        of ValueType.Bool:
             if value.boolValue:
                 result = uint32 1
             else:
                 result = uint32 0
-        of DOUBLE:
+        of ValueType.Double:
             result = hashFloat(value.toFloat())
-        of OBJECT:
+        of ValueType.Object:
             case value.obj.kind:
                 of ObjectType.String:
                     result = hash(cast[ptr String](value.obj))
@@ -149,79 +123,4 @@ proc hash*(value: Value): uint32 =
         else:   # More coming soon
             result = uint32 0
 
-
-# TODO: Move this into a bool() method for objects
-func isFalsey*(value: Value): bool =
-    case value.kind:
-        of BOOL:
-            result = not value.toBool()
-        of OBJECT:
-            case value.obj.kind:
-                of ObjectType.String:
-                    result = cast[ptr String](value.obj).isFalsey()
-                of ObjectType.Function:
-                    result = cast[ptr Function](value.obj).isFalsey()
-                else:
-                    result = isFalsey(value.obj)
-        of INTEGER:
-            result = value.toInt() == 0
-        of DOUBLE:
-            result = value.toFloat() == 0.0
-        of NIL:
-            result = true
-        of ValueType.Inf, ValueType.Minf:
-            result = false
-        of ValueType.Nan:
-            result = true
-
-
-# TODO: Move this to a toString() method for objects
-func typeName*(value: Value): string =
-    case value.kind:
-        of ValueType.Bool, ValueType.Nil, ValueType.Double,
-          ValueType.Integer, ValueType.Nan, ValueType.Inf:
-            result = ($value.kind).toLowerAscii()
-        of MINF:
-           result = "inf"
-        of OBJECT:
-            case value.obj.kind:
-                of ObjectType.String:
-                    result = cast[ptr String](value.obj).typeName()
-                of ObjectType.Function:
-                    result = cast[ptr Function](value.obj).typeName()
-                else:
-                    result = value.obj.typeName()
-
-# TODO: Move this to a eq() method for objects
-proc valuesEqual*(a: Value, b: Value): bool =
-    if a.kind != b.kind:
-        result = false
-    else:
-        case a.kind:
-            of BOOL:
-                result = a.toBool() == b.toBool()
-            of NIL:
-                result = true
-            of INTEGER:
-                result = a.toInt() == b.toInt()
-            of DOUBLE:
-                result = a.toFloat() == b.toFloat()
-            of OBJECT:
-                case a.obj.kind:
-                    of ObjectType.String:
-                        var a = cast[ptr String](a.obj)
-                        var b = cast[ptr String](b.obj)
-                        result = valuesEqual(a, b)
-                    of ObjectType.Function:
-                        var a = cast[ptr Function](a.obj)
-                        var b = cast[ptr Function](b.obj)
-                        result = valuesEqual(a, b)
-                    else:
-                        result = valuesEqual(a.obj, b.obj)
-            of ValueType.Inf:
-                result = b.kind == ValueType.Inf
-            of MINF:
-                result = b.kind == ValueType.Minf
-            of ValueType.Nan:
-                result = false
 

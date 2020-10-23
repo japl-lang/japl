@@ -15,8 +15,9 @@
 ## This module takes chunks of bytecode, and prints their contents to the
 ## screen.
 
-import ../meta/chunk
-import ../common
+import ../meta/opcode
+import ../types/japlvalue
+import ../types/operations
 import strformat
 
 
@@ -38,7 +39,7 @@ proc constantLongInstruction(name: string, chunk: Chunk, offset: int): int =
     var constant: int
     copyMem(constant.addr, unsafeAddr(constantArray), sizeof(constantArray))
     echo &"\tInstruction at IP: {name}, points to slot {constant}"
-    let obj = chunk.consts.values[constant]
+    let obj = chunk.consts[constant]
     echo &"\tOperand: {stringify(obj)}\n\tValue kind: {obj.kind}\n"
     return offset + 4
 
@@ -46,7 +47,7 @@ proc constantLongInstruction(name: string, chunk: Chunk, offset: int): int =
 proc constantInstruction(name: string, chunk: Chunk, offset: int): int =
     var constant = chunk.code[offset + 1]
     echo &"\tInstruction at IP: {name}, points to index {constant}"
-    let obj = chunk.consts.values[constant]
+    let obj = chunk.consts[constant]
     echo &"\tOperand: {stringify(obj)}\n\tValue kind: {obj.kind}\n"
     return offset + 2
 

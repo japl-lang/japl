@@ -20,14 +20,13 @@ import algorithm
 import strformat
 import lexer
 import common
-import meta/chunk
+import meta/opcode
 import meta/tokenobject
-import meta/valueobject
 import meta/tokentype
 import meta/looptype
+import types/japlvalue
 import types/stringtype
-import types/functiontype
-import types/objecttype
+import types/function
 import tables
 when isMainModule:
     import util/debug
@@ -177,7 +176,7 @@ proc makeLongConstant(self: ref Compiler, val: Value): array[3, uint8] =
 proc emitConstant(self: ref Compiler, value: Value) =
     ## Emits a Constant or ConstantLong instruction along
     ## with its operand
-    if self.currentChunk().consts.values.len > 255:
+    if self.currentChunk().consts.len > 255:
         self.emitByte(OpCode.ConstantLong)
         self.emitBytes(self.makeLongConstant(value))
     else:
@@ -581,7 +580,7 @@ proc varDeclaration(self: ref Compiler) =
     var shortName: uint8
     var longName: array[3, uint8]
     var useShort: bool = true
-    if self.currentChunk.consts.values.len < 255:
+    if self.currentChunk.consts.len < 255:
         shortName = self.parseVariable("Expecting variable name")
     else:
         useShort = false
@@ -617,7 +616,7 @@ proc deleteVariable(self: ref Compiler, canAssign: bool) =
     else:
         code = OpCode.DeleteLocal
         self.localCount = self.localCount - 1
-    if self.currentChunk.consts.values.len < 255:
+    if self.currentChunk.consts.len < 255:
         var name = self.identifierConstant(self.parser.previous())
         self.emitBytes(code, name)
     else:
@@ -900,7 +899,7 @@ proc parseFunction(self: ref Compiler, funType: FunctionType) =
     self.parseBlock()
     var fun = self.endCompiler()
     self = self.enclosing
-    if self.currentChunk.consts.values.len < 255:
+    if self.currentChunk.consts.len < 255:
         self.emitBytes(OpCode.Constant, self.makeConstant(Value(kind: OBJECT, obj: fun)))
     else:
         self.emitByte(OpCode.ConstantLong)
