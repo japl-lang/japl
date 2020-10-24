@@ -23,7 +23,6 @@
 
 
 import segfaults
-import types/japlvalue
 
 
 proc reallocate*(pointr: pointer, oldSize: int, newSize: int): pointer =
@@ -67,15 +66,3 @@ template growCapacity*(capacity: int): untyped =
 template allocate*(castTo: untyped, sizeTo: untyped, count: int): untyped =
     ## Allocates an object and casts its pointer to the specified type
     cast[ptr castTo](reallocate(nil, 0, sizeof(sizeTo) * count))
-
-
-proc allocateObject*(size: int, kind: ObjectType): ptr Obj =
-    ## Wrapper around reallocate to create a new generic JAPL object
-    result = cast[ptr Obj](reallocate(nil, 0, size))
-    result.kind = kind
-
-
-template allocateObj*(kind: untyped, objType: ObjectType): untyped =
-    ## Wrapper around allocateObject to cast a generic object
-    ## to a more specific type
-    cast[ptr kind](allocateObject(sizeof kind, objType))

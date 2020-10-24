@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-## Base structure for values and objects in JAPL, all
+## Base structure for objs and objects in JAPL, all
 ## types inherit from this simple structure
 
 import tables
+import ../memory
 
 type
     Chunk* = ref object
@@ -23,58 +24,46 @@ type
         ## Consts represents the constants the code is referring to
         ## Code represents the bytecode
         ## Lines represents which lines the corresponding bytecode was one (1 to 1 correspondence)
-        consts*: seq[Value]
+        consts*: seq[ptr Obj]
         code*: seq[uint8]
         lines*: seq[int]
-        
-    ValueType* {.pure.} = enum
-      # All possible value types (this is the VM's notion of 'type', not the end user's)
-      Integer, Double, Bool, Nil, Object, Nan, Inf, Minf
-    Value* = object
-        ## Represents an internal JAPL type
-        case kind*: ValueType
-            of ValueType.Integer:
-                intValue*: int
-            of ValueType.Double:
-                floatValue*: float
-            of ValueType.Bool:
-                boolValue*: bool
-            of ValueType.Nil, ValueType.Inf, ValueType.Nan, ValueType.Minf:
-                discard
-            of ValueType.Object:
-                obj*: ptr Obj
-
     ObjectType* {.pure.} = enum
         ## All the possible object types
         String, Exception, Function,
-        Class, Module, BaseObject
+        Class, Module, BaseObject,
+        Integer, Float, Bool, Nan,
+        Infinity, Nil
     Obj* = object of RootObj
         # The object that rules them all
         kind*: ObjectType
-        hashValue*: uint32
+        hashobj*: uint32
     String* = object of Obj    # A string object
         str*: ptr UncheckedArray[char]  # TODO -> Unicode support
         len*: int
     Integer* = object of Obj
         # An integer object
         intValue: int  # TODO: Bignum arithmetic
-    Float* = object of Obj
+    Bool* = object of Integer
+        boolValue: bool  # If the boolean is true or false
+    Nil* = object of Bool
+    Float* = object of Integer
         # A float object
         floatValue: float
-    JAPLInf* = object of Float   # Inf is considered a float
-    JAPLNan* = object of Obj     # While (logically) NaN is a separate type altogether
+    Infinity* = object of Float   # Inf is considered a float
+        isNegative: bool  # This differentiates inf and -inf
+    NotANumber* = object of Float     # NaN is as well (IEEE 754)
     Function* = object of Obj
         name*: ptr String
         arity*: int
         optionals*: int
-        defaults*: Table[string, Value]
+        defaults*: seq[ptr Obj]
         chunk*: Chunk
     JAPLException* = object of Obj
         errName*: ptr String
         message*: ptr String
 
 
-proc `convert`(a: ptr Obj): ptr Obj =
+proc `convert`*(a: ptr Obj): ptr Obj =
     ## Performs conversions from a JAPL
     ## supertype to a subtype
     
@@ -83,11 +72,35 @@ proc `convert`(a: ptr Obj): ptr Obj =
             result = cast[ptr String](a)
         of ObjectType.Function:
             result = cast[ptr Function](a)
-        of ObjectType.Class, ObjectType.Module, ObjectType.BaseObject:
+        of ObjectType.Integer:
+            result = cast[ptr Integer](a)
+        of ObjectType.Float:
+            result = cast[ptr Float](a)
+        of ObjectType.Bool:
+            result = cast[ptr Bool](a)
+        of ObjectType.Nan:
+            result = cast[ptr NotANumber](a)
+        of ObjectType.Infinity:
+            result = cast[ptr Infinity](a)
+        of ObjectType.BaseObject:
+            result = cast[ptr Obj](a)
+        of ObjectType.Class, ObjectType.Module:
             discard  # TODO: Implement
         else:
             raise newException(Exception, "Attempted JAPL type conversion with unknown source object")
 
+
+
+proc allocateObject*(size: int, kind: ObjectType): ptr Obj =
+    ## Wrapper around reallocate to create a new generic JAPL object
+    result = cast[ptr Obj](reallocate(nil, 0, size))
+    result.kind = kind
+
+
+template allocateObj*(kind: untyped, objType: ObjectType): untyped =
+    ## Wrapper around allocateObject to cast a generic object
+    ## to a more specific type
+    cast[ptr kind](allocateObject(sizeof kind, objType))
 
 proc objType*(obj: ptr Obj): ObjectType =
     ## Returns the type of the object
@@ -117,7 +130,7 @@ proc typeName*(obj: ptr Obj): string =
 # TODO migrate to operations
 proc bool*(obj: ptr Obj): bool =
     ## Returns wheter the object should
-    ## be considered a falsey value
+    ## be considered a falsey obj
     ## or not. Returns true if the
     ## object is truthy, or false
     ## if it is falsey
@@ -126,6 +139,7 @@ proc bool*(obj: ptr Obj): bool =
         result = newObj.bool()
     else:
         result = false
+
 
 # TODO migrate to operations
 proc eq*(a: ptr Obj, b: ptr Obj): bool =
@@ -197,98 +211,95 @@ proc binaryXor(self, other: ptr Obj): ptr Obj =
     result = nil
 
     
-func isNil*(value: Value): bool =
-    ## Returns true if the given value
+func isNil*(obj: ptr Obj): bool =
+    ## Returns true if the given obj
     ## is a JAPL nil object
-    result = value.kind == ValueType.Nil
+    result = obj.kind == ObjectType.Nil
 
 
-func isBool*(value: Value): bool =
-    ## Returns true if the given value
+func isBool*(obj: ptr Obj): bool =
+    ## Returns true if the given obj
     ## is a JAPL bool
-    result = value.kind == ValueType.Bool
+    result = obj.kind == ObjectType.Bool
 
 
-func isInt*(value: Value): bool =
-    ## Returns true if the given value
+func isInt*(obj: ptr Obj): bool =
+    ## Returns true if the given obj
     ## is a JAPL integer
-    result = value.kind == ValueType.Integer
+    result = obj.kind == ObjectType.Integer
 
 
-func isFloat*(value: Value): bool =
-    ## Returns true if the given value
+func isFloat*(obj: ptr Obj): bool =
+    ## Returns true if the given obj
     ## is a JAPL float
-    result = value.kind == ValueType.Double
+    result = obj.kind == ObjectType.Float
 
 
-func isInf*(value: Value): bool =
-    ## Returns true if the given value
+func isInf*(obj: ptr Obj): bool =
+    ## Returns true if the given obj
     ## is a JAPL inf object
-    result = value.kind == ValueType.Inf or value.kind == ValueType.Minf
+    result = obj.kind == ObjectType.Infinity
 
 
-func isNan*(value: Value): bool =
-    ## Returns true if the given value
+func isNan*(obj: ptr Obj): bool =
+    ## Returns true if the given obj
     ## is a JAPL nan object
-    result = value.kind == ValueType.Nan
+    result = obj.kind == ObjectType.Nan
 
 
-func isNum*(value: Value): bool =
-    ## Returns true if the given value is
+func isNum*(obj: ptr Obj): bool =
+    ## Returns true if the given obj is
     ## either a JAPL number, nan or inf
-    result = isInt(value) or isFloat(value) or isInf(value) or isNan(value)
+    result = isInt(obj) or isFloat(obj) or isInf(obj) or isNan(obj)
 
 
-func isObj*(value: Value): bool =
-    ## Returns if the current value is a JAPL object
-    result = value.kind == ValueType.Object
 
-
-func isStr*(value: Value): bool =
+func isStr*(obj: ptr Obj): bool =
     ## Returns true if the given object is a JAPL string
-    result = isObj(value) and value.obj.kind == ObjectType.String
+    result = obj.kind == ObjectType.String
 
 
-func toBool*(value: Value): bool =
+func toBool*(obj: ptr Obj): bool =
     ## Converts a JAPL bool to a nim bool
-    result = value.boolValue
+    result = cast[ptr Bool](obj).boolValue
 
 
-func toInt*(value: Value): int =
+func toInt*(obj: ptr Obj): int =
     ## Converts a JAPL int to a nim int
-    result = value.intValue
+    result = cast[ptr Integer](obj).intValue
 
 
-func toFloat*(value: Value): float =
+func toFloat*(obj: ptr Obj): float =
     ## Converts a JAPL float to a nim float
-    result = value.floatValue
+    result = cast[ptr Float](obj).floatValue
 
-# TODO ambiguous naming: conflict with toString(value: Value) that does JAPL->JAPL
-func toStr*(value: Value): string =
+# TODO ambiguous naming: conflict with toString(obj: obj) that does JAPL->JAPL
+func toStr*(obj: ptr Obj): string =
     ## Converts a JAPL string into a nim string
-    var strObj = cast[ptr String](value.obj)
+    var strObj = cast[ptr String](obj)
     for i in 0..strObj.str.len - 1:
         result.add(strObj.str[i])
 
 
-func asInt*(n: int): Value =
+func asInt*(n: int): ptr Obj =
     ## Creates an int object
-    result = Value(kind: ValueType.Integer, intValue: n)
+    result = allocateOb
 
 
-func asFloat*(n: float): Value =
+func asFloat*(n: float): ptr Obj =
     ## Creates a float object (double)
-    result = Value(kind: ValueType.Double, floatValue: n)
+    result = obj(kind: objType.Double, floatobj: n)
 
 
-func asBool*(b: bool): Value =
+func asBool*(b: bool): ptr Obj =
     ## Creates a boolean object
-    result = Value(kind: ValueType.Bool, boolValue: b)
+    result = obj(kind: objType.Bool, boolobj: b)
 
-func asValue*(obj: ptr Obj): Value =
-    ## Creates a Value object of ValueType.Object as type and obj (arg 1) as
+
+func asObj*(obj: ptr Obj): obj =
+    ## Creates a object of ObjectType.BaseObject as type and obj (arg 1) as
     ## contained obj
 
-    result = Value(kind: ValueType.Object, obj: obj)
+    result = Object(kind: objType.Object, obj: obj)
 
 
