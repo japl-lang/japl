@@ -154,7 +154,7 @@ proc slice(self: var VM): bool =
                     self.error(newIndexError("string index out of bounds"))
                     return false
                 else:
-                    self.push(addObject(addr self, jstring.newString(&"{str[index]}")))
+                    self.push(addObject(addr self, jobject.newString(&"{str[index]}")))
                     return true
         else:
             self.error(newTypeError(&"unsupported slicing for object of type '{peeked.typeName()}'"))
@@ -185,14 +185,14 @@ proc sliceRange(self: var VM): bool =
                     if startIndex < 0:
                         sliceStart = (len(str) + sliceEnd.toInt()).asInt()
                 elif startIndex - 1 > len(str) - 1:
-                    self.push(addObject(addr self, jstring.newString("")))
+                    self.push(addObject(addr self, jobject.newString("")))
                     return true
                 if endIndex - 1 > len(str) - 1:
                     sliceEnd = len(str).asInt()
                 if startIndex > endIndex:
-                    self.push(addObject(addr self, jstring.newString("")))
+                    self.push(addObject(addr self, jobject.newString("")))
                     return true
-                self.push(addObject(addr self, jstring.newString(str[sliceStart.toInt()..<sliceEnd.toInt()])))
+                self.push(addObject(addr self, jobject.newString(str[sliceStart.toInt()..<sliceEnd.toInt()])))
                 return true
         else:
             self.error(newTypeError(&"unsupported slicing for object of type '{popped.typeName()}'"))
