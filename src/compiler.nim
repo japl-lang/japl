@@ -16,6 +16,7 @@
 
 
 import strutils
+import sequtils
 import algorithm
 import strformat
 import lexer
@@ -26,6 +27,7 @@ import types/jobject
 import types/jstring
 import types/function
 import tables
+import config
 when isMainModule:
     import util/debug
 
@@ -150,6 +152,8 @@ proc compileError(self: ref Compiler, message: string) =
 proc emitByte(self: ref Compiler, byt: OpCode|uint8) =
     ## Emits a single bytecode instruction and writes it
     ## to the current chunk being compiled
+    when DEBUG_TRACE_COMPILER:
+        echo "Compiler.emitByte byt:" & $byt & " (uint8 value of " & $(uint8 byt) & ")"
 
     self.currentChunk.writeChunk(uint8 byt, self.parser.previous.line)
 
@@ -668,10 +672,15 @@ proc endScope(self: ref Compiler) =
     ## Ends a scope, popping off any local that
     ## was created inside it along the way
     self.scopeDepth = self.scopeDepth - 1
+
+    var start: Natural = self.localCount
+
     while self.localCount > 0 and self.locals[self.localCount - 1].depth > self.scopeDepth:
         self.emitByte(OpCode.Pop)
         self.localCount = self.localCount - 1
 
+    if start >= self.localCount:
+        self.locals.delete(self.localCount, start)
 
 proc emitJump(self: ref Compiler, opcode: OpCode): int =
     ## Emits a jump instruction with a placeholder offset
