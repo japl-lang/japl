@@ -80,11 +80,6 @@ const byteInstructions* = {OpCode.SetLocal, OpCode.GetLocal, OpCode.DeleteLocal,
 const jumpInstructions* = {OpCode.JumpIfFalse, OpCode.Jump, OpCode.Loop}
 
 
-proc newChunk*(): Chunk =
-    ## The constructor for the type Chunk
-    result = Chunk(consts: @[], code: @[], lines: @[])
-
-
 proc writeChunk*(self: Chunk, newByte: uint8, line: int) =
     ## Appends newByte at line to a chunk.
     self.code.add(newByte)

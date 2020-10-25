@@ -17,8 +17,8 @@
 const FRAMES_MAX* = 400  # TODO: Inspect why the VM crashes if this exceeds 400
 const JAPL_VERSION* = "0.2.0"
 const JAPL_RELEASE* = "alpha"
-const DEBUG_TRACE_VM* = false   # Traces VM execution
+const DEBUG_TRACE_VM* = false  # Traces VM execution
 const DEBUG_TRACE_GC* = true    # Traces the garbage collector (TODO)
 const DEBUG_TRACE_ALLOCATION* = true   # Traces memory allocation/deallocation (WIP)
-const DEBUG_TRACE_COMPILER* = true   # Traces the compiler (TODO)
+const DEBUG_TRACE_COMPILER* = false   # Traces the compiler (WIP)
 
