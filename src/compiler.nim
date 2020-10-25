@@ -24,8 +24,6 @@ import meta/opcode
 import meta/token
 import meta/looptype
 import types/jobject
-import types/jstring
-import types/function
 import tables
 import config
 when isMainModule:
@@ -1081,6 +1079,9 @@ proc getRule(kind: TokenType): ParseRule =
 
 
 proc compile*(self: ref Compiler, source: string): ptr Function =
+    when DEBUG_TRACE_COMPILER:
+        echo "==== COMPILER debugger starts ===="
+        echo ""
     ## Compiles a source string into a function
     ## object. This wires up all the code
     ## inside the parser and the lexer
@@ -1090,10 +1091,19 @@ proc compile*(self: ref Compiler, source: string): ptr Function =
         self.parser = initParser(tokens, self.file)
         while not self.parser.match(EOF):
             self.declaration()
+
         var function = self.endCompiler()
+        when DEBUG_TRACE_COMPILER:
+            echo "==== COMPILER debugger ends ===="
+            echo ""
+
         if not self.parser.hadError:
+            when DEBUG_TRACE_COMPILER:
+                echo "Result: Ok"
             return function
         else:
+            when DEBUG_TRACE_COMPILER:
+                echo "Result: Fail"
             return nil
     else:
         return nil
@@ -1126,10 +1136,10 @@ proc initCompiler*(context: FunctionType, enclosing: ref Compiler = nil, parser:
 # This way the compiler can be executed on its own
 # without the VM
 when isMainModule:
-    var compiler: ref Compiler = initCompiler(SCRIPT, file="test")
     echo "JAPL Compiler REPL"
     while true:
         try:
+            var compiler: ref Compiler = initCompiler(SCRIPT, file="test")
             stdout.write("=> ")
             var compiled = compiler.compile(stdin.readLine())
             if compiled != nil:

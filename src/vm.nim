@@ -24,10 +24,7 @@ import compiler
 import tables
 import meta/opcode
 import meta/frame
-import types/exceptions
 import types/jobject
-import types/jstring
-import types/function
 import memory
 when DEBUG_TRACE_VM:
     import util/debug
@@ -41,10 +38,10 @@ proc `**`(a, b: float): float = pow(a, b)
 type
     KeyboardInterrupt* = object of CatchableError
 
-    InterpretResult = enum
-        OK,
-        COMPILE_ERROR,
-        RUNTIME_ERROR
+    InterpretResult {.pure.} = enum
+        Ok,
+        CompileError,
+        RuntimeError
     VM* = ref object    # The VM object
         lastPop*: ptr Obj
         frameCount*: int

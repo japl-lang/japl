@@ -16,7 +16,6 @@
 ## types inherit from this simple structure
 
 import ../memory
-import ../meta/opcode
 import strformat
 
 
@@ -63,6 +62,11 @@ type
     JAPLException* = object of Obj
         errName*: ptr String
         message*: ptr String
+
+
+proc newChunk*(): Chunk =
+    ## The constructor for the type Chunk
+    result = Chunk(consts: @[], code: @[], lines: @[])
 
 
 proc allocateObject*(size: int, kind: ObjectType): ptr Obj =
@@ -152,8 +156,8 @@ proc stringify(self: ptr Float): string =
 # Function object methods
 
 type
-    FunctionType* = enum
-        FUNC, SCRIPT
+    FunctionType* {.pure.} = enum
+        Func, Script
 
 
 proc newFunction*(name: string = "", chunk: Chunk = newChunk(), arity: int = 0): ptr Function =
@@ -394,7 +398,7 @@ proc asNan*(): ptr NotANumber =
     result = allocateObj(NotANumber, ObjectType.Nan)
 
 
-proc asInf*(): ptr Infinity = 
+proc asInf*(): ptr Infinity =
     ## Creates a nil object
     result = allocateObj(Infinity, ObjectType.Infinity)
 
@@ -403,4 +407,32 @@ proc asObj*(obj: ptr Obj): ptr Obj =
     ## Creates a generic JAPL object
     result = allocateObj(Obj, ObjectType.BaseObject)
 
+proc newIndexError*(message: string): ptr JAPLException =
+    result = allocateObj(JAPLException, ObjectType.Exception)
+    result.errName = newString("IndexError")
+    result.message = newString(message)
 
+
+proc newReferenceError*(message: string): ptr JAPLException =
+    result = allocateObj(JAPLException, ObjectType.Exception)
+    result.errName = newString("ReferenceError")
+    result.message = newString(message)
+
+
+proc newInterruptedError*(message: string): ptr JAPLException =
+    result = allocateObj(JAPLException, ObjectType.Exception)
+    result.errName = newString("InterruptedError")
+    result.message = newString(message)
+
+
+proc newRecursionError*(message: string): ptr JAPLException =
+    result = allocateObj(JAPLException, ObjectType.Exception)
+    result.errName = newString("RecursionError")
+    result.message = newString(message)
+
+
+
+proc newTypeError*(message: string): ptr JAPLException =
+    result = allocateObj(JAPLException, ObjectType.Exception)
+    result.errName = newString("TypeError")
+    result.message = newString(message)
