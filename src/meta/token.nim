@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Token types enumeration
+# Token object
 
 type
-  TokenType* = enum
+  TokenType* {.pure.} = enum
+    # Token types enumeration
     PLUS, MINUS, SLASH, STAR,
     NEG, NE, EQ, DEQ, LT, GE,
     LE, MOD, POW, GT, LP, RP, LS
@@ -29,3 +30,7 @@ type
     COLON, CONTINUE, CARET,
     SHL, SHR, NAN, INF, BAND,
     BOR, TILDE
+  Token* = ref object
+    kind*: TokenType
+    lexeme*: string
+    line*: int

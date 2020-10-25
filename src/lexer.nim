@@ -17,20 +17,17 @@
 ## This module has been designed to be easily extendible in its functionality
 ## given that JAPL is in a state of high activity and many features are
 ## being added along the way. To add support for a new keyword, just create
-## an appropriate TokenType entry in the enum in the file at meta/tokentype.nim
+## an appropriate TokenType entry in the enum in the file at meta/token.nim
 ## and then add it to the constant RESERVED table. A similar approach applies for
 ## other tokens, but multi-character ones require more tweaking.
 ## Since this lexer scans the given source string character by character, unicode
-## identifiers are not supported
+## identifiers are not supported (and are not planned to be anytime soon)
 
-import system
 import strutils
 import strformat
 import tables
-import meta/tokentype
-import meta/tokenobject
-import types/stringtype
-import types/japlvalue
+import meta/token
+
 
 # Table of all tokens except reserved keywords
 const TOKENS = to_table({
@@ -126,11 +123,10 @@ proc peekNext(self: Lexer): char =
         result = self.source[self.current + 1]
 
 
-proc createToken(self: var Lexer, tokenType: TokenType, literal: Value): Token =
+proc createToken(self: var Lexer, tokenType: TokenType): Token =
     ## Creates a token object for later use in the parser
     result = Token(kind: tokenType,
                    lexeme: self.source[self.start..<self.current],
-                   literal: literal,
                    line: self.line
                    )
 
@@ -145,31 +141,19 @@ proc parseString(self: var Lexer, delimiter: char) =
         stderr.write(&"A fatal error occurred while parsing '{self.file}', line {self.line} at '{self.peek()}' -> Unterminated string literal\n")
         self.errored = true
     discard self.step()
-    let value = self.source[self.start..<self.current].asStr() # Get the value between quotes
-    let token = self.createToken(STR, value)
+    let token = self.createToken(TokenType.STR)
     self.tokens.add(token)
 
 
 proc parseNumber(self: var Lexer) =
     ## Parses numeric literals
-    # TODO: Move the integer conversion to the
-    # compiler for finer error reporting and
-    # handling
     while isDigit(self.peek()):
         discard self.step()
-    try:
         if self.peek() == '.':
             discard self.step()
             while self.peek().isDigit():
                 discard self.step()
-            var value = parseFloat(self.source[self.start..<self.current]).asFloat()
-            self.tokens.add(self.createToken(TokenType.NUMBER, value))
-        else:
-            var value = parseInt(self.source[self.start..<self.current]).asInt()
-            self.tokens.add(self.createToken(TokenType.NUMBER, value))
-    except ValueError:
-        stderr.write(&"A fatal error occurred while parsing '{self.file}', line {self.line} at '{self.peek()}' -> integer is too big to convert to int64\n")
-        self.errored = true
+    self.tokens.add(self.createToken(TokenType.NUMBER))
 
 
 proc parseIdentifier(self: var Lexer) =
@@ -179,11 +163,10 @@ proc parseIdentifier(self: var Lexer) =
     while self.peek().isAlphaNumeric():
         discard self.step()
     var text: string = self.source[self.start..<self.current]
-    var keyword = text in RESERVED
-    if keyword:
-        self.tokens.add(self.createToken(RESERVED[text], text.asStr()))
+    if text in RESERVED:
+        self.tokens.add(self.createToken(RESERVED[text]))
     else:
-        self.tokens.add(self.createToken(ID, text.asStr()))
+        self.tokens.add(self.createToken(TokenType.ID))
 
 
 proc parseComment(self: var Lexer) =
@@ -191,6 +174,8 @@ proc parseComment(self: var Lexer) =
     ## with /* and end with */, and can be nested.
     ## A missing comment terminator will raise an
     ## error
+    # TODO: Multi-line comments should be syntactically
+    # relevant for documenting modules/functions/classes
     var closed = false
     while not self.done():
         var finish = self.peek() & self.peekNext()
@@ -231,21 +216,21 @@ proc scanToken(self: var Lexer) =
         elif single == '/' and self.match('*'):
             self.parseComment()
         elif single == '=' and self.match('='):
-            self.tokens.add(self.createToken(DEQ, "==".asStr()))
+            self.tokens.add(self.createToken(TokenType.DEQ))
         elif single == '>' and self.match('='):
-            self.tokens.add(self.createToken(GE, ">=".asStr()))
+            self.tokens.add(self.createToken(TokenType.GE))
         elif single == '>' and self.match('>'):
-            self.tokens.add(self.createToken(SHR, ">>".asStr()))
+            self.tokens.add(self.createToken(TokenType.SHR))
         elif single == '<' and self.match('='):
-            self.tokens.add(self.createToken(LE, "<=".asStr()))
+            self.tokens.add(self.createToken(TokenType.LE))
         elif single == '<' and self.match('<'):
-            self.tokens.add(self.createToken(SHL, ">>".asStr()))
+            self.tokens.add(self.createToken(TokenType.SHL))
         elif single == '!' and self.match('='):
-            self.tokens.add(self.createToken(NE, "!=".asStr()))
+            self.tokens.add(self.createToken(TokenType.NE))
         elif single == '*' and self.match('*'):
-            self.tokens.add(self.createToken(POW, "**".asStr()))
+            self.tokens.add(self.createToken(TokenType.POW))
         else:
-            self.tokens.add(self.createToken(TOKENS[single], asStr(&"{single}")))
+            self.tokens.add(self.createToken(TOKENS[single]))
     else:
         self.errored = true
         stderr.write(&"A fatal error occurred while parsing '{self.file}', line {self.line} at '{self.peek()}' -> Unexpected token '{single}'\n")
@@ -257,6 +242,6 @@ proc lex*(self: var Lexer): seq[Token] =
     while not self.done():
         self.start = self.current
         self.scanToken()
-    self.tokens.add(Token(kind: EOF, lexeme: "EOF", literal: Value(kind: ValueType.Nil), line: self.line))
+    self.tokens.add(Token(kind: TokenType.EOF, lexeme: "EOF", line: self.line))
     return self.tokens
 

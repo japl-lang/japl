@@ -19,13 +19,11 @@ import strutils
 import algorithm
 import strformat
 import lexer
-import common
 import meta/opcode
-import meta/tokenobject
-import meta/tokentype
+import meta/token
 import meta/looptype
-import types/japlvalue
-import types/stringtype
+import types/jobject
+import types/jstring
 import types/function
 import tables
 when isMainModule:
@@ -44,6 +42,18 @@ type
         loop*: Loop
         objects*: seq[ptr Obj]
         file*: string
+
+    Local* = ref object   # A local variable
+       name*: Token
+       depth*: int
+
+    Parser* = ref object  # A Parser object
+        current*: int
+        tokens*: seq[Token]
+        hadError*: bool
+        panicMode*: bool
+        file*: string
+
     Precedence {.pure.} = enum
         None,
         Assignment,
@@ -160,29 +170,30 @@ proc emitBytes(self: ref Compiler, bytarr: array[3, uint8]) =
     self.emitByte(bytarr[2])
 
 
-proc makeConstant(self: ref Compiler, val: Value): uint8 =
+proc makeConstant(self: ref Compiler, obj: ptr Obj): uint8 =
     ## Adds a constant (literal) to the current chunk's
     ## constants table
-    result = uint8 self.currentChunk.addConstant(val)
+    result = uint8 self.currentChunk.addConstant(obj)
 
 
-proc makeLongConstant(self: ref Compiler, val: Value): array[3, uint8] =
+proc makeLongConstant(self: ref Compiler, val: ptr Obj): array[3, uint8] =
     ## Does the same as makeConstant(), but encodes the index in the
     ## chunk's constant table as an array (which is later reconstructed
     ## into an integer at runtime) to store more than 256 constants in the table
     result = self.currentChunk.writeConstant(val)
 
 
-proc emitConstant(self: ref Compiler, value: Value) =
+proc emitConstant(self: ref Compiler, obj: ptr Obj) =
     ## Emits a Constant or ConstantLong instruction along
     ## with its operand
     if self.currentChunk().consts.len > 255:
         self.emitByte(OpCode.ConstantLong)
-        self.emitBytes(self.makeLongConstant(value))
+        self.emitBytes(self.makeLongConstant(obj))
     else:
-        self.emitBytes(OpCode.Constant, self.makeConstant(value))
+        self.emitBytes(OpCode.Constant, self.makeConstant(obj))
 
 
+proc initParser*(tokens: seq[Token], file: string): Parser
 proc getRule(kind: TokenType): ParseRule  # Forward declarations for later use
 proc statement(self: ref Compiler)
 proc declaration(self: ref Compiler)
@@ -236,39 +247,39 @@ proc binary(self: ref Compiler, canAssign: bool) =
     var rule = getRule(operator)
     self.parsePrecedence(Precedence((int rule.precedence) + 1))
     case operator:
-        of PLUS:
+        of TokenType.PLUS:
             self.emitByte(OpCode.Add)
-        of MINUS:
+        of TokenType.MINUS:
             self.emitByte(OpCode.Subtract)
-        of SLASH:
+        of TokenType.SLASH:
             self.emitByte(OpCode.Divide)
-        of STAR:
+        of TokenType.STAR:
             self.emitByte(OpCode.Multiply)
-        of MOD:
+        of TokenType.MOD:
             self.emitByte(OpCode.Mod)
-        of POW:
+        of TokenType.POW:
             self.emitByte(OpCode.Pow)
-        of NE:
+        of TokenType.NE:
             self.emitBytes(OpCode.Equal, OpCode.Not)
-        of DEQ:
+        of TokenType.DEQ:
             self.emitByte(OpCode.Equal)
-        of GT:
+        of TokenType.GT:
             self.emitByte(OpCode.Greater)
-        of GE:
+        of TokenType.GE:
             self.emitBytes(OpCode.Less, OpCode.Not)
-        of LT:
+        of TokenType.LT:
             self.emitByte(OpCode.Less)
-        of LE:
+        of TokenType.LE:
             self.emitBytes(OpCode.Greater, OpCode.Not)
-        of CARET:
+        of TokenType.CARET:
            self.emitByte(OpCode.Xor)
-        of SHL:
+        of TokenType.SHL:
             self.emitByte(OpCode.Shl)
-        of SHR:
+        of TokenType.SHR:
             self.emitByte(OpCode.Shr)
-        of BOR:
+        of TokenType.BOR:
             self.emitByte(OpCode.Bor)
-        of BAND:
+        of TokenType.BAND:
             self.emitByte(OpCode.Band)
         else:
             discard # Unreachable
@@ -294,11 +305,12 @@ proc unary(self: ref Compiler, canAssign: bool) =
             return
 
 
-template markObject*(self: ref Compiler, obj: untyped): untyped =
+template markObject*(self: ref Compiler, obj: ptr Obj): untyped =
     ## Marks compile-time objects (since those take up memory as well)
     ## for the VM to reclaim space later on
-    self.objects.add(obj)
-    obj
+    let temp = obj
+    self.objects.add(temp)
+    temp
 
 
 proc strVal(self: ref Compiler, canAssign: bool) =
@@ -306,7 +318,7 @@ proc strVal(self: ref Compiler, canAssign: bool) =
     var str = self.parser.previous().lexeme
     var delimiter = &"{str[0]}"    # TODO: Add proper escape sequences support
     str = str.unescape(delimiter, delimiter)
-    self.emitConstant(Value(kind: OBJECT, obj: self.markObject(newString(str))))
+    self.emitConstant(self.markObject(jstring.newString(str)))
 
 
 proc bracketAssign(self: ref Compiler, canAssign: bool) =
@@ -328,26 +340,26 @@ proc bracket(self: ref Compiler, canAssign: bool) =
     ## Like in Python, using an end index that's out of bounds
     ## will not raise an error. Doing "hello"[0:999] will just
     ## return the whole string instead
-    if self.parser.peek.kind == COLON:
+    if self.parser.peek.kind == TokenType.COLON:
         self.emitByte(OpCode.Nil)
         discard self.parser.advance()
-        if self.parser.peek().kind == RS:
+        if self.parser.peek().kind == TokenType.RS:
             self.emitByte(OpCode.Nil)
         else:
             self.parsePrecedence(Precedence.Term)
         self.emitByte(OpCode.SliceRange)
     else:
         self.parsePrecedence(Precedence.Term)
-        if self.parser.peek().kind == RS:
+        if self.parser.peek().kind == TokenType.RS:
             self.emitByte(OpCode.Slice)
-        elif self.parser.peek().kind == COLON:
+        elif self.parser.peek().kind == TokenType.COLON:
             discard self.parser.advance()
-            if self.parser.peek().kind == RS:
+            if self.parser.peek().kind == TokenType.RS:
                 self.emitByte(OpCode.Nil)
             else:
                 self.parsePrecedence(Precedence.Term)
             self.emitByte(OpCode.SliceRange)
-    if self.parser.peek().kind == EQ:
+    if self.parser.peek().kind == TokenType.EQ:
         discard self.parser.advance()
         self.parsePrecedence(Precedence.Term)
     self.parser.consume(TokenType.RS, "Expecting ']' after slice expression")
@@ -356,9 +368,9 @@ proc bracket(self: ref Compiler, canAssign: bool) =
 proc literal(self: ref Compiler, canAssign: bool) =
     ## Parses literal values such as true, nan and inf
     case self.parser.previous().kind:
-        of TRUE:
+        of TokenType.TRUE:
             self.emitByte(OpCode.True)
-        of FALSE:
+        of TokenType.FALSE:
             self.emitByte(OpCode.False)
         of TokenType.NIL:
             self.emitByte(OpCode.Nil)
@@ -372,21 +384,29 @@ proc literal(self: ref Compiler, canAssign: bool) =
 
 proc number(self: ref Compiler, canAssign: bool) =
     ## Parses numerical constants
-    var value = self.parser.previous().literal
-    self.emitConstant(value)
+    var value = self.parser.previous().lexeme
+    var obj: ptr Obj
+    try:
+        if "." in value:
+            obj = parseFloat(value).asFloat()
+        else:
+            obj = parseInt(value).asInt()
+    except OverflowError:
+        self.compileError("number literal is too big")
+    self.emitConstant(obj)
 
 
 proc grouping(self: ref Compiler, canAssign: bool) =
     ## Parses parenthesized expressions. The only interesting
     ## semantic about parentheses is that they allow lower-precedence
     ## expressions where a higher precedence one is expected
-    if self.parser.match(EOF):
+    if self.parser.match(TokenType.EOF):
         self.parser.parseError(self.parser.previous, "Expecting ')'")
     elif self.parser.match(RP):
         self.emitByte(OpCode.Nil)
     else:
         self.expression()
-        self.parser.consume(RP, "Expecting ')' after parentheszed expression")
+        self.parser.consume(TokenType.RP, "Expecting ')' after parentheszed expression")
 
 
 proc synchronize(self: ref Compiler) =
@@ -408,11 +428,13 @@ proc synchronize(self: ref Compiler) =
     ## parsing from there. Note that hadError is never reset, but
     ## panidMode is
     self.parser.panicMode = false
-    while self.parser.peek().kind != EOF:   # Infinite loops are bad, so we must take EOF into account
-        if self.parser.previous().kind == SEMICOLON:
+    while self.parser.peek().kind != TokenType.EOF:   # Infinite loops are bad, so we must take EOF into account
+        if self.parser.previous().kind == TokenType.SEMICOLON:
             return
         case self.parser.peek().kind:
-            of TokenType.CLASS, FUN, VAR, TokenType.FOR, IF, TokenType.WHILE, RETURN:   # We found a statement boundary, so the parser bails out
+            of TokenType.CLASS, TokenType.FUN, TokenType.VAR,
+                TokenType.FOR, TokenType.IF, TokenType.WHILE, 
+                TokenType.RETURN:   # We found a statement boundary, so the parser bails out
                 return
             else:
                 discard
@@ -421,13 +443,13 @@ proc synchronize(self: ref Compiler) =
 
 proc identifierConstant(self: ref Compiler, tok: Token): uint8 =
     ## Emits instructions for identifiers
-    return self.makeConstant(Value(kind: OBJECT, obj: self.markObject(newString(tok.lexeme))))
+    return self.makeConstant(self.markObject(jstring.newString(tok.lexeme)))
 
 
 proc identifierLongConstant(self: ref Compiler, tok: Token): array[3, uint8] =
     ## Same as identifierConstant, but this is used when the constant table is longer
     ## than 255 elements
-    return self.makeLongConstant(Value(kind: OBJECT, obj: self.markObject(newString(tok.lexeme))))
+    return self.makeLongConstant(self.markObject(jstring.newString(tok.lexeme)))
 
 
 proc addLocal(self: ref Compiler, name: Token) =
@@ -457,22 +479,22 @@ proc declareVariable(self: ref Compiler) =
 
 proc parseVariable(self: ref Compiler, message: string): uint8 =
     ## Parses variables and declares them
-    self.parser.consume(ID, message)
+    self.parser.consume(TokenType.ID, message)
     self.declareVariable()
     if self.scopeDepth > 0:
         return uint8 0
-    return self.identifierConstant(self.parser.previous)
+    return self.identifierConstant(self.parser.previous())
 
 
 proc parseLongVariable(self: ref Compiler, message: string): array[3, uint8] =
     ## Parses variables and declares them. This is used in place
     ## of parseVariable when there's more than 255 constants
     ## in the chunk table
-    self.parser.consume(ID, message)
+    self.parser.consume(TokenType.ID, message)
     self.declareVariable()
     if self.scopeDepth > 0:
         return [uint8 0, uint8 0, uint8 0]
-    return self.identifierLongConstant(self.parser.previous)
+    return self.identifierLongConstant(self.parser.previous())
 
 
 proc markInitialized(self: ref Compiler) =
@@ -589,7 +611,7 @@ proc varDeclaration(self: ref Compiler) =
         self.expression()
     else:
         self.emitByte(OpCode.Nil)
-    self.parser.consume(SEMICOLON, "Missing semicolon after var declaration")
+    self.parser.consume(TokenType.SEMICOLON, "Missing semicolon after var declaration")
     if useShort:
         self.defineVariable(shortName)
     else:
@@ -601,14 +623,14 @@ proc expressionStatement(self: ref Compiler) =
     ## an expression followed by a semicolon. It then
     ## emits a pop instruction
     self.expression()
-    self.parser.consume(SEMICOLON, "Missing semicolon after expression")
+    self.parser.consume(TokenType.SEMICOLON, "Missing semicolon after expression")
     self.emitByte(OpCode.Pop)
 
 
 # TODO: This code will not be used right now as it might clash with the future GC, fix this to make it GC aware!
 proc deleteVariable(self: ref Compiler, canAssign: bool) =
     self.expression()
-    if self.parser.previous().kind in [NUMBER, STR]:
+    if self.parser.previous().kind in [TokenType.NUMBER, TokenType.STR]:
         self.compileError("cannot delete a literal")
     var code: OpCode
     if self.scopeDepth == 0:
@@ -628,9 +650,9 @@ proc deleteVariable(self: ref Compiler, canAssign: bool) =
 proc parseBlock(self: ref Compiler) =
     ## Parses a block statement, which is basically
     ## a list of other statements
-    while not self.parser.check(RB) and not self.parser.check(EOF):
+    while not self.parser.check(TokenType.RB) and not self.parser.check(TokenType.EOF):
         self.declaration()
-    self.parser.consume(RB, "Expecting '}' after block statement")
+    self.parser.consume(TokenType.RB, "Expecting '}' after block statement")
 
 
 proc beginScope(self: ref Compiler) =
@@ -685,25 +707,25 @@ proc patchJump(self: ref Compiler, offset: int) =
 
 proc ifStatement(self: ref Compiler) =
     ## Parses if statements in a C-style fashion
-    self.parser.consume(LP, "The if condition must be parenthesized")
-    if self.parser.peek.kind != EOF:
+    self.parser.consume(TokenType.LP, "The if condition must be parenthesized")
+    if self.parser.peek.kind != TokenType.EOF:
         self.expression()
-        if self.parser.peek.kind != EOF:
-            self.parser.consume(RP, "The if condition must be parenthesized")
-        if self.parser.peek.kind != EOF:
+        if self.parser.peek.kind != TokenType.EOF:
+            self.parser.consume(TokenType.RP, "The if condition must be parenthesized")
+        if self.parser.peek.kind != TokenType.EOF:
             var jump: int = self.emitJump(OpCode.JumpIfFalse)
             self.emitByte(OpCode.Pop)
             self.statement()
             var elseJump = self.emitJump(OpCode.Jump)
             self.patchJump(jump)
             self.emitByte(OpCode.Pop)
-            if self.parser.match(ELSE):
+            if self.parser.match(TokenType.ELSE):
                 self.statement()
             self.patchJump(elseJump)
         else:
-            self.parser.parseError(self.parser.previous, "Invalid syntax")
+            self.parser.parseError(self.parser.previous(), "Invalid syntax")
     else:
-        self.parser.parseError(self.parser.previous, "The if condition must be parenthesized")
+        self.parser.parseError(self.parser.previous(), "The if condition must be parenthesized")
 
 
 proc emitLoop(self: ref Compiler, start: int) =
@@ -739,12 +761,12 @@ proc whileStatement(self: ref Compiler) =
     ## Parses while loops in a C-style fashion
     var loop = Loop(depth: self.scopeDepth, outer: self.loop, start: self.currentChunk.code.len, alive: true, loopEnd: -1)
     self.loop = loop
-    self.parser.consume(LP, "The loop condition must be parenthesized")
-    if self.parser.peek.kind != EOF:
+    self.parser.consume(TokenType.LP, "The loop condition must be parenthesized")
+    if self.parser.peek.kind != TokenType.EOF:
         self.expression()
-        if self.parser.peek.kind != EOF:
-            self.parser.consume(RP, "The loop condition must be parenthesized")
-        if self.parser.peek.kind != EOF:
+        if self.parser.peek.kind != TokenType.EOF:
+            self.parser.consume(TokenType.RP, "The loop condition must be parenthesized")
+        if self.parser.peek.kind != TokenType.EOF:
             self.loop.loopEnd = self.emitJump(OpCode.JumpIfFalse)
             self.emitByte(OpCode.Pop)
             self.loop.body = self.currentChunk.code.len
@@ -753,56 +775,56 @@ proc whileStatement(self: ref Compiler) =
             self.patchJump(self.loop.loopEnd)
             self.emitByte(OpCode.Pop)
         else:
-            self.parser.parseError(self.parser.previous, "Invalid syntax")
+            self.parser.parseError(self.parser.previous(), "Invalid syntax")
     else:
-        self.parser.parseError(self.parser.previous, "The loop condition must be parenthesized")
+        self.parser.parseError(self.parser.previous(), "The loop condition must be parenthesized")
     self.endLooping()
 
 
 proc forStatement(self: ref Compiler) =
     ## Parses for loops in a C-style fashion
     self.beginScope()
-    self.parser.consume(LP, "The loop condition must be parenthesized")
-    if self.parser.peek.kind != EOF:
-        if self.parser.match(SEMICOLON):
+    self.parser.consume(TokenType.LP, "The loop condition must be parenthesized")
+    if self.parser.peek.kind != TokenType.EOF:
+        if self.parser.match(TokenType.SEMICOLON):
             discard
-        elif self.parser.match(VAR):
+        elif self.parser.match(TokenType.VAR):
             self.varDeclaration()
         else:
             self.expressionStatement()
         var loop = Loop(depth: self.scopeDepth, outer: self.loop, start: self.currentChunk.code.len, alive: true, loopEnd: -1)
         self.loop = loop
-        if not self.parser.match(SEMICOLON):
+        if not self.parser.match(TokenType.SEMICOLON):
             self.expression()
-            if self.parser.previous.kind != EOF:
-                self.parser.consume(SEMICOLON, "Expecting ';'")
+            if self.parser.previous.kind != TokenType.EOF:
+                self.parser.consume(TokenType.SEMICOLON, "Expecting ';'")
                 self.loop.loopEnd = self.emitJump(OpCode.JumpIfFalse)
                 self.emitByte(OpCode.Pop)
             else:
                 self.parser.current -= 1
-                self.parser.parseError(self.parser.previous, "Invalid syntax")
+                self.parser.parseError(self.parser.previous(), "Invalid syntax")
         if not self.parser.match(RP):
             var bodyJump = self.emitJump(OpCode.Jump)
             var incrementStart = self.currentChunk.code.len
-            if self.parser.peek.kind != EOF:
+            if self.parser.peek.kind != TokenType.EOF:
                 self.expression()
                 self.emitByte(OpCode.Pop)
-                self.parser.consume(RP, "The loop condition must be parenthesized")
+                self.parser.consume(TokenType.RP, "The loop condition must be parenthesized")
                 self.emitLoop(self.loop.start)
                 self.loop.start = incrementStart
                 self.patchJump(bodyJump)
-        if self.parser.peek.kind != EOF:
+        if self.parser.peek.kind != TokenType.EOF:
             self.loop.body = self.currentChunk.code.len
             self.statement()
             self.emitLoop(self.loop.start)
         else:
             self.parser.current -= 1
-            self.parser.parseError(self.parser.previous, "Invalid syntax")
+            self.parser.parseError(self.parser.previous(), "Invalid syntax")
         if self.loop.loopEnd != -1:
             self.patchJump(self.loop.loopEnd)
             self.emitByte(OpCode.Pop)
     else:
-        self.parser.parseError(self.parser.previous, "The loop condition must be parenthesized")
+        self.parser.parseError(self.parser.previous(), "The loop condition must be parenthesized")
     self.endLooping()
     self.endScope()
 
@@ -814,12 +836,13 @@ proc parseBreak(self: ref Compiler) =
     if not self.loop.alive:
         self.parser.parseError(self.parser.previous, "'break' outside loop")
     else:
-        self.parser.consume(SEMICOLON, "missing semicolon after statement")
+        self.parser.consume(TokenType.SEMICOLON, "missing semicolon after statement")
         var i = self.localCount - 1
         while i >= 0 and self.locals[i].depth > self.loop.depth:
             self.emitByte(OpCode.Pop)
             i -= 1
         discard self.emitJump(OpCode.Break)
+
 
 proc parseAnd(self: ref Compiler, canAssign: bool) =
     ## Parses expressions such as a and b
@@ -846,7 +869,7 @@ proc continueStatement(self: ref Compiler) =
     if not self.loop.alive:
         self.parser.parseError(self.parser.previous, "'continue' outside loop")
     else:
-        self.parser.consume(SEMICOLON, "missing semicolon after statement")
+        self.parser.consume(TokenType.SEMICOLON, "missing semicolon after statement")
         var i = self.localCount - 1
         while i >= 0 and self.locals[i].depth > self.loop.depth:
             self.emitByte(OpCode.Pop)
@@ -887,7 +910,7 @@ proc parseFunction(self: ref Compiler, funType: FunctionType) =
                 self.function.arity -= 1
                 self.function.optionals += 1
                 self.expression()
-                self.function.defaults[paramNames[len(paramNames) - 1]] = self.parser.previous.literal
+                # self.function.defaults.add(self.parser.previous.lexeme)  # TODO
                 defaultFollows = true
             elif defaultFollows:
                 self.compileError("non-default argument follows default argument")
@@ -900,10 +923,10 @@ proc parseFunction(self: ref Compiler, funType: FunctionType) =
     var fun = self.endCompiler()
     self = self.enclosing
     if self.currentChunk.consts.len < 255:
-        self.emitBytes(OpCode.Constant, self.makeConstant(Value(kind: OBJECT, obj: fun)))
+        self.emitBytes(OpCode.Constant, self.makeConstant(fun))
     else:
         self.emitByte(OpCode.ConstantLong)
-        self.emitBytes(self.makeLongConstant(Value(kind: OBJECT, obj: fun)))
+        self.emitBytes(self.makeLongConstant(fun))
 
 
 proc funDeclaration(self: ref Compiler) =
@@ -961,9 +984,9 @@ proc statement(self: ref Compiler) =
         self.whileStatement()
     elif self.parser.match(TokenType.RETURN):
         self.returnStatement()
-    elif self.parser.match(CONTINUE):
+    elif self.parser.match(TokenType.CONTINUE):
         self.continueStatement()
-    elif self.parser.match(BREAK):
+    elif self.parser.match(TokenType.BREAK):
         self.parseBreak()
     elif self.parser.match(LB):
         self.beginScope()
@@ -1012,7 +1035,7 @@ var rules: array[TokenType, ParseRule] = [
     makeRule(nil, nil, Precedence.None), # RS
     makeRule(number, nil, Precedence.None), # NUMBER
     makeRule(strVal, nil, Precedence.None), # STR
-    makeRule(nil, nil, Precedence.None), # SEMICOLON
+    makeRule(nil, nil, Precedence.None), # semicolon
     makeRule(nil, parseAnd, Precedence.And), # AND
     makeRule(nil, nil, Precedence.None), # CLASS
     makeRule(nil, nil, Precedence.None), # ELSE
@@ -1031,7 +1054,7 @@ var rules: array[TokenType, ParseRule] = [
     makeRule(nil, nil, Precedence.None), # DEL  # TODO: Fix del statement to make it GC-aware
     makeRule(nil, nil, Precedence.None), # BREAK
     makeRule(nil, nil, Precedence.None), # EOF
-    makeRule(nil, nil, Precedence.None), # COLON
+    makeRule(nil, nil, Precedence.None), # TokenType.COLON
     makeRule(nil, nil, Precedence.None), # CONTINUE
     makeRule(nil, binary, Precedence.Term), # CARET
     makeRule(nil, binary, Precedence.Term), # SHL
@@ -1069,6 +1092,9 @@ proc compile*(self: ref Compiler, source: string): ptr Function =
         return nil
 
 
+proc initParser*(tokens: seq[Token], file: string): Parser =
+    result = Parser(current: 0, tokens: tokens, hadError: false, panicMode: false, file: file)
+
 proc initCompiler*(context: FunctionType, enclosing: ref Compiler = nil, parser: Parser = initParser(@[], ""), file: string): ref Compiler =
     ## Initializes a new compiler object and returns a reference
     ## to it
@@ -1088,7 +1114,7 @@ proc initCompiler*(context: FunctionType, enclosing: ref Compiler = nil, parser:
     inc(result.localCount)
     result.function = result.markObject(newFunction())
     if context != SCRIPT:   # If we're compiling a function, we give it its name
-        result.function.name = newString(enclosing.parser.previous().lexeme)
+        result.function.name = jstring.newString(enclosing.parser.previous().lexeme)
 
 # This way the compiler can be executed on its own
 # without the VM

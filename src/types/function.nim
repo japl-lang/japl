@@ -19,11 +19,10 @@
 # code objects that can be compiled inside the JAPL runtime, pretty much
 # like in Python
 
-import stringtype
+import jstring
+import jobject
 import strformat
-import ../memory
 import ../meta/opcode
-import japlvalue
 
 
 type

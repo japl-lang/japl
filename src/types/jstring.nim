@@ -17,7 +17,7 @@
 # therefore immutable from the user's perspective. They are
 # natively ASCII encoded, but soon they will support for unicode.
 
-import japlvalue
+import jobject
 import strformat
 import ../memory
 
@@ -67,6 +67,6 @@ proc typeName*(s: ptr String): string =
     return "string"
 
 
-proc asStr*(s: string): Value =
+proc asStr*(s: string): ptr Obj =
     ## Creates a string object
-    result = Value(kind: ValueType.Object, obj: newString(s))
+    result = newString(s)

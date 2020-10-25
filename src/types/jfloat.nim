@@ -12,14 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import tokentype
-import ../types/japlvalue
 
-# Token object
+#TODO: Implement
 
-type
-  Token* = ref object
-    kind*: TokenType
-    lexeme*: string
-    literal*: Value
-    line*: int
+proc hashFloat(f: float): uint32 =
+    # TODO: Any improvement?
+    result = 2166136261u32
+    result = result xor uint32 f
+    result *= 16777619

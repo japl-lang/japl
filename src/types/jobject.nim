@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-## Base structure for objs and objects in JAPL, all
+## Base structure for objects in JAPL, all
 ## types inherit from this simple structure
 
-import tables
 import ../memory
+
 
 type
     Chunk* = ref object
@@ -36,7 +36,7 @@ type
     Obj* = object of RootObj
         # The object that rules them all
         kind*: ObjectType
-        hashobj*: uint32
+        hashValue*: uint32
     String* = object of Obj    # A string object
         str*: ptr UncheckedArray[char]  # TODO -> Unicode support
         len*: int
@@ -102,6 +102,7 @@ template allocateObj*(kind: untyped, objType: ObjectType): untyped =
     ## to a more specific type
     cast[ptr kind](allocateObject(sizeof kind, objType))
 
+
 proc objType*(obj: ptr Obj): ObjectType =
     ## Returns the type of the object
     return obj.kind
@@ -117,6 +118,16 @@ proc stringify*(obj: ptr Obj): string =
         result = "<object (built-in type)>"
 
 
+proc isFalsey*(obj: ptr Obj): bool =
+    ## Returns true if the given
+    ## object is falsey
+    if obj.kind != ObjectType.BaseObject:    # NOTE: Consider how to reduce the boilerplate
+        var newObj = convert obj
+        result = newObj.isFalsey()
+    else:
+        result = false
+
+
 proc typeName*(obj: ptr Obj): string =
     ## This method should return the
     ## name of the object type
@@ -127,7 +138,7 @@ proc typeName*(obj: ptr Obj): string =
         result = "object"
 
 
-# TODO migrate to operations
+
 proc bool*(obj: ptr Obj): bool =
     ## Returns wheter the object should
     ## be considered a falsey obj
@@ -141,20 +152,21 @@ proc bool*(obj: ptr Obj): bool =
         result = false
 
 
-# TODO migrate to operations
 proc eq*(a: ptr Obj, b: ptr Obj): bool =
     ## Compares two objects for equality
-    
     if a.kind != ObjectType.BaseObject:
         var newObj = convert(a)
         result = newObj.eq(b)
     else:
         result = a.kind == b.kind
 
-# TODO migrate to operations
+
 proc hash*(self: ptr Obj): uint32 =
     # TODO: Make this actually useful
-    result = 2166136261u32
+    if self.kind == ObjectType.BaseObject:
+        result = 2166136261u32
+    else:
+        result = convert(self).hash()
 
 
 proc add(self, other: ptr Obj): ptr Obj =
@@ -211,95 +223,110 @@ proc binaryXor(self, other: ptr Obj): ptr Obj =
     result = nil
 
     
-func isNil*(obj: ptr Obj): bool =
+proc isNil*(obj: ptr Obj): bool =
     ## Returns true if the given obj
     ## is a JAPL nil object
     result = obj.kind == ObjectType.Nil
 
 
-func isBool*(obj: ptr Obj): bool =
+proc isBool*(obj: ptr Obj): bool =
     ## Returns true if the given obj
     ## is a JAPL bool
     result = obj.kind == ObjectType.Bool
 
 
-func isInt*(obj: ptr Obj): bool =
+proc isInt*(obj: ptr Obj): bool =
     ## Returns true if the given obj
     ## is a JAPL integer
     result = obj.kind == ObjectType.Integer
 
 
-func isFloat*(obj: ptr Obj): bool =
+proc isFloat*(obj: ptr Obj): bool =
     ## Returns true if the given obj
     ## is a JAPL float
     result = obj.kind == ObjectType.Float
 
 
-func isInf*(obj: ptr Obj): bool =
+proc isInf*(obj: ptr Obj): bool =
     ## Returns true if the given obj
     ## is a JAPL inf object
     result = obj.kind == ObjectType.Infinity
 
 
-func isNan*(obj: ptr Obj): bool =
+proc isNan*(obj: ptr Obj): bool =
     ## Returns true if the given obj
     ## is a JAPL nan object
     result = obj.kind == ObjectType.Nan
 
 
-func isNum*(obj: ptr Obj): bool =
+proc isNum*(obj: ptr Obj): bool =
     ## Returns true if the given obj is
     ## either a JAPL number, nan or inf
     result = isInt(obj) or isFloat(obj) or isInf(obj) or isNan(obj)
 
 
-
-func isStr*(obj: ptr Obj): bool =
+proc isStr*(obj: ptr Obj): bool =
     ## Returns true if the given object is a JAPL string
     result = obj.kind == ObjectType.String
 
 
-func toBool*(obj: ptr Obj): bool =
+proc toBool*(obj: ptr Obj): bool =
     ## Converts a JAPL bool to a nim bool
     result = cast[ptr Bool](obj).boolValue
 
 
-func toInt*(obj: ptr Obj): int =
+proc toInt*(obj: ptr Obj): int =
     ## Converts a JAPL int to a nim int
     result = cast[ptr Integer](obj).intValue
 
 
-func toFloat*(obj: ptr Obj): float =
+proc toFloat*(obj: ptr Obj): float =
     ## Converts a JAPL float to a nim float
     result = cast[ptr Float](obj).floatValue
 
 # TODO ambiguous naming: conflict with toString(obj: obj) that does JAPL->JAPL
-func toStr*(obj: ptr Obj): string =
+proc toStr*(obj: ptr Obj): string =
     ## Converts a JAPL string into a nim string
     var strObj = cast[ptr String](obj)
     for i in 0..strObj.str.len - 1:
         result.add(strObj.str[i])
 
 
-func asInt*(n: int): ptr Obj =
+proc asInt*(n: int): ptr Integer =
     ## Creates an int object
-    result = allocateOb
+    result = allocateObj(Integer, ObjectType.Integer)
+    result.intValue = n
 
 
-func asFloat*(n: float): ptr Obj =
+proc asFloat*(n: float): ptr Float =
     ## Creates a float object (double)
-    result = obj(kind: objType.Double, floatobj: n)
+    result = allocateObj(Float, ObjectType.Float)
+    result.floatValue = n
 
 
-func asBool*(b: bool): ptr Obj =
+proc asBool*(b: bool): ptr Bool =
     ## Creates a boolean object
-    result = obj(kind: objType.Bool, boolobj: b)
+    result = allocateObj(Bool, ObjectType.Bool)
+    result.boolValue = b
 
 
-func asObj*(obj: ptr Obj): obj =
-    ## Creates a object of ObjectType.BaseObject as type and obj (arg 1) as
-    ## contained obj
+proc asNil*(): ptr Nil = 
+    ## Creates a nil object
+    result = allocateObj(Nil, ObjectType.Nil)
 
-    result = Object(kind: objType.Object, obj: obj)
+
+proc asNan*(): ptr NotANumber = 
+    ## Creates a nil object
+    result = allocateObj(NotANumber, ObjectType.Nan)
+
+
+proc asInf*(): ptr Infinity = 
+    ## Creates a nil object
+    result = allocateObj(Infinity, ObjectType.Infinity)
+
+
+proc asObj*(obj: ptr Obj): ptr Obj =
+    ## Creates a generic JAPL object
+    result = allocateObj(Obj, ObjectType.BaseObject)
 
 

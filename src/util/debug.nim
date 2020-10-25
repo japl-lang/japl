@@ -16,8 +16,7 @@
 ## screen.
 
 import ../meta/opcode
-import ../types/japlvalue
-import ../types/operations
+import ../types/jobject
 import strformat
 
 

@@ -12,33 +12,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-## The JAPL runtime environment, or virtual machine. This is
-## a stack-based bytecode VM.
+## A stack-based bytecode virtual machine implementation.
+## This is the entire runtime environment for JAPL
 
 import algorithm
-import bitops
-import strutils
 import strformat
 import math
 import lenientops
-import common
+import config
 import compiler
 import tables
 import meta/opcode
+import meta/frame
 import types/exceptions
-import types/japlvalue
-import types/stringtype
+import types/jobject
+import types/jstring
 import types/function
-import types/operations
 import memory
 when DEBUG_TRACE_VM:
     import util/debug
 
 
-
+## Move these into appropriate int/float modules
 proc `**`(a, b: int): int = pow(a.float, b.float).int
-
-
 proc `**`(a, b: float): float = pow(a, b)
 
 
@@ -49,6 +45,16 @@ type
         OK,
         COMPILE_ERROR,
         RUNTIME_ERROR
+    VM* = ref object    # The VM object
+        lastPop*: ptr Obj
+        frameCount*: int
+        source*: string
+        frames*: seq[CallFrame]
+        stack*: seq[ptr Obj]
+        stackTop*: int
+        objects*: seq[ptr Obj]
+        globals*: Table[string, ptr Obj]
+        file*: string
 
 
 func handleInterrupt() {.noconv.} =
@@ -97,20 +103,20 @@ proc error*(self: var VM, error: ptr JAPLException) =
     self.resetStack()
 
 
-proc pop*(self: var VM): Value =
+proc pop*(self: var VM): ptr Obj =
     ## Pops a value off the stack
     result = self.stack.pop()
     self.stackTop -= 1
 
 
-proc push*(self: var VM, value: Value) =
-    ## Pushes a value onto the stack
-    self.stack.add(value)
+proc push*(self: var VM, obj: ptr Obj) =
+    ## Pushes an object onto the stack
+    self.stack.add(obj)
     self.stackTop += 1
 
 
-proc peek*(self: var VM, distance: int): Value =
-    ## Peeks a value (at a given distance from the
+proc peek*(self: var VM, distance: int): ptr Obj =
+    ## Peeks an object (at a given distance from the
     ## current index) from the stack
     return self.stack[self.stackTop - distance - 1]
 
@@ -124,6 +130,7 @@ template addObject*(self: ptr VM, obj: ptr Obj): untyped =
     temp
 
 
+# TODO: Move this to jobject.nim
 proc slice(self: var VM): bool =
     ## Handles single-operator slice expressions
     ## (consider moving this to an appropriate
@@ -131,32 +138,29 @@ proc slice(self: var VM): bool =
     var idx = self.pop()
     var peeked = self.pop()
     case peeked.kind:
-        of OBJECT:
-            case peeked.obj.kind:
-                of ObjectType.String:
-                    var str = peeked.toStr()
-                    if not idx.isInt():
-                        self.error(newTypeError("string indeces must be integers"))
-                        return false
-                    elif idx.toInt() < 0:
-                        idx.intValue = len(str) + idx.toInt()
-                        if idx.toInt() < 0:
-                            self.error(newIndexError("string index out of bounds"))
-                            return false
-                    if idx.toInt() - 1 > len(str) - 1:
+        of ObjectType.String:
+            var str = peeked.toStr()
+            if not idx.isInt():
+                self.error(newTypeError("string indeces must be integers"))
+                return false
+            else:
+                var index: int = idx.toInt()
+                if index < 0:
+                    index = len(str) + idx.toInt()
+                    if index < 0:    # If even now it is less than 0 than it is out of bounds
                         self.error(newIndexError("string index out of bounds"))
                         return false
-                    self.push(Value(kind: OBJECT, obj: addObject(addr self, newString(&"{str[idx.toInt()]}"))))
-                    return true
-
-                else:
-                    self.error(newTypeError(&"unsupported slicing for object of type '{peeked.typeName()}'"))
+                elif index - 1 > len(str) - 1:
+                    self.error(newIndexError("string index out of bounds"))
                     return false
+                else:
+                    self.push(addObject(addr self, jstring.newString(&"{str[index]}")))
+                    return true
         else:
             self.error(newTypeError(&"unsupported slicing for object of type '{peeked.typeName()}'"))
             return false
 
-
+# TODO: Move this to jobject.nim
 proc sliceRange(self: var VM): bool =
     ## Handles slices when there's both a start
     ## and an end index (even implicit ones)
@@ -164,38 +168,35 @@ proc sliceRange(self: var VM): bool =
     var sliceStart = self.pop()
     var popped = self.pop()
     case popped.kind:
-        of OBJECT:
-            case popped.obj.kind:
-                of ObjectType.String:
-                    var str = popped.toStr()
-                    if sliceEnd.isNil():
-                        sliceEnd = Value(kind: ValueType.Integer, intValue: len(str))
-                    if sliceStart.isNil():
-                        sliceStart = Value(kind: ValueType.Integer, intValue: 0)
-                    elif not sliceStart.isInt() or not sliceEnd.isInt():
-                        self.error(newTypeError("string indeces must be integers"))
-                        return false
-                    elif sliceStart.toInt() < 0:
-                        sliceStart.intValue = len(str) + sliceStart.toInt()
-                    if sliceEnd.toInt() < 0:
-                        sliceEnd.intValue = len(str) + sliceEnd.toInt()
-                    if sliceStart.toInt() - 1 > len(str) - 1:
-                        self.push(Value(kind: OBJECT, obj: addObject(addr self, newString(""))))
-                        return true
-                    if sliceEnd.toInt() - 1 > len(str) - 1:
-                        sliceEnd = Value(kind: ValueType.Integer, intValue: len(str))
-                    if sliceStart.toInt() > sliceEnd.toInt():
-                        self.push(Value(kind: OBJECT, obj: addObject(addr self, newString(""))))
-                        return true
-                    self.push(Value(kind: OBJECT, obj: addObject(addr self, newString(str[sliceStart.toInt()..<sliceEnd.toInt()]))))
+        of ObjectType.String:
+            var str = popped.toStr()
+            if sliceEnd.isNil():
+                sliceEnd = len(str).asInt()
+            if sliceStart.isNil():
+                sliceStart = asInt(0)
+            elif not sliceStart.isInt() or not sliceEnd.isInt():
+                self.error(newTypeError("string indexes must be integers"))
+                return false
+            else:
+                var startIndex = sliceStart.toInt()
+                var endIndex = sliceEnd.toInt()
+                if startIndex < 0:
+                    sliceStart = (len(str) + sliceStart.toInt()).asInt()
+                    if startIndex < 0:
+                        sliceStart = (len(str) + sliceEnd.toInt()).asInt()
+                elif startIndex - 1 > len(str) - 1:
+                    self.push(addObject(addr self, jstring.newString("")))
                     return true
-                else:
-                    self.error(newTypeError(&"unsupported slicing for object of type '{popped.typeName()}'"))
-                    return false
+                if endIndex - 1 > len(str) - 1:
+                    sliceEnd = len(str).asInt()
+                if startIndex > endIndex:
+                    self.push(addObject(addr self, jstring.newString("")))
+                    return true
+                self.push(addObject(addr self, jstring.newString(str[sliceStart.toInt()..<sliceEnd.toInt()])))
+                return true
         else:
             self.error(newTypeError(&"unsupported slicing for object of type '{popped.typeName()}'"))
             return false
-
 
 proc call(self: var VM, function: ptr Function, argCount: uint8): bool =
     ## Sets up the call frame and performs error checking
@@ -214,14 +215,13 @@ proc call(self: var VM, function: ptr Function, argCount: uint8): bool =
     return true
 
 
-proc callValue(self: var VM, callee: Value, argCount: uint8): bool =
+proc callValue(self: var VM, callee: ptr Obj, argCount: uint8): bool =
     ## Wrapper around call() to do type checking
-    if callee.isObj():    # TODO: Consider adding a callable() method
-        case callee.obj.kind:
-            of ObjectType.Function:
-                return self.call(cast[ptr Function](callee.obj), argCount)
-            else:
-                discard  # Not callable
+    case callee.kind:
+        of ObjectType.Function:
+            return self.call(cast[ptr Function](callee), argCount)
+        else:
+            discard  # Not callable
     self.error(newTypeError(&"object of type '{callee.typeName}' is not callable"))
     return false
 
@@ -249,101 +249,17 @@ proc run(self: var VM, repl: bool): InterpretResult =
         inc(frame.ip)
         inc(frame.ip)
         cast[uint16]((frame.function.chunk.code[frame.ip - 2] shl 8) or frame.function.chunk.code[frame.ip - 1])
-    template readConstant: Value =
+    template readConstant: ptr Obj =
         ## Reads a constant from the current
         ## frame's constant table
         frame.function.chunk.consts[int(readByte())]
-    template readLongConstant: Value =
+    template readLongConstant: ptr Obj =
         ## Reads a long constant from the
         ## current frame's constant table
         var arr = [readByte(), readByte(), readByte()]
         var idx: int
         copyMem(idx.addr, unsafeAddr(arr), sizeof(arr))
         frame.function.chunk.consts[idx]
-    template binOp(op, check) =
-        ## Performs binary operations on types,
-        ## this will be soon ditched in favor
-        ## of a more idiomatic a.op(b)
-        var rightVal {.inject.} = self.pop()
-        var leftVal {.inject.} = self.pop()
-        if leftVal.isInf():
-            leftVal = Inf.asFloat()
-        elif leftVal.isNan():
-            leftVal = Nan.asFloat()
-        if rightVal.isNan():
-            rightVal = Nan.asFloat()
-        elif rightVal.isInf():
-            rightVal = Inf.asFloat()
-        if check(leftVal) and check(rightVal):
-            if leftVal.isFloat() and rightVal.isInt():
-                var res = `op`(leftVal.toFloat(), float rightVal.toInt())
-                if res is bool:
-                    self.push(Value(kind: BOOL, boolValue: bool res))
-                else:
-                    var res = float res
-                    if res == Inf:
-                        self.push(Value(kind: ValueType.Inf))
-                    elif res == -Inf:
-                        self.push(Value(kind: ValueType.Minf))
-                    else:
-                       self.push(Value(kind: DOUBLE, floatValue: float res))
-            elif leftVal.isInt() and rightVal.isFloat():
-                var res = `op`(float leftVal.toInt(), rightVal.toFloat())
-                if res is bool:
-                    self.push(Value(kind: BOOL, boolValue: bool res))
-                else:
-                    var res = float res
-                    if res == Inf:
-                        self.push(Value(kind: ValueType.Inf))
-                    elif res == -Inf:
-                        self.push(Value(kind: ValueType.Minf))
-                    else:
-                       self.push(Value(kind: DOUBLE, floatValue: float res))
-            elif leftVal.isFloat() and rightVal.isFloat():
-                var res = `op`(leftVal.toFloat(), rightVal.toFloat())
-                if res is bool:
-                    self.push(Value(kind: BOOL, boolValue: bool res))
-                else:
-                    var res = float res
-                    if res == Inf:
-                        self.push(Value(kind: ValueType.Inf))
-                    elif res == -Inf:
-                        self.push(Value(kind: ValueType.Minf))
-                    else:
-                       self.push(Value(kind: DOUBLE, floatValue: float res))
-            else:
-                var tmp = `op`(leftVal.toInt(), rightVal.toInt())
-                var res = float tmp
-                if tmp is int:
-                    self.push(Value(kind: ValueType.Integer, intValue: int tmp))
-                elif res == Inf:
-                    self.push(Value(kind: ValueType.Inf))
-                elif res == -Inf:
-                    self.push(Value(kind: ValueType.Minf))
-                elif tmp is bool:
-                    self.push(Value(kind: ValueType.Bool, boolValue: bool tmp))
-                else:
-                    self.push(Value(kind: ValueType.Double, floatValue: float tmp))
-        else:
-            self.error(newTypeError(&"unsupported binary operator for objects of type '{leftVal.typeName()}' and '{rightVal.typeName()}'"))
-            return RUNTIME_ERROR
-    template binBitWise(op): untyped =
-        ## Handles binary bitwise operators
-        var rightVal {.inject.} = self.pop()
-        var leftVal {.inject.} = self.pop()
-        if isInt(leftVal) and isInt(rightVal):
-            self.push(Value(kind: ValueType.Integer, intValue: `op`(leftVal.toInt(), rightVal.toInt())))
-        else:
-            self.error(newTypeError(&"unsupported binary operator for objects of type '{leftVal.typeName()}' and '{rightVal.typeName()}'"))
-            return RUNTIME_ERROR
-    template unBitWise(op): untyped =
-        ## Handles unary bitwise operators
-        var leftVal {.inject.} = self.pop()
-        if isInt(leftVal):
-            self.push(Value(kind: ValueType.Integer, intValue: `op`(leftVal.toInt())))
-        else:
-            self.error(newTypeError(&"unsupported unary operator for object of type '{leftVal.typeName()}'"))
-            return RUNTIME_ERROR
     var instruction: uint8
     var opcode: OpCode
     while true:
@@ -377,108 +293,55 @@ proc run(self: var VM, repl: bool): InterpretResult =
             discard disassembleInstruction(frame.function.chunk, frame.ip - 1)
         case opcode:   # Main OpCodes dispatcher
             of OpCode.Constant:
-                var constant: Value = readConstant()
+                var constant: ptr Obj = readConstant()
                 self.push(constant)
             of OpCode.ConstantLong:
-                var constant: Value = readLongConstant()
+                var constant: ptr Obj = readLongConstant()
                 self.push(constant)
-            of OpCode.Negate:
-                var cur = self.pop()
-                case cur.kind:
-                    of ValueType.Double:
-                        cur.floatValue = -cur.toFloat()
-                        self.push(cur)
-                    of ValueType.Integer:
-                        cur.intValue = -cur.toInt()
-                        self.push(cur)
-                    of ValueType.Inf:
-                        self.push(Value(kind: ValueType.Minf))
-                    of ValueType.Minf:
-                        self.push(Value(kind: ValueType.Inf))
-                    else:
-                        self.error(newTypeError(&"unsupported unary operator for object of type '{cur.typeName()}'"))
-                        return RUNTIME_ERROR
+            of OpCode.Negate:   # TODO: Call appropriate methods
+                discard
             of OpCode.Add:
-                if self.peek(0).isObj() and self.peek(1).isObj():
-                    if self.peek(0).isStr() and self.peek(1).isStr():
-                        var r = self.peek(0).toStr()
-                        var l = self.peek(1).toStr()
-                        let res = Value(kind: OBJECT, obj: addObject(addr self, newString(l & r)))
-                        discard self.pop()    # Garbage collector-related paranoia here
-                        discard self.pop()
-                        self.push(res)
-                    else:
-                        self.error(newTypeError(&"unsupported binary operator for objects of type '{self.peek(0).typeName()}' and '{self.peek(1).typeName()}'"))
-                        return RUNTIME_ERROR
-                else:
-                    binOp(`+`, isNum)
+                discard
             of OpCode.Shl:
-                binBitWise(`shl`)
+                discard
             of OpCode.Shr:
-                binBitWise(`shr`)
+                discard
             of OpCode.Xor:
-                binBitWise(`xor`)
+                discard
             of OpCode.Bor:
-                binBitWise(bitor)
+                discard
             of OpCode.Bnot:
-                unBitWise(bitnot)
+                discard
             of OpCode.Band:
-                binBitWise(bitand)
+                discard
             of OpCode.Subtract:
-                binOp(`-`, isNum)
+                discard
             of OpCode.Divide:
-                binOp(`/`, isNum)
+                discard
             of OpCode.Multiply:
-                if self.peek(0).isInt() and self.peek(1).isObj():
-                    if self.peek(1).isStr():
-                        var r = self.pop().toInt()   # We don't peek here because integers are not garbage collected (not by us at least)
-                        var l = self.peek(0).toStr()
-                        let res = Value(kind: OBJECT, obj: addObject(addr self, newString(l.repeat(r))))
-                        discard self.pop()
-                        self.push(res)
-                    else:
-                        self.error(newTypeError(&"unsupported binary operator for objects of type '{self.peek(0).typeName()}' and '{self.peek(1).typeName()}'"))
-                        return RUNTIME_ERROR
-                elif self.peek(0).isObj() and self.peek(1).isInt():
-                    if self.peek(0).isStr():
-                        var r = self.peek(0).toStr()
-                        var l = self.peek(1).toInt()
-                        let res = Value(kind: OBJECT, obj: addObject(addr self, newString(r.repeat(l))))
-                        discard self.pop()
-                        self.push(res)
-                    else:
-                        self.error(newTypeError(&"unsupported binary operator for objects of type '{self.peek(0).typeName()}' and '{self.peek(1).typeName()}"))
-                        return RUNTIME_ERROR
-                else:
-                    binOp(`*`, isNum)
+                discard
             of OpCode.Mod:
-                binOp(floorMod, isNum)
+                discard
             of OpCode.Pow:
-                binOp(`**`, isNum)
+                discard
             of OpCode.True:
-                self.push(Value(kind: ValueType.Bool, boolValue: true)) # TODO asBool() ?
+                self.push((true).asBool())
             of OpCode.False:
-                self.push(Value(kind: ValueType.Bool, boolValue: false))
+                self.push((false).asBool())
             of OpCode.Nil:
-                self.push(Value(kind: ValueType.Nil))
+                self.push(asNil())
             of OpCode.Nan:
-                self.push(Value(kind: ValueType.Nan))
+                self.push(asNan())
             of OpCode.Inf:
-                self.push(Value(kind: ValueType.Inf))
+                self.push(asInf())
             of OpCode.Not:
-                self.push(Value(kind: ValueType.Bool, boolValue: isFalsey(self.pop())))
+                self.push(self.pop().isFalsey().asBool())
             of OpCode.Equal:
-                var a = self.pop()
-                var b = self.pop()
-                if a.isFloat() and b.isInt():
-                    b = Value(kind: ValueType.Double, floatValue: float b.toInt())
-                elif b.isFloat() and a.isInt():
-                    a = Value(kind: ValueType.Double, floatValue: float a.toInt())
-                self.push(Value(kind: ValueType.Bool, boolValue: eq(a, b)))
+                discard
             of OpCode.Less:
-                binOp(`<`, isNum)
+                discard
             of OpCode.Greater:
-                binOp(`>`, isNum)
+                discard
             of OpCode.Slice:
                 if not self.slice():
                     return RUNTIME_ERROR
@@ -586,7 +449,7 @@ proc run(self: var VM, repl: bool): InterpretResult =
                     if not self.lastPop.isNil() and self.frameCount == 1:   # This is to avoid
                         # useless output with recursive calls
                         echo stringify(self.lastPop)
-                        self.lastPop = Value(kind: ValueType.Nil) # TODO: asNil()?
+                        self.lastPop = asNil()
                 self.frameCount -= 1
                 discard self.frames.pop()
                 if self.frameCount == 0:
@@ -643,9 +506,8 @@ proc freeVM*(self: var VM) =
 proc initVM*(): VM =
     ## Initializes the VM
     setControlCHook(handleInterrupt)
-    var globals: Table[string, Value] = initTable[string, Value]()
-    result = VM(lastPop: Value(kind: ValueType.Nil), objects: @[], globals: globals, source: "", file: "")
-    # TODO asNil() ?
+    var globals: Table[string, ptr Obj] = initTable[string, ptr Obj]()
+    result = VM(lastPop: asNil(), objects: @[], globals: globals, source: "", file: "")
 
 
 proc interpret*(self: var VM, source: string, repl: bool = false, file: string): InterpretResult =
@@ -660,8 +522,8 @@ proc interpret*(self: var VM, source: string, repl: bool = false, file: string):
     # to the vm
     if compiled == nil:
         return COMPILE_ERROR
-    self.push(Value(kind: ValueType.Object, obj: compiled))
-    discard self.callValue(Value(kind: ValueType.Object, obj: compiled), 0)
+    self.push(compiled)
+    discard self.callValue(compiled, 0)
     when DEBUG_TRACE_VM:
         echo "==== VM debugger starts ====\n"
     try:

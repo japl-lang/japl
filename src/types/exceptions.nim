@@ -15,10 +15,9 @@
 
 ## Defines JAPL exceptions
 
-import stringtype
-import japlvalue
+import jstring
+import jobject
 import strformat
-import ../memory
 
 
 proc stringify*(self: ptr JAPLException): string =
