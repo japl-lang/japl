@@ -149,10 +149,10 @@ proc parseNumber(self: var Lexer) =
     ## Parses numeric literals
     while isDigit(self.peek()):
         discard self.step()
-        if self.peek() == '.':
+    if self.peek() == '.':
+        discard self.step()
+        while self.peek().isDigit():
             discard self.step()
-            while self.peek().isDigit():
-                discard self.step()
     self.tokens.add(self.createToken(TokenType.NUMBER))
 
 

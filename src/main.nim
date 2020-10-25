@@ -18,7 +18,7 @@
 import strformat
 import parseopt
 import os
-import common
+import config
 import vm
 
 proc repl() =

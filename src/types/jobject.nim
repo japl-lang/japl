@@ -16,6 +16,8 @@
 ## types inherit from this simple structure
 
 import ../memory
+import ../meta/opcode
+import strformat
 
 
 type
@@ -63,34 +65,6 @@ type
         message*: ptr String
 
 
-proc `convert`*(a: ptr Obj): ptr Obj =
-    ## Performs conversions from a JAPL
-    ## supertype to a subtype
-    
-    case a.kind:
-        of ObjectType.String:
-            result = cast[ptr String](a)
-        of ObjectType.Function:
-            result = cast[ptr Function](a)
-        of ObjectType.Integer:
-            result = cast[ptr Integer](a)
-        of ObjectType.Float:
-            result = cast[ptr Float](a)
-        of ObjectType.Bool:
-            result = cast[ptr Bool](a)
-        of ObjectType.Nan:
-            result = cast[ptr NotANumber](a)
-        of ObjectType.Infinity:
-            result = cast[ptr Infinity](a)
-        of ObjectType.BaseObject:
-            result = cast[ptr Obj](a)
-        of ObjectType.Class, ObjectType.Module:
-            discard  # TODO: Implement
-        else:
-            raise newException(Exception, "Attempted JAPL type conversion with unknown source object")
-
-
-
 proc allocateObject*(size: int, kind: ObjectType): ptr Obj =
     ## Wrapper around reallocate to create a new generic JAPL object
     result = cast[ptr Obj](reallocate(nil, 0, size))
@@ -108,35 +82,146 @@ proc objType*(obj: ptr Obj): ObjectType =
     return obj.kind
 
 
+# Methods for string objects
+
+proc stringify*(s: ptr String): string =
+    result = ""
+    for i in 0..<s.len:
+        result = result & (&"{s.str[i]}")
+
+proc isFalsey*(s: ptr String): bool =
+    result = s.len == 0
+
+
+proc hash*(self: ptr String): uint32 =
+    result = 2166136261u32
+    var i = 0
+    while i < self.len:
+        result = result xor uint32 self.str[i]
+        result *= 16777619
+        i += 1
+    return result
+
+
+proc eq*(a: ptr String, b: ptr String): bool =
+    if a.len != b.len:
+        return false
+    elif a.hash != b.hash:
+        return false
+    for i in 0..a.len - 1:
+        if a.str[i] != b.str[i]:
+            return false
+    return true
+
+
+proc newString*(str: string): ptr String =
+    # TODO -> Unicode
+    result = allocateObj(String, ObjectType.String)
+    result.str = allocate(UncheckedArray[char], char, len(str))
+    for i in 0..len(str) - 1:
+        result.str[i] = str[i]
+    result.len = len(str)
+    result.hashValue = result.hash()
+
+
+proc typeName*(s: ptr String): string =
+    return "string"
+
+
+proc asStr*(s: string): ptr Obj =
+    ## Creates a string object
+    result = newString(s)
+
+# End of string object methods
+
+
+# Integer object methods
+
+proc stringify(self: ptr Integer): string = 
+    result = $self.intValue
+
+
+proc stringify(self: ptr Float): string = 
+    result = $self.floatValue
+
+
+# End of integer object methods
+
+
+
+# Function object methods
+
+type
+    FunctionType* = enum
+        FUNC, SCRIPT
+
+
+proc newFunction*(name: string = "", chunk: Chunk = newChunk(), arity: int = 0): ptr Function =
+    result = allocateObj(Function, ObjectType.Function)
+    if name.len > 1:
+        result.name = newString(name)
+    else:
+        result.name = nil
+    result.arity = arity
+    result.chunk = chunk
+
+
+proc isFalsey*(fn: ptr Function): bool =
+    return false
+
+
+proc valuesEqual*(a, b: ptr Function): bool =
+    result = a.name.stringify == b.name.stringify
+
+
+proc typeName*(self: ptr Function): string =
+    result = "function"
+
+
+proc stringify*(fn: ptr Function): string =
+    if fn.name != nil:
+        result = "<function " & stringify(fn.name) & ">"  # idk why this doesn't work with &"{...}", too tired to investigate
+    else:
+        result = "<code object>"
+
+
+## Generic base methods
+
+
 proc stringify*(obj: ptr Obj): string =
     ## Returns a string representation
     ## of the object
-    if obj.kind != ObjectType.BaseObject:    # NOTE: Consider how to reduce the boilerplate
-        var newObj = convert obj
-        result = newObj.stringify()
-    else:
+    if obj.kind == ObjectType.String:
+        result = cast[ptr String](obj).stringify()
+    elif obj.kind == ObjectType.Function:
+        result = cast[ptr Function](obj).stringify()
+    elif obj.kind == ObjectType.Integer:
+        result = cast[ptr Integer](obj).stringify()
+    elif obj.kind == ObjectType.Float:
+        result = cast[ptr Float](obj).stringify()
+    elif obj.kind == ObjectType.Bool:
+        result = cast[ptr Bool](obj).stringify()
+    elif obj.kind == ObjectType.Nan:
+        result = cast[ptr NotANumber](obj).stringify()
+    elif obj.kind == ObjectType.Infinity:
+        result = cast[ptr Infinity](obj).stringify()
+    elif obj.kind == ObjectType.BaseObject:
         result = "<object (built-in type)>"
+    else:
+        discard  # Unreachable
 
 
 proc isFalsey*(obj: ptr Obj): bool =
     ## Returns true if the given
     ## object is falsey
-    if obj.kind != ObjectType.BaseObject:    # NOTE: Consider how to reduce the boilerplate
-        var newObj = convert obj
-        result = newObj.isFalsey()
-    else:
-        result = false
+
+    result = false
 
 
 proc typeName*(obj: ptr Obj): string =
     ## This method should return the
     ## name of the object type
-    if obj.kind != ObjectType.BaseObject:
-        var newObj = convert obj
-        result = newObj.typeName()
-    else:
-        result = "object"
-
+    result = "object"
 
 
 proc bool*(obj: ptr Obj): bool =
@@ -145,28 +230,17 @@ proc bool*(obj: ptr Obj): bool =
     ## or not. Returns true if the
     ## object is truthy, or false
     ## if it is falsey
-    if obj.kind != ObjectType.BaseObject:
-        var newObj = convert obj
-        result = newObj.bool()
-    else:
-        result = false
+    result = false
 
 
 proc eq*(a: ptr Obj, b: ptr Obj): bool =
     ## Compares two objects for equality
-    if a.kind != ObjectType.BaseObject:
-        var newObj = convert(a)
-        result = newObj.eq(b)
-    else:
-        result = a.kind == b.kind
+    result = a.kind == b.kind
 
 
 proc hash*(self: ptr Obj): uint32 =
     # TODO: Make this actually useful
-    if self.kind == ObjectType.BaseObject:
-        result = 2166136261u32
-    else:
-        result = convert(self).hash()
+    result = 2166136261u32
 
 
 proc add(self, other: ptr Obj): ptr Obj =

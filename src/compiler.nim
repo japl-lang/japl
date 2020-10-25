@@ -322,7 +322,7 @@ proc strVal(self: ref Compiler, canAssign: bool) =
     var str = self.parser.previous().lexeme
     var delimiter = &"{str[0]}"    # TODO: Add proper escape sequences support
     str = str.unescape(delimiter, delimiter)
-    self.emitConstant(self.markObject(jstring.newString(str)))
+    self.emitConstant(self.markObject(jobject.newString(str)))
 
 
 proc bracketAssign(self: ref Compiler, canAssign: bool) =
@@ -389,15 +389,13 @@ proc literal(self: ref Compiler, canAssign: bool) =
 proc number(self: ref Compiler, canAssign: bool) =
     ## Parses numerical constants
     var value = self.parser.previous().lexeme
-    var obj: ptr Obj
     try:
         if "." in value:
-            obj = parseFloat(value).asFloat()
+            self.emitConstant(parseFloat(value).asFloat())
         else:
-            obj = parseInt(value).asInt()
-    except OverflowError:
+            self.emitConstant(parseInt(value).asInt())
+    except ValueError:
         self.compileError("number literal is too big")
-    self.emitConstant(obj)
 
 
 proc grouping(self: ref Compiler, canAssign: bool) =
@@ -447,13 +445,13 @@ proc synchronize(self: ref Compiler) =
 
 proc identifierConstant(self: ref Compiler, tok: Token): uint8 =
     ## Emits instructions for identifiers
-    return self.makeConstant(self.markObject(jstring.newString(tok.lexeme)))
+    return self.makeConstant(self.markObject(jobject.newString(tok.lexeme)))
 
 
 proc identifierLongConstant(self: ref Compiler, tok: Token): array[3, uint8] =
     ## Same as identifierConstant, but this is used when the constant table is longer
     ## than 255 elements
-    return self.makeLongConstant(self.markObject(jstring.newString(tok.lexeme)))
+    return self.makeLongConstant(self.markObject(jobject.newString(tok.lexeme)))
 
 
 proc addLocal(self: ref Compiler, name: Token) =
@@ -1123,7 +1121,7 @@ proc initCompiler*(context: FunctionType, enclosing: ref Compiler = nil, parser:
     inc(result.localCount)
     result.function = result.markObject(newFunction())
     if context != SCRIPT:   # If we're compiling a function, we give it its name
-        result.function.name = jstring.newString(enclosing.parser.previous().lexeme)
+        result.function.name = jobject.newString(enclosing.parser.previous().lexeme)
 
 # This way the compiler can be executed on its own
 # without the VM
