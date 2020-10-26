@@ -85,17 +85,44 @@ proc objType*(obj: ptr Obj): ObjectType =
     ## Returns the type of the object
     return obj.kind
 
+# Stringify
 
-# Methods for string objects
+template unimplementedException(): ref CatchableError =
+    newException(CatchableError, "Unimplemented TODO")
 
-proc stringify*(s: ptr String): string =
+method stringify*(s: ptr Obj): string {.base.} =
+    raise unimplementedException()
+
+method stringify*(s: ptr String): string =
     result = ""
     for i in 0..<s.len:
         result = result & (&"{s.str[i]}")
 
-proc isFalsey*(s: ptr String): bool =
-    result = s.len == 0
+method stringify(self: ptr Integer): string =
+    result = $self.intValue
 
+
+method stringify(self: ptr Float): string =
+    result = $self.floatValue
+
+method stringify*(fn: ptr Function): string =
+    if fn.name != nil:
+        result = "<function " & stringify(fn.name) & ">"
+    else:
+        result = "<code object>"
+
+# isFalsey
+
+method isFalsey*(self: ptr Obj): bool {.base.} =
+    raise unimplementedException()
+
+method isFalsey*(self: ptr String): bool {.base.} =
+    result = self.len == 0
+
+method 
+
+
+# Methods for string objects
 
 proc hash*(self: ptr String): uint32 =
     result = 2166136261u32
@@ -138,21 +165,6 @@ proc asStr*(s: string): ptr Obj =
 
 # End of string object methods
 
-
-# Integer object methods
-
-proc stringify(self: ptr Integer): string = 
-    result = $self.intValue
-
-
-proc stringify(self: ptr Float): string = 
-    result = $self.floatValue
-
-
-# End of integer object methods
-
-
-
 # Function object methods
 
 type
@@ -182,38 +194,7 @@ proc typeName*(self: ptr Function): string =
     result = "function"
 
 
-proc stringify*(fn: ptr Function): string =
-    if fn.name != nil:
-        result = "<function " & stringify(fn.name) & ">"  # idk why this doesn't work with &"{...}", too tired to investigate
-    else:
-        result = "<code object>"
-
-
 ## Generic base methods
-
-
-proc stringify*(obj: ptr Obj): string =
-    ## Returns a string representation
-    ## of the object
-    if obj.kind == ObjectType.String:
-        result = cast[ptr String](obj).stringify()
-    elif obj.kind == ObjectType.Function:
-        result = cast[ptr Function](obj).stringify()
-    elif obj.kind == ObjectType.Integer:
-        result = cast[ptr Integer](obj).stringify()
-    elif obj.kind == ObjectType.Float:
-        result = cast[ptr Float](obj).stringify()
-    elif obj.kind == ObjectType.Bool:
-        result = cast[ptr Bool](obj).stringify()
-    elif obj.kind == ObjectType.Nan:
-        result = cast[ptr NotANumber](obj).stringify()
-    elif obj.kind == ObjectType.Infinity:
-        result = cast[ptr Infinity](obj).stringify()
-    elif obj.kind == ObjectType.BaseObject:
-        result = "<object (built-in type)>"
-    else:
-        discard  # Unreachable
-
 
 proc isFalsey*(obj: ptr Obj): bool =
     ## Returns true if the given
