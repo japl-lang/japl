@@ -30,7 +30,7 @@ of what's done in JAPL:
 - Logical operators (`!`, `or`, `and`)  :heavy_check_mark:
 - Multi-line comments `/* like this */` (can be nested)  :heavy_check_mark:
 - Differentiation between integers and floating point numbers  :heavy_check_mark:
-- `inf` and `nan` types  [X]
+- `inf` and `nan` types  :heavy_check_mark:
 - Basic arithmetic (`+`, `-`, `/`, `*`)  :heavy_check_mark:
 - Modulo division (`%`) and exponentiation (`**`)  :heavy_check_mark:
 - Bitwise operators (AND, OR, XOR, NOT)  :heavy_check_mark:
