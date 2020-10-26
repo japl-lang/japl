@@ -1094,7 +1094,7 @@ proc compile*(self: ref Compiler, source: string): ptr Function =
 
         var function = self.endCompiler()
         when DEBUG_TRACE_COMPILER:
-            echo "==== COMPILER debugger ends ===="
+            echo "\n==== COMPILER debugger ends ===="
             echo ""
 
         if not self.parser.hadError:

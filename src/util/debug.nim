@@ -75,7 +75,7 @@ proc disassembleInstruction*(chunk: Chunk, offset: int): int =
             result = jumpInstruction($opcode, chunk, offset)
         else:
             echo &"Unknown opcode {opcode} at index {offset}"
-            result = offset + 1  
+            result = offset + 1
 
 
 proc disassembleChunk*(chunk: Chunk, name: string) =

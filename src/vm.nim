@@ -37,12 +37,15 @@ proc `**`(a, b: float): float = pow(a, b)
 
 type
     KeyboardInterrupt* = object of CatchableError
-
-    InterpretResult {.pure.} = enum
+    ## Custom exception to handle Ctrl+C
+    InterpretResult = enum
+        ## All possible interpretation results
         Ok,
         CompileError,
         RuntimeError
-    VM* = ref object    # The VM object
+    VM* = ref object
+        ## A wrapper around the virtual machine
+        ## functionality
         lastPop*: ptr Obj
         frameCount*: int
         source*: string
@@ -69,9 +72,9 @@ proc resetStack*(self: var VM) =
     self.stackTop = 0
 
 
-
 proc error*(self: var VM, error: ptr JAPLException) =
     ## Reports runtime errors with a nice traceback
+    # TODO: Exceptions
     var previous = ""  # All this stuff seems overkill, but it makes the traceback look nicer
     var repCount = 0   # and if we are here we are far beyond a point where performance matters
     var mainReached = false
@@ -101,7 +104,7 @@ proc error*(self: var VM, error: ptr JAPLException) =
 
 
 proc pop*(self: var VM): ptr Obj =
-    ## Pops a value off the stack
+    ## Pops an object off the stack
     result = self.stack.pop()
     self.stackTop -= 1
 
@@ -195,6 +198,7 @@ proc sliceRange(self: var VM): bool =
             self.error(newTypeError(&"unsupported slicing for object of type '{popped.typeName()}'"))
             return false
 
+
 proc call(self: var VM, function: ptr Function, argCount: uint8): bool =
     ## Sets up the call frame and performs error checking
     ## when calling callables
@@ -212,15 +216,17 @@ proc call(self: var VM, function: ptr Function, argCount: uint8): bool =
     return true
 
 
-proc callValue(self: var VM, callee: ptr Obj, argCount: uint8): bool =
+proc callObject(self: var VM, callee: ptr Obj, argCount: uint8): bool =
     ## Wrapper around call() to do type checking
-    case callee.kind:
-        of ObjectType.Function:
-            return self.call(cast[ptr Function](callee), argCount)
-        else:
-            discard  # Not callable
-    self.error(newTypeError(&"object of type '{callee.typeName}' is not callable"))
-    return false
+    if callee.isCallable():
+        case callee.kind:
+            of ObjectType.Function:
+                return self.call(cast[ptr Function](callee), argCount)
+            else:   # TODO: Classes
+                discard  # Unreachable
+    else:
+        self.error(newTypeError(&"object of type '{callee.typeName}' is not callable"))
+        return false
 
 
 proc run(self: var VM, repl: bool): InterpretResult =
@@ -341,10 +347,10 @@ proc run(self: var VM, repl: bool): InterpretResult =
                 discard
             of OpCode.Slice:
                 if not self.slice():
-                    return RUNTIME_ERROR
+                    return RuntimeError
             of OpCode.SliceRange:
                 if not self.sliceRange():
-                    return RUNTIME_ERROR
+                    return RuntimeError
             of OpCode.DefineGlobal:
                 if frame.function.chunk.consts.len > 255:
                     var constant = readLongConstant().toStr()
@@ -358,14 +364,14 @@ proc run(self: var VM, repl: bool): InterpretResult =
                     var constant = readLongConstant().toStr()
                     if constant notin self.globals:
                         self.error(newReferenceError(&"undefined name '{constant}'"))
-                        return RUNTIME_ERROR
+                        return RuntimeError
                     else:
                         self.push(self.globals[constant])
                 else:
                     var constant = readConstant().toStr()
                     if constant notin self.globals:
                         self.error(newReferenceError(&"undefined name '{constant}'"))
-                        return RUNTIME_ERROR
+                        return RuntimeError
                     else:
                         self.push(self.globals[constant])
             of OpCode.SetGlobal:
@@ -373,14 +379,14 @@ proc run(self: var VM, repl: bool): InterpretResult =
                     var constant = readLongConstant().toStr()
                     if constant notin self.globals:
                         self.error(newReferenceError(&"assignment to undeclared name '{constant}'"))
-                        return RUNTIME_ERROR
+                        return RuntimeError
                     else:
                         self.globals[constant] = self.peek(0)
                 else:
                     var constant = readConstant().toStr()
                     if constant notin self.globals:
                         self.error(newReferenceError(&"assignment to undeclared name '{constant}'"))
-                        return RUNTIME_ERROR
+                        return RuntimeError
                     else:
                         self.globals[constant] = self.peek(0)
             of OpCode.DeleteGlobal:
@@ -389,14 +395,14 @@ proc run(self: var VM, repl: bool): InterpretResult =
                     var constant = readLongConstant().toStr()
                     if constant notin self.globals:
                         self.error(newReferenceError(&"undefined name '{constant}'"))
-                        return RUNTIME_ERROR
+                        return RuntimeError
                     else:
                         self.globals.del(constant)
                 else:
                     var constant = readConstant().toStr()
                     if constant notin self.globals:
                         self.error(newReferenceError(&"undefined name '{constant}'"))
-                        return RUNTIME_ERROR
+                        return RuntimeError
                     else:
                         self.globals.del(constant)
             of OpCode.GetLocal:
@@ -435,8 +441,8 @@ proc run(self: var VM, repl: bool): InterpretResult =
                 frame.ip -= int offset
             of OpCode.Call:
                 var argCount = readByte()
-                if not self.callValue(self.peek(int argCount), argCount):
-                    return RUNTIME_ERROR
+                if not self.callObject(self.peek(int argCount), argCount):
+                    return RuntimeError
                 frame = self.frames[self.frameCount - 1]
             of OpCode.Break:
                 discard
@@ -478,7 +484,7 @@ proc freeObject(obj: ptr Obj) =
 
 
 proc freeObjects(self: var VM) =
-    ## Fress all the allocated objects
+    ## Frees all the allocated objects
     ## from the VM
     var objCount = len(self.objects)
     for obj in reversed(self.objects):
@@ -518,15 +524,15 @@ proc interpret*(self: var VM, source: string, repl: bool = false, file: string):
     # revisit the best way to transfer marked objects from the compiler
     # to the vm
     if compiled == nil:
-        return COMPILE_ERROR
+        return CompileError
     self.push(compiled)
-    discard self.callValue(compiled, 0)
+    discard self.callObject(compiled, 0)
     when DEBUG_TRACE_VM:
         echo "==== VM debugger starts ====\n"
     try:
         result = self.run(repl)
     except KeyboardInterrupt:
         self.error(newInterruptedError(""))
-        return RUNTIME_ERROR
+        return RuntimeError
     when DEBUG_TRACE_VM:
         echo "==== VM debugger ends ====\n"

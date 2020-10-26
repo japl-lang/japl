@@ -12,8 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-## Base structure for objects in JAPL, all
-## types inherit from this simple structure
+## JAPL' type system
 
 import ../memory
 import strformat
@@ -30,7 +29,7 @@ type
         ## Lines maps bytecode instructions to line numbers (1 to 1 correspondence)
         consts*: seq[ptr Obj]
         code*: seq[uint8]
-        lines*: seq[int]
+        lines*: seq[int]   # TODO: Run-length encoding
     ObjectType* {.pure.} = enum
         ## All the possible object types
         String, Exception, Function,
@@ -96,12 +95,19 @@ proc newChunk*(): Chunk =
     result = Chunk(consts: @[], code: @[], lines: @[])
 
 
+## Utilities that bridge nim and JAPL types
+
+
 proc objType*(obj: ptr Obj): ObjectType =
     ## Returns the type of the object
-    return obj.kind
+    result = obj.kind
 
 
-## Utilities that bridge nim and JAPL types
+proc isCallable*(obj: ptr Obj): bool =
+    ## Returns true if the given object
+    ## is callable, false otherwise
+    result = obj.kind in {ObjectType.Function, ObjectType.Class}
+
 
 proc isNil*(obj: ptr Obj): bool =
     ## Returns true if the given obj

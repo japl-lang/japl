@@ -23,6 +23,9 @@
 
 
 import segfaults
+import config
+# when DEBUG_TRACE_ALLOCATION:
+ #   import util/debug   # TODO: Recursive dependency
 
 
 proc reallocate*(pointr: pointer, oldSize: int, newSize: int): pointer =
@@ -60,7 +63,7 @@ template growCapacity*(capacity: int): untyped =
     if capacity < 8:
         8
     else:
-        capacity * 2
+        capacity * ARRAY_GROW_FACTOR
 
 
 template allocate*(castTo: untyped, sizeTo: untyped, count: int): untyped =
