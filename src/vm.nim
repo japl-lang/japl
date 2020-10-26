@@ -334,7 +334,7 @@ proc run(self: var VM, repl: bool): InterpretResult =
             of OpCode.Not:
                 self.push(self.pop().isFalsey().asBool())
             of OpCode.Equal:
-                discard
+                self.push(self.pop().eq(self.pop()).asBool())
             of OpCode.Less:
                 discard
             of OpCode.Greater:

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import strformat
 
 
 const FRAMES_MAX* = 400  # TODO: Inspect why the VM crashes if this exceeds 400
@@ -21,4 +22,22 @@ const DEBUG_TRACE_VM* = false  # Traces VM execution
 const DEBUG_TRACE_GC* = true    # Traces the garbage collector (TODO)
 const DEBUG_TRACE_ALLOCATION* = true   # Traces memory allocation/deallocation (WIP)
 const DEBUG_TRACE_COMPILER* = false   # Traces the compiler (WIP)
+const JAPL_VERSION_STRING* = &"JAPL {JAPL_VERSION} ({JAPL_RELEASE}, {CompileDate} {CompileTime})"
+const HELP_MESSAGE* = """The JAPL runtime interface, Copyright (C) 2020 Mattia Giambirtone
+This program is free software, see the license distributed with this program or check
+http://www.apache.org/licenses/LICENSE-2.0 for more info.
 
+Basic usage
+-----------
+
+$ jpl  -> Start the REPL
+
+$ jpl filename.jpl -> Run filename.jpl
+
+
+Command-line options
+--------------------
+
+-h, --help  -> Show this help text and exit
+-v, --version -> Print the JAPL version number and exit
+"""

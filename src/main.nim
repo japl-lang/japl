@@ -21,9 +21,10 @@ import os
 import config
 import vm
 
+
 proc repl() =
     var bytecodeVM = initVM()
-    echo &"JAPL {JAPL_VERSION} ({JAPL_RELEASE}, {CompileDate} {CompileTime})"
+    echo JAPL_VERSION_STRING
     echo &"[Nim {NimVersion} on {hostOs} ({hostCPU})]"
     when DEBUG_TRACE_VM:
         echo "Debugger enabled, expect verbose output\n"
@@ -45,7 +46,7 @@ proc repl() =
             break
         if source == "//clear" or source == "// clear":
             echo "\x1Bc"
-            echo &"JAPL {JAPL_VERSION} ({JAPL_RELEASE}, {CompileDate} {CompileTime})"
+            echo JAPL_VERSION_STRING
             echo &"[Nim {NimVersion} on {hostOs} ({hostCPU})]"
             continue
         elif source != "":
@@ -98,12 +99,26 @@ when isMainModule:
                 file = key
             of cmdLongOption:
                 case key:
-                    of "debug":
-                        echo "Debug mode must be enabled via common.nim!"
+                    of "help":
+                        echo HELP_MESSAGE
+                        quit()
+                    of "version":
+                        echo JAPL_VERSION_STRING
                         quit()
                     else:
-                        echo &"Unkown option '{key}'"
+                        echo &"error: unkown option '{key}'"
                         quit()
+            of cmdShortOption:
+                case key:
+                    of "h":
+                        echo HELP_MESSAGE
+                        quit()
+                    of "v":
+                        echo JAPL_VERSION_STRING
+                        quit()
+                    else:
+                        echo &"error: unkown option '{key}'"
+                        quit()   
             else:
                 echo "usage: japl [filename]"
                 quit()

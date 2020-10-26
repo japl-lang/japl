@@ -19,7 +19,7 @@ import ../types/jobject
 
 type
     OpCode* {.pure.} = enum
-        ## Enum of possible opcodes.
+        ## Enum of possible opcodes
         Constant = 0u8,
         ConstantLong,
         Return,
