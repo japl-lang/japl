@@ -225,7 +225,7 @@ proc callObject(self: var VM, callee: ptr Obj, argCount: uint8): bool =
             else:   # TODO: Classes
                 discard  # Unreachable
     else:
-        self.error(newTypeError(&"object of type '{callee.typeName}' is not callable"))
+        self.error(newTypeError(&"object of type '{callee.typeName()}' is not callable"))
         return false
 
 
@@ -289,22 +289,27 @@ proc run(self: var VM, repl: bool): InterpretResult =
             stdout.write(&"Current frame count: {self.frameCount}\n")
             stdout.write("Current frame stack status: ")
             stdout.write("[")
-            for e in self.stack[frame.slot..self.stackTop - 1]:
+            for e in frame.getView():
                 stdout.write(stringify(e))
                 stdout.write(", ")
             stdout.write("]\n")
             discard disassembleInstruction(frame.function.chunk, frame.ip - 1)
         case opcode:   # Main OpCodes dispatcher
             of OpCode.Constant:
-                var constant: ptr Obj = readConstant()
-                self.push(constant)
+                self.push(readConstant())
             of OpCode.ConstantLong:
-                var constant: ptr Obj = readLongConstant()
-                self.push(constant)
+                self.push(readLongConstant())
             of OpCode.Negate:   # TODO: Call appropriate methods
                 discard
+                # self.push(self.pop().negate())
             of OpCode.Add:
-                discard
+                var left = self.pop()
+                var right = self.pop()
+                try:
+                    self.push(right.sum(left))
+                except NotImplementedError:
+                    self.error(newTypeError(getCurrentExceptionMsg()))
+                    return RuntimeError
             of OpCode.Shl:
                 discard
             of OpCode.Shr:
@@ -340,7 +345,11 @@ proc run(self: var VM, repl: bool): InterpretResult =
             of OpCode.Not:
                 self.push(self.pop().isFalsey().asBool())
             of OpCode.Equal:
+                # Here order doesn't matter, because if a == b
+                # then b == a (at least in *most* languages, sigh)
                 self.push(self.pop().eq(self.pop()).asBool())
+                # Doesn't this chain of calls look beautifully
+                # intuitive?
             of OpCode.Less:
                 discard
             of OpCode.Greater:
@@ -353,11 +362,9 @@ proc run(self: var VM, repl: bool): InterpretResult =
                     return RuntimeError
             of OpCode.DefineGlobal:
                 if frame.function.chunk.consts.len > 255:
-                    var constant = readLongConstant().toStr()
-                    self.globals[constant] = self.peek(0)
+                    self.globals[readLongConstant().toStr()] = self.peek(0)
                 else:
-                    var constant = readConstant().toStr()
-                    self.globals[constant] = self.peek(0)
+                    self.globals[readConstant().toStr()] = self.peek(0)
                 discard self.pop()   # This will help when we have a custom GC
             of OpCode.GetGlobal:
                 if frame.function.chunk.consts.len > 255:
@@ -407,18 +414,14 @@ proc run(self: var VM, repl: bool): InterpretResult =
                         self.globals.del(constant)
             of OpCode.GetLocal:
                 if frame.len > 255:
-                    var slot = readBytes()
-                    self.push(frame[slot])
+                    self.push(frame[readBytes()])
                 else:
-                    var slot = readByte()
-                    self.push(frame[int slot])
+                    self.push(frame[int readByte()])
             of OpCode.SetLocal:
                 if frame.len > 255:
-                    var slot = readBytes()
-                    frame[slot] = self.peek(0)
+                    frame[readBytes()] = self.peek(0)
                 else:
-                    var slot = readByte()
-                    frame[int slot] = self.peek(0)
+                    frame[int readByte()] = self.peek(0)
             of OpCode.DeleteLocal:
                 # Unused due to GC potential issues
                 if frame.len > 255:
@@ -430,15 +433,12 @@ proc run(self: var VM, repl: bool): InterpretResult =
             of OpCode.Pop:
                 self.lastPop = self.pop()
             of OpCode.JumpIfFalse:
-                var offset = readShort()
                 if isFalsey(self.peek(0)):
-                    frame.ip += int offset
+                    frame.ip += int readShort()
             of OpCode.Jump:
-                var offset = readShort()
-                frame.ip += int offset
+                frame.ip += int readShort()
             of OpCode.Loop:
-                var offset = readShort()
-                frame.ip -= int offset
+                frame.ip -= int readShort()
             of OpCode.Call:
                 var argCount = readByte()
                 if not self.callObject(self.peek(int argCount), argCount):
@@ -450,7 +450,7 @@ proc run(self: var VM, repl: bool): InterpretResult =
                 var retResult = self.pop()
                 if repl:
                     if not self.lastPop.isNil() and self.frameCount == 1:   # This is to avoid
-                        # useless output with recursive calls
+                        # This avoids unwanted output with recursive calls
                         echo stringify(self.lastPop)
                         self.lastPop = asNil()
                 self.frameCount -= 1

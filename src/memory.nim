@@ -23,7 +23,7 @@
 
 
 import segfaults
-import config
+# import config
 # when DEBUG_TRACE_ALLOCATION:
  #   import util/debug   # TODO: Recursive dependency
 

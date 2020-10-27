@@ -12,14 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-## JAPL' type system
+## The JAPL's type system. In JAPL, all entities are
+## objects, and are always references to a memory location
+## somewhere in the heap
 
 import ../memory
 import strformat
 
 
 type
-    NotImplementedError = object of CatchableError
+    NotImplementedError* = object of CatchableError
         ## Raised when a given operation is unsupported
         ## on a given type
     Chunk* = ref object   # TODO: This shouldn't be here, but Function needs it. Consider refactoring
@@ -43,6 +45,7 @@ type
         ## from this base type
         kind*: ObjectType
         hashValue*: uint64
+        isHashable: bool   # This is false for unhashable objects
     String* = object of Obj
         ## A string object
         str*: ptr UncheckedArray[char]  # TODO -> Unicode support
@@ -95,7 +98,8 @@ proc newChunk*(): Chunk =
     result = Chunk(consts: @[], code: @[], lines: @[])
 
 
-## Utilities that bridge nim and JAPL types
+## Utilities that bridge nim and JAPL types or to inspect
+## JAPL objects
 
 
 proc objType*(obj: ptr Obj): ObjectType =
@@ -170,7 +174,7 @@ proc toFloat*(obj: ptr Obj): float =
     ## Converts a JAPL float to a nim float
     result = cast[ptr Float](obj).floatValue
 
-# TODO ambiguous naming: conflict with toString(obj: obj) that does JAPL->JAPL
+
 proc toStr*(obj: ptr Obj): string =
     ## Converts a JAPL string into a nim string
     var strObj = cast[ptr String](obj)
@@ -182,26 +186,28 @@ proc asInt*(n: int): ptr Integer =
     ## Converts a nim int into a JAPL int
     result = allocateObj(Integer, ObjectType.Integer)
     result.intValue = n
+    result.isHashable = true
 
 
 proc asFloat*(n: float): ptr Float =
     ## Converts a nim float into a JAPL float
     result = allocateObj(Float, ObjectType.Float)
     result.floatValue = n
+    result.isHashable = true
 
 
 proc asBool*(b: bool): ptr Bool =
     ## Converts a nim bool into a JAPL bool
     result = allocateObj(Bool, ObjectType.Bool)
     result.boolValue = b
+    result.isHashable = true
 
-
-proc asNil*(): ptr Nil = 
+proc asNil*(): ptr Nil =
     ## Creates a nil object
     result = allocateObj(Nil, ObjectType.Nil)
 
 
-proc asNan*(): ptr NotANumber = 
+proc asNan*(): ptr NotANumber =
     ## Creates a nan object
     result = allocateObj(NotANumber, ObjectType.NotANumber)
 
@@ -216,28 +222,123 @@ proc newObj*(): ptr Obj =
     result = allocateObj(Obj, ObjectType.BaseObject)
 
 
-## JAPL procs implementations below
+proc newString*(str: string): ptr String
+proc asStr*(s: string): ptr String       # Forward declarations
+
+
+
+# Functions constructors and procedures
+
+type
+    FunctionType* {.pure.} = enum
+        ## All code in JAPL is compiled
+        ## as if it was inside some sort
+        ## of function. To differentiate
+        ## between actual functions and
+        ## the top-level code, this tiny
+        ## enum is used to tell the two
+        ## contexts apart when compiling
+        Func, Script
+
+
+proc newFunction*(name: string = "", chunk: Chunk = newChunk(), arity: int = 0): ptr Function =
+    ## Allocates a new function object with the given
+    ## bytecode chunk and arity. If the name is an empty string
+    ## (the default), the function will be an
+    ## anonymous code object
+    # TODO: Add lambdas
+    # TODO: Add support for optional parameters
+    result = allocateObj(Function, ObjectType.Function)
+    if name.len > 1:
+        result.name = newString(name)
+    else:
+        result.name = nil
+    result.arity = arity
+    result.chunk = chunk
+    result.isHashable = false
+
+
+proc newIndexError*(message: string): ptr JAPLException =
+    result = allocateObj(JAPLException, ObjectType.Exception)
+    result.errName = "IndexError".asStr()
+    result.message = message.asStr()
+
+
+proc newReferenceError*(message: string): ptr JAPLException =
+    result = allocateObj(JAPLException, ObjectType.Exception)
+    result.errName = "ReferenceError".asStr()
+    result.message = message.asStr()
+
+
+proc newInterruptedError*(message: string): ptr JAPLException =
+    result = allocateObj(JAPLException, ObjectType.Exception)
+    result.errName = "InterruptedError".asStr()
+    result.message = message.asStr()
+
+
+proc newRecursionError*(message: string): ptr JAPLException =
+    result = allocateObj(JAPLException, ObjectType.Exception)
+    result.errName = "RecursionError".asStr()
+    result.message = message.asStr()
+
+
+
+proc newTypeError*(message: string): ptr JAPLException =
+    result = allocateObj(JAPLException, ObjectType.Exception)
+    result.errName = "TypeError".asStr()
+    result.message = message.asStr()
+
+
+## Exposed object methods used in the JAPL runtime
+## are defined and implemented below
+
 
 # Implementations for typeName
 
-proc typeName*(self: ptr Obj): string =
-    ## Returns the name of the object type
-    result = "object"
-
-proc typeName*(self: ptr Function): string =
+proc typeName(self: ptr Function): string =
     result = "function"
 
-proc typeName*(self: ptr String): string =
+
+proc typeName(self: ptr String): string =
     return "string"
 
-proc typeName*(self: ptr Integer): string =
+
+proc typeName(self: ptr Integer): string =
     result = "integer"
 
-proc typeName*(self: ptr Float): string = 
+
+proc typeName(self: ptr Float): string =
     result = "float"
 
-proc typeName*(self: ptr Bool): string = 
+
+proc typeName(self: ptr Bool): string =
     result = "bool"
+
+
+proc typeName*(self: ptr Obj): string =
+    ## Returns the name of the object's type
+    case self.kind:
+        of ObjectType.BaseObject:
+            result = "object"
+        of ObjectType.String:
+            result = cast[ptr String](self).typeName()
+        of ObjectType.Integer:
+            result = cast[ptr Integer](self).typeName()
+        of ObjectType.Float:
+            result = cast[ptr Float](self).typeName()
+        of ObjectType.Bool:
+            result = cast[ptr Bool](self).typeName()
+        of ObjectType.Function:
+            result = cast[ptr Function](self).typeName()
+        of ObjectType.Infinity:
+            result = cast[ptr Infinity](self).typeName()
+        of ObjectType.NotANumber:
+            result = cast[ptr NotANumber](self).typeName()
+        of ObjectType.Nil:
+            result = cast[ptr Nil](self).typeName()
+        else:
+            discard  # TODO
+
 
 # Implementations for stringify
 
@@ -269,6 +370,7 @@ proc stringify(self: ptr Infinity): string =
     else:
         result = "inf"
 
+
 proc stringify(self: ptr Nil): string =
     result = "nil"
 
@@ -283,7 +385,8 @@ proc stringify*(self: ptr Function): string =
     else:
         result = "<code object>"
 
-proc stringify*(self: ptr Obj): string = 
+
+proc stringify*(self: ptr Obj): string =
     ## Returns a string representation of the
     ## given object
     case self.kind:
@@ -328,11 +431,11 @@ proc isFalsey(self: ptr Float): bool =
     result = self.floatValue == 0.0
 
 
-proc isFalsey(self: ptr Bool): bool = 
+proc isFalsey(self: ptr Bool): bool =
     result = not self.boolValue
 
 
-proc isFalsey(self: ptr Infinity): bool = 
+proc isFalsey(self: ptr Infinity): bool =
     result = false
 
 
@@ -402,7 +505,7 @@ proc hash(self: ptr Nil): uint64 =
     # TODO: Arbitrary hash seems a bad idea
     result = 2u
 
-proc hash(self: ptr Function): uint64 = 
+proc hash(self: ptr Function): uint64 =
     # TODO: Hashable?
     raise newException(NotImplementedError, "unhashable type 'function'")
 
@@ -411,6 +514,8 @@ proc hash*(self: ptr Obj): uint64 =
     ## Returns the hash of the object using
     ## the FNV-1a algorithm (or a predefined value).
     ## Raises an error if the object is not hashable
+    if not self.isHashable:
+        raise newException(NotImplementedError, &"unhashable type '{self.typeName}'")
     case self.kind:
         of ObjectType.BaseObject:
             result = 2166136261u  # Constant hash
@@ -508,143 +613,140 @@ proc eq*(self, other: ptr Obj): bool =
             discard  # TODO
 
 
-## String constructors and converters
+proc sum(self: ptr String, other: ptr Obj): ptr String =
+    if other.kind == ObjectType.String:
+        var other = cast[ptr String](other)
+        var selfStr = self.toStr()
+        var otherStr = other.toStr()
+        result = (selfStr & otherStr).asStr()
+    else:
+        raise newException(NotImplementedError, &"unsupported binary operator '+' for objects of type '{self.typeName()}' and '{other.typeName()}'")
+
+
+proc sum(self: ptr Integer, other: ptr Obj): ptr Obj =  # This can yield a float!
+    case other.kind:
+        of ObjectType.Integer:
+            result = (self.toInt() + cast[ptr Integer](other).toInt()).asInt()
+        of ObjectType.Float:
+            let res = ((float self.toInt()) + cast[ptr Float](other).toFloat())
+            if res == system.Inf:
+                result = asInf()
+            elif res == -system.Inf:
+                let negInf = asInf()
+                negInf.isNegative = true
+                result = negInf
+            else:
+                result = res.asFloat()
+        of ObjectType.NotANumber:
+            result = asNan()
+        of ObjectType.Infinity:
+            result = cast[ptr Infinity](other)
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '+' for objects of type '{self.typeName()}' and '{other.typeName()}'")
+
+
+proc sum(self: ptr Float, other: ptr Obj): ptr Obj =
+    case other.kind:
+        of ObjectType.Integer:
+            result = (self.toFloat() + float cast[ptr Integer](other).toInt()).asFloat()
+        of ObjectType.Float:
+            let res = (self.toFloat() + cast[ptr Float](other).toFloat())
+            if res == system.Inf:
+                result = asInf()
+            elif res == -system.Inf:
+                let negInf = asInf()
+                negInf.isNegative = true
+                result = negInf
+            else:
+                result = res.asFloat()
+        of ObjectType.NotANumber:
+            result = asNan()
+        of ObjectType.Infinity:
+            result = cast[ptr Infinity](other)
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '+' for objects of type '{self.typeName()}' and '{other.typeName()}'")
+
+
+proc sum*(self, other: ptr Obj): ptr Obj =
+    ## Returns the result of self + other
+    ## or raises NotImplementedError if the operation is unsupported
+    case self.kind:
+        of ObjectType.String:    # Here we don't cast other (yet)
+              # because binary operators can mix types together,
+              # like in "hello" * 5, or 3.5 * 8. Casting that
+              # later allows for finer error reporting and keeps
+              # these methods as generic as possible
+            result = cast[ptr String](self).sum(other)
+        of ObjectType.Integer:
+            result = cast[ptr Integer](self).sum(other)
+        of ObjectType.Float:
+            result = cast[ptr Float](self).sum(other)
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '+' for objects of type '{self.typeName()}' and '{other.typeName()}'")
+
+
+proc sub(self, other: ptr Obj): ptr Obj =
+    ## Returns the result of self - other
+    ## or raises NotImplementedError if the operation is unsupported
+    result = nil
+
+
+proc mul(self, other: ptr Obj): ptr Obj =
+    ## Returns the result of self * other
+    ## or raises NotImplementedError if the operation is unsupported
+    result = nil
+
+
+proc trueDiv(self, other: ptr Obj): ptr Obj =
+    ## Returns the result of self / other
+    ## or raises NotImplementedError if the operation is unsupported
+    result = nil
+
+
+proc exp(self, other: ptr Obj): ptr Obj =
+    ## Returns the result of self ** other
+    ## or raises NotImplementedError if the operation is unsupported
+    result = nil
+
+
+proc binaryAnd(self, other: ptr Obj): ptr Obj =
+    ## Returns the result of self & other
+    ## or raises NotImplementedError if the operation is unsupported
+    result = nil
+
+
+proc binaryOr(self, other: ptr Obj): ptr Obj =
+    ## Returns the result of self | other
+    ## or raises NotImplementedError if the operation is unsupported
+    result = nil
+
+
+proc binaryNot(self: ptr Obj): ptr Obj =
+    ## Returns the result of ~self
+    ## or raises NotImplementedError if the operation is unsupported
+    result = nil
+
+
+proc binaryXor(self, other: ptr Obj): ptr Obj =
+    ## Returns the result of self ^ other
+    ## or raises NotImplementedError if the operation is unsupported
+    result = nil
+
 
 proc newString*(str: string): ptr String =
     # TODO -> Unicode
+    # TODO -> Move this into asStr
     result = allocateObj(String, ObjectType.String)
     result.str = allocate(UncheckedArray[char], char, len(str))
     for i in 0..len(str) - 1:
         result.str[i] = str[i]
     result.len = len(str)
     result.hashValue = result.hash()
+    result.isHashable = true
 
-proc asStr*(s: string): ptr Obj =
-    ## Converts a nim string into a 
+
+proc asStr*(s: string): ptr String =
+
+    ## Converts a nim string into a
     ## JAPL string
     result = newString(s)
-
-# End of string object procs
-
-
-# Functions constructors and procedures
-
-type
-    FunctionType* {.pure.} = enum
-        ## All code in JAPL is compiled
-        ## as if it was inside some sort
-        ## of function. To differentiate
-        ## between actual functions and
-        ## the top-level code, this tiny
-        ## enum is used to tell the two
-        ## contexts apart when compiling
-        Func, Script
-
-
-proc newFunction*(name: string = "", chunk: Chunk = newChunk(), arity: int = 0): ptr Function =
-    ## Allocates a new function object with the given
-    ## bytecode chunk and arity. If the name is an empty string
-    ## (the default), the function will be an
-    ## anonymous code object
-    # TODO: Add lambdas
-    # TODO: Add support for optional parameters
-    result = allocateObj(Function, ObjectType.Function)
-    if name.len > 1:
-        result.name = newString(name)
-    else:
-        result.name = nil
-    result.arity = arity
-    result.chunk = chunk
-
-
-proc bool*(obj: ptr Obj): bool =
-    ## Returns wheter the object should
-    ## be considered a falsey obj
-    ## or not. Returns true if the
-    ## object is truthy, or false
-    ## if it is falsey
-    result = false
-
-
-proc add(self, other: ptr Obj): ptr Obj =
-    ## Returns the result of self + other
-    ## or nil if the operation is unsupported
-    result = nil  # Not defined for base objects!
-
-
-proc sub(self, other: ptr Obj): ptr Obj =
-    ## Returns the result of self - other
-    ## or nil if the operation is unsupported
-    result = nil
-
-
-proc mul(self, other: ptr Obj): ptr Obj =
-    ## Returns the result of self * other
-    ## or nil if the operation is unsupported
-    result = nil
-
-
-proc trueDiv(self, other: ptr Obj): ptr Obj =
-    ## Returns the result of self / other
-    ## or nil if the operation is unsupported
-    result = nil
-
-
-proc exp(self, other: ptr Obj): ptr Obj =
-    ## Returns the result of self ** other
-    ## or nil if the operation is unsupported
-    result = nil
-
-
-proc binaryAnd(self, other: ptr Obj): ptr Obj =
-    ## Returns the result of self & other
-    ## or nil if the operation is unsupported
-    result = nil
-
-
-proc binaryOr(self, other: ptr Obj): ptr Obj =
-    ## Returns the result of self | other
-    ## or nil if the operation is unsupported
-    result = nil
-
-
-proc binaryNot(self: ptr Obj): ptr Obj =
-    ## Returns the result of ~self
-    ## or nil if the operation is unsupported
-    result = nil
-
-
-proc binaryXor(self, other: ptr Obj): ptr Obj =
-    ## Returns the result of self ^ other
-    ## or nil if the operation is unsupported
-    result = nil
-
-proc newIndexError*(message: string): ptr JAPLException =
-    result = allocateObj(JAPLException, ObjectType.Exception)
-    result.errName = newString("IndexError")
-    result.message = newString(message)
-
-
-proc newReferenceError*(message: string): ptr JAPLException =
-    result = allocateObj(JAPLException, ObjectType.Exception)
-    result.errName = newString("ReferenceError")
-    result.message = newString(message)
-
-
-proc newInterruptedError*(message: string): ptr JAPLException =
-    result = allocateObj(JAPLException, ObjectType.Exception)
-    result.errName = newString("InterruptedError")
-    result.message = newString(message)
-
-
-proc newRecursionError*(message: string): ptr JAPLException =
-    result = allocateObj(JAPLException, ObjectType.Exception)
-    result.errName = newString("RecursionError")
-    result.message = newString(message)
-
-
-
-proc newTypeError*(message: string): ptr JAPLException =
-    result = allocateObj(JAPLException, ObjectType.Exception)
-    result.errName = newString("TypeError")
-    result.message = newString(message)
