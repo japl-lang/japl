@@ -31,9 +31,6 @@ when DEBUG_TRACE_VM:
 
 
 ## Move these into appropriate int/float modules
-proc `**`(a, b: int): int = pow(a.float, b.float).int
-proc `**`(a, b: float): float = pow(a, b)
-
 
 type
     KeyboardInterrupt* = object of CatchableError
@@ -299,9 +296,24 @@ proc run(self: var VM, repl: bool): InterpretResult =
                 self.push(readConstant())
             of OpCode.ConstantLong:
                 self.push(readLongConstant())
-            of OpCode.Negate:   # TODO: Call appropriate methods
+            of OpCode.Negate:
+                try:
+                    self.push(self.pop().negate())
+                except NotImplementedError:
+                    self.error(newTypeError(getCurrentExceptionMsg()))
+                    return RuntimeError
+            of OpCode.Shl:   # Binary left-shift
                 discard
-                # self.push(self.pop().negate())
+            of OpCode.Shr:   # Binary right-shift
+                discard
+            of OpCode.Xor:   # Binary xor
+                discard
+            of OpCode.Bor:  # Binary or
+                discard
+            of OpCode.Bnot:  # Binary not
+                discard
+            of OpCode.Band:  # Binary and
+                discard
             of OpCode.Add:
                 var left = self.pop()
                 var right = self.pop()
@@ -310,28 +322,46 @@ proc run(self: var VM, repl: bool): InterpretResult =
                 except NotImplementedError:
                     self.error(newTypeError(getCurrentExceptionMsg()))
                     return RuntimeError
-            of OpCode.Shl:
-                discard
-            of OpCode.Shr:
-                discard
-            of OpCode.Xor:
-                discard
-            of OpCode.Bor:
-                discard
-            of OpCode.Bnot:
-                discard
-            of OpCode.Band:
-                discard
             of OpCode.Subtract:
-                discard
+                var left = self.pop()
+                var right = self.pop()
+                try:
+                    self.push(right.sub(left))
+                except NotImplementedError:
+                    self.error(newTypeError(getCurrentExceptionMsg()))
+                    return RuntimeError
             of OpCode.Divide:
-                discard
+                var left = self.pop()
+                var right = self.pop()
+                try:
+                    self.push(right.trueDiv(left))
+                except NotImplementedError:
+                    self.error(newTypeError(getCurrentExceptionMsg()))
+                    return RuntimeError
             of OpCode.Multiply:
-                discard
+                var left = self.pop()
+                var right = self.pop()
+                try:
+                    self.push(right.mul(left))
+                except NotImplementedError:
+                    self.error(newTypeError(getCurrentExceptionMsg()))
+                    return RuntimeError
             of OpCode.Mod:
-                discard
+                var left = self.pop()
+                var right = self.pop()
+                try:
+                    self.push(right.divMod(left))
+                except NotImplementedError:
+                    self.error(newTypeError(getCurrentExceptionMsg()))
+                    return RuntimeError
             of OpCode.Pow:
-                discard
+                var left = self.pop()
+                var right = self.pop()
+                try:
+                    self.push(right.pow(left))
+                except NotImplementedError:
+                    self.error(newTypeError(getCurrentExceptionMsg()))
+                    return RuntimeError
             of OpCode.True:
                 self.push((true).asBool())
             of OpCode.False:
@@ -351,9 +381,21 @@ proc run(self: var VM, repl: bool): InterpretResult =
                 # Doesn't this chain of calls look beautifully
                 # intuitive?
             of OpCode.Less:
-                discard
+                var left = self.pop()
+                var right = self.pop()
+                try:
+                    self.push(right.lt(left).asBool())
+                except NotImplementedError:
+                    self.error(newTypeError(getCurrentExceptionMsg()))
+                    return RuntimeError
             of OpCode.Greater:
-                discard
+                var left = self.pop()
+                var right = self.pop()
+                try:
+                    self.push(right.gt(left).asBool())
+                except NotImplementedError:
+                    self.error(newTypeError(getCurrentExceptionMsg()))
+                    return RuntimeError
             of OpCode.Slice:
                 if not self.slice():
                     return RuntimeError

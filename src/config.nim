@@ -15,10 +15,10 @@
 import strformat
 
 
-const MAP_LOAD_FACTOR = 0.75  # Load factor for builtin hashmaps (TODO)
-const ARRAY_GROW_FACTOR = 2   # How much extra memory to allocate for dynamic arrays (TODO)
-const FRAMES_MAX* = 400  # TODO: Inspect why the VM crashes if this exceeds 400
-const JAPL_VERSION* = "0.2.0"
+const MAP_LOAD_FACTOR* = 0.75  # Load factor for builtin hashmaps (TODO)
+const ARRAY_GROW_FACTOR* = 2   # How much extra memory to allocate for dynamic arrays (TODO)
+const FRAMES_MAX* = 805  # TODO: Inspect why the VM crashes if this exceeds this value
+const JAPL_VERSION* = "0.3.0"
 const JAPL_RELEASE* = "alpha"
 const DEBUG_TRACE_VM* = false # Traces VM execution
 const DEBUG_TRACE_GC* = false    # Traces the garbage collector (TODO)

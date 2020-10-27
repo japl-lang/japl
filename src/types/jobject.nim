@@ -18,6 +18,7 @@
 
 import ../memory
 import strformat
+import math
 
 
 type
@@ -77,6 +78,11 @@ type
         ## The base exception object
         errName*: ptr String    # TODO: Ditch error name in favor of inheritance-based types
         message*: ptr String
+
+
+# Custom operators
+proc `**`(a, b: int): int = pow(a.float, b.float).int
+proc `**`(a, b: float): float = pow(a, b)
 
 
 ## Object constructors and allocators
@@ -307,8 +313,20 @@ proc typeName(self: ptr Integer): string =
     result = "integer"
 
 
+proc typeName(self: ptr NotANumber): string =
+    result = "float"
+
+
 proc typeName(self: ptr Float): string =
     result = "float"
+
+
+proc typeName(self: ptr Infinity): string =
+    result = "infinity"
+
+
+proc typeName(self: ptr Nil): string =
+    result = "nil"
 
 
 proc typeName(self: ptr Bool): string =
@@ -565,11 +583,13 @@ proc eq(self, other: ptr Bool): bool =
 
 
 proc eq(self, other: ptr Function): bool =
-    result = self.name.stringify() == other.name.stringify()
+    result = self.name.stringify() == other.name.stringify() # Since in JAPL functions cannot
+    # be overridden, if two function names are equal they are also the same
+    # function object (TODO: Verify this)
 
 
 proc eq(self, other: ptr NotANumber): bool =
-    result = false
+    result = false   # As per IEEE 754 spec, nan != nan
 
 
 proc eq(self, other: ptr Nil): bool =
@@ -584,7 +604,8 @@ proc eq*(self, other: ptr Obj): bool =
     ## Compares two objects for equality,
     ## returns true if self equals other
     ## and false otherwise
-    if self.kind != other.kind:
+    if self.kind != other.kind:   # If the types are different it's not
+    # even worth going any further (and you couldn't anyway)
         return false
     case self.kind:
         of ObjectType.BaseObject:
@@ -609,8 +630,213 @@ proc eq*(self, other: ptr Obj): bool =
             var self = cast[ptr Function](self)
             var other = cast[ptr Function](other)
             result = self.eq(other)
+        of ObjectType.Infinity:
+            var self = cast[ptr Infinity](self)
+            var other = cast[ptr Infinity](other)
+            result = self.eq(other)
+        of ObjectType.NotANumber:
+            var self = cast[ptr NotANumber](self)
+            var other = cast[ptr NotANumber](other)
+            result = self.eq(other)
+        of ObjectType.Nil:
+            var self = cast[ptr Nil](self)
+            var other = cast[ptr Nil](other)
+            result = self.eq(other)
         else:
             discard  # TODO
+
+
+proc negate(self: ptr Integer): ptr Integer =
+    result = (-self.toInt()).asInt()
+
+
+proc negate(self: ptr Float): ptr Float =
+    result = (-self.toFloat()).asFloat()
+
+
+proc negate(self: ptr Infinity): ptr Infinity =
+    result = asInf()
+    result.isNegative = true
+
+
+proc negate*(self: ptr Obj): ptr Obj = 
+    ## Returns the result of -self or
+    ## raises an error if the operation
+    ## is unsupported
+    case self.kind:
+        of ObjectType.Integer:
+            result = cast[ptr Integer](self).negate()
+        of ObjectType.Float:
+            result = cast[ptr Float](self).negate()
+        of ObjectType.Infinity:
+            result = cast[ptr Infinity](self).negate()
+        else:
+            raise newException(NotImplementedError, &"unsupported unary operator '-' for object of type '{self.typeName()}'")
+
+
+proc lt(self: ptr Integer, other: ptr Obj): bool =
+    case other.kind: 
+        of ObjectType.Integer:
+            result = self.intValue < cast[ptr Integer](other).intValue
+        of ObjectType.Float:
+            result = (float self.intValue) < cast[ptr Float](other).floatValue
+        of ObjectType.Infinity:
+            let other = cast[ptr Infinity](other)
+            if other.isNegative:
+                result = false
+            else:
+                result = true
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '<' for object of type '{self.typeName()}'")
+
+
+proc lt(self: ptr Float, other: ptr Obj): bool =
+    case other.kind: 
+        of ObjectType.Integer:
+            result = self.floatValue < (float cast[ptr Integer](other).intValue)
+        of ObjectType.Float:
+            result = self.floatValue < cast[ptr Float](other).floatValue
+        of ObjectType.Infinity:
+            let other = cast[ptr Infinity](other)
+            if other.isNegative:
+                result = false
+            else:
+                result = true
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '<' for object of type '{self.typeName()}'")
+
+
+proc lt(self: ptr Infinity, other: ptr Obj): bool =
+    case other.kind: 
+        of ObjectType.Integer:
+            let other = cast[ptr Integer](other)
+            if self.isNegative and other.intValue > 0:
+                result = true
+            else:
+                result = false
+        of ObjectType.Float:
+            let other = cast[ptr Float](other)
+            if self.isNegative and other.floatValue > 0.0:
+                result = true
+            else:
+                result = false
+        of ObjectType.Infinity:
+            let other = cast[ptr Infinity](other)
+            if other.isNegative and not self.isNegative:
+                result = false
+            else:
+                result = false
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '<' for object of type '{self.typeName()}'")
+
+
+proc lt*(self: ptr Obj, other: ptr Obj): bool = 
+    ## Returns the result of self < other or
+    ## raises an error if the operation
+    ## is unsupported
+    case self.kind:
+        of ObjectType.Integer:
+            result = cast[ptr Integer](self).lt(other)
+        of ObjectType.Float:
+            result = cast[ptr Float](self).lt(other)
+        of ObjectType.Infinity:
+            result = cast[ptr Infinity](self).lt(other)
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '<' for object of type '{self.typeName()}'")
+
+
+proc gt(self: ptr Integer, other: ptr Obj): bool =
+    case other.kind: 
+        of ObjectType.Integer:
+            result = self.intValue > cast[ptr Integer](other).intValue
+        of ObjectType.Float:
+            result = (float self.intValue) > cast[ptr Float](other).floatValue
+        of ObjectType.Infinity:
+            let other = cast[ptr Infinity](other)
+            if other.isNegative:
+                result = true
+            else:
+                result = false
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '>' for object of type '{self.typeName()}'")
+
+
+proc gt(self: ptr Float, other: ptr Obj): bool =
+    case other.kind: 
+        of ObjectType.Integer:
+            result = self.floatValue > (float cast[ptr Integer](other).intValue)
+        of ObjectType.Float:
+            result = self.floatValue > cast[ptr Float](other).floatValue
+        of ObjectType.Infinity:
+            let other = cast[ptr Infinity](other)
+            if other.isNegative:
+                result = true
+            else:
+                result = false
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '>' for object of type '{self.typeName()}'")
+
+
+proc gt(self: ptr Infinity, other: ptr Obj): bool =
+    case other.kind: 
+        of ObjectType.Integer:
+            let other = cast[ptr Integer](other)
+            if self.isNegative and other.intValue > 0:
+                result = false
+            else:
+                result = true
+        of ObjectType.Float:
+            let other = cast[ptr Float](other)
+            if self.isNegative and other.floatValue > 0.0:
+                result = false
+            else:
+                result = true
+        of ObjectType.Infinity:
+            let other = cast[ptr Infinity](other)
+            if other.isNegative and not self.isNegative:
+                result = true
+            else:
+                result = false
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '>' for object of type '{self.typeName()}'")
+
+
+proc gt*(self: ptr Obj, other: ptr Obj): bool = 
+    ## Returns the result of self < other or
+    ## raises an error if the operation
+    ## is unsupported
+    case self.kind:
+        of ObjectType.Integer:
+            result = cast[ptr Integer](self).gt(other)
+        of ObjectType.Float:
+            result = cast[ptr Float](self).gt(other)
+        of ObjectType.Infinity:
+            result = cast[ptr Infinity](self).gt(other)
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '>' for object of type '{self.typeName()}'")
+
+
+proc sum(self: ptr Infinity, other: ptr Obj): ptr Infinity =
+    result = asInf()
+    case other.kind:
+        of ObjectType.Infinity:
+            var other = cast[ptr Infinity](other)
+            if self.isNegative or other.isNegative:
+                result.isNegative = true
+        of ObjectType.Integer, ObjectType.Float:
+            discard
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '+' for objects of type '{self.typeName()}' and '{other.typeName()}'")
+
+
+proc sum(self: ptr NotANumber, other: ptr Obj): ptr NotANumber =
+    result = asNan()
+    case other.kind:
+        of ObjectType.NotANumber, ObjectType.Integer, ObjectType.Float:
+            discard
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '+' for objects of type '{self.typeName()}' and '{other.typeName()}'")
+
 
 
 proc sum(self: ptr String, other: ptr Obj): ptr String =
@@ -681,33 +907,426 @@ proc sum*(self, other: ptr Obj): ptr Obj =
             result = cast[ptr Integer](self).sum(other)
         of ObjectType.Float:
             result = cast[ptr Float](self).sum(other)
+        of ObjectType.NotANumber:
+            result = cast[ptr NotANumber](self).sum(other)
+        of ObjectType.Infinity:
+            result = cast[ptr Infinity](self).sum(other)
         else:
             raise newException(NotImplementedError, &"unsupported binary operator '+' for objects of type '{self.typeName()}' and '{other.typeName()}'")
 
 
-proc sub(self, other: ptr Obj): ptr Obj =
+proc sub(self: ptr Infinity, other: ptr Obj): ptr Infinity =
+    result = asInf()
+    case other.kind:
+        of ObjectType.Infinity:
+            var other = cast[ptr Infinity](other)
+            if self.isNegative or other.isNegative:
+                result.isNegative = true
+        of ObjectType.Integer, ObjectType.Float:
+            discard
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '+' for objects of type '{self.typeName()}' and '{other.typeName()}'")
+
+
+proc sub(self: ptr NotANumber, other: ptr Obj): ptr NotANumber =
+    result = asNan()
+    case other.kind:
+        of ObjectType.NotANumber, ObjectType.Integer, ObjectType.Float:
+            discard
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '+' for objects of type '{self.typeName()}' and '{other.typeName()}'")
+
+
+
+proc sub(self: ptr Integer, other: ptr Obj): ptr Obj =  # This can yield a float!
+    case other.kind:
+        of ObjectType.Integer:
+            result = (self.toInt() - cast[ptr Integer](other).toInt()).asInt()
+        of ObjectType.Float:
+            let res = ((float self.toInt()) - cast[ptr Float](other).toFloat())
+            if res == system.Inf:
+                result = asInf()
+            elif res == -system.Inf:
+                let negInf = asInf()
+                negInf.isNegative = true
+                result = negInf
+            else:
+                result = res.asFloat()
+        of ObjectType.NotANumber:
+            result = asNan()
+        of ObjectType.Infinity:
+            result = cast[ptr Infinity](other)
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '+' for objects of type '{self.typeName()}' and '{other.typeName()}'")
+
+
+proc sub(self: ptr Float, other: ptr Obj): ptr Obj =
+    case other.kind:
+        of ObjectType.Integer:
+            result = (self.toFloat() - float cast[ptr Integer](other).toInt()).asFloat()
+        of ObjectType.Float:
+            let res = (self.toFloat() - cast[ptr Float](other).toFloat())
+            if res == system.Inf:
+                result = asInf()
+            elif res == -system.Inf:
+                let negInf = asInf()
+                negInf.isNegative = true
+                result = negInf
+            else:
+                result = res.asFloat()
+        of ObjectType.NotANumber:
+            result = asNan()
+        of ObjectType.Infinity:
+            result = cast[ptr Infinity](other)
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '+' for objects of type '{self.typeName()}' and '{other.typeName()}'")
+
+
+proc sub*(self, other: ptr Obj): ptr Obj =
     ## Returns the result of self - other
     ## or raises NotImplementedError if the operation is unsupported
-    result = nil
+    case self.kind:
+        of ObjectType.Integer:
+            result = cast[ptr Integer](self).sub(other)
+        of ObjectType.Float:
+            result = cast[ptr Float](self).sub(other)
+        of ObjectType.NotANumber:
+            result = cast[ptr NotANumber](self).sub(other)
+        of ObjectType.Infinity:
+            result = cast[ptr Infinity](self).sub(other)
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '+' for objects of type '{self.typeName()}' and '{other.typeName()}'")
 
 
-proc mul(self, other: ptr Obj): ptr Obj =
-    ## Returns the result of self * other
+proc mul(self: ptr Infinity, other: ptr Obj): ptr Infinity =
+    result = asInf()
+    case other.kind:
+        of ObjectType.Infinity:
+            var other = cast[ptr Infinity](other)
+            if self.isNegative or other.isNegative:
+                result.isNegative = true
+        of ObjectType.Integer, ObjectType.Float:
+            discard
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '+' for objects of type '{self.typeName()}' and '{other.typeName()}'")
+
+
+proc mul(self: ptr NotANumber, other: ptr Obj): ptr NotANumber =
+    result = asNan()
+    case other.kind:
+        of ObjectType.NotANumber, ObjectType.Integer, ObjectType.Float:
+            discard
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '*' for objects of type '{self.typeName()}' and '{other.typeName()}'")
+
+
+
+proc mul(self: ptr Integer, other: ptr Obj): ptr Obj =  # This can yield a float!
+    case other.kind:
+        of ObjectType.Integer:
+            result = (self.toInt() * cast[ptr Integer](other).toInt()).asInt()
+        of ObjectType.Float:
+            let res = ((float self.toInt()) * cast[ptr Float](other).toFloat())
+            if res == system.Inf:
+                result = asInf()
+            elif res == -system.Inf:
+                let negInf = asInf()
+                negInf.isNegative = true
+                result = negInf
+            else:
+                result = res.asFloat()
+        of ObjectType.NotANumber:
+            result = asNan()
+        of ObjectType.Infinity:
+            result = cast[ptr Infinity](other)
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '*' for objects of type '{self.typeName()}' and '{other.typeName()}'")
+
+
+proc mul(self: ptr Float, other: ptr Obj): ptr Obj =
+    case other.kind:
+        of ObjectType.Integer:
+            result = (self.toFloat() * float cast[ptr Integer](other).toInt()).asFloat()
+        of ObjectType.Float:
+            let res = (self.toFloat() * cast[ptr Float](other).toFloat())
+            if res == system.Inf:
+                result = asInf()
+            elif res == -system.Inf:
+                let negInf = asInf()
+                negInf.isNegative = true
+                result = negInf
+            else:
+                result = res.asFloat()
+        of ObjectType.NotANumber:
+            result = asNan()
+        of ObjectType.Infinity:
+            result = cast[ptr Infinity](other)
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '*' for objects of type '{self.typeName()}' and '{other.typeName()}'")
+
+
+proc mul*(self, other: ptr Obj): ptr Obj =
+    ## Returns the result of self + other
     ## or raises NotImplementedError if the operation is unsupported
-    result = nil
+    case self.kind:
+        of ObjectType.Integer:
+            result = cast[ptr Integer](self).mul(other)
+        of ObjectType.Float:
+            result = cast[ptr Float](self).mul(other)
+        of ObjectType.NotANumber:
+            result = cast[ptr NotANumber](self).mul(other)
+        of ObjectType.Infinity:
+            result = cast[ptr Infinity](self).mul(other)
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '*' for objects of type '{self.typeName()}' and '{other.typeName()}'")
 
 
-proc trueDiv(self, other: ptr Obj): ptr Obj =
+proc trueDiv(self: ptr Infinity, other: ptr Obj): ptr Infinity =
+    result = asInf()
+    case other.kind:
+        of ObjectType.Infinity:
+            var other = cast[ptr Infinity](other)
+            if self.isNegative or other.isNegative:
+                result.isNegative = true
+        of ObjectType.Integer, ObjectType.Float:
+            discard
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '/' for objects of type '{self.typeName()}' and '{other.typeName()}'")
+
+
+proc trueDiv(self: ptr NotANumber, other: ptr Obj): ptr NotANumber =
+    result = asNan()
+    case other.kind:
+        of ObjectType.NotANumber, ObjectType.Integer, ObjectType.Float:
+            discard
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '/' for objects of type '{self.typeName()}' and '{other.typeName()}'")
+
+
+
+proc trueDiv(self: ptr Integer, other: ptr Obj): ptr Obj =
+    case other.kind:
+        of ObjectType.Integer:
+            result = ((float self.toInt()) / (float cast[ptr Integer](other).toInt())).asFloat()  # so that 4 / 2 == 2.0
+        of ObjectType.Float:
+            let res = ((float self.toInt()) / cast[ptr Float](other).toFloat())
+            if res == system.Inf:
+                result = asInf()
+            elif res == -system.Inf:
+                let negInf = asInf()
+                negInf.isNegative = true
+                result = negInf
+            else:
+                result = res.asFloat()
+        of ObjectType.NotANumber:
+            result = asNan()
+        of ObjectType.Infinity:
+            result = cast[ptr Infinity](other)
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '/' for objects of type '{self.typeName()}' and '{other.typeName()}'")
+
+
+proc trueDiv(self: ptr Float, other: ptr Obj): ptr Obj =
+    case other.kind:
+        of ObjectType.Integer:
+            result = (self.toFloat() / float cast[ptr Integer](other).toInt()).asFloat()
+        of ObjectType.Float:
+            let res = (self.toFloat() / cast[ptr Float](other).toFloat())
+            if res == system.Inf:
+                result = asInf()
+            elif res == -system.Inf:
+                let negInf = asInf()
+                negInf.isNegative = true
+                result = negInf
+            else:
+                result = res.asFloat()
+        of ObjectType.NotANumber:
+            result = asNan()
+        of ObjectType.Infinity:
+            result = cast[ptr Infinity](other)
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '/' for objects of type '{self.typeName()}' and '{other.typeName()}'")
+
+
+proc trueDiv*(self, other: ptr Obj): ptr Obj =
     ## Returns the result of self / other
     ## or raises NotImplementedError if the operation is unsupported
-    result = nil
+    case self.kind:
+        of ObjectType.Integer:
+            result = cast[ptr Integer](self).trueDiv(other)
+        of ObjectType.Float:
+            result = cast[ptr Float](self).trueDiv(other)
+        of ObjectType.NotANumber:
+            result = cast[ptr NotANumber](self).trueDiv(other)
+        of ObjectType.Infinity:
+            result = cast[ptr Infinity](self).trueDiv(other)
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '/' for objects of type '{self.typeName()}' and '{other.typeName()}'")
 
 
-proc exp(self, other: ptr Obj): ptr Obj =
-    ## Returns the result of self ** other
+proc pow(self: ptr Infinity, other: ptr Obj): ptr Infinity =
+    result = asInf()
+    case other.kind:
+        of ObjectType.Infinity:
+            var other = cast[ptr Infinity](other)
+            if self.isNegative or other.isNegative:
+                result.isNegative = true
+        of ObjectType.Integer, ObjectType.Float:
+            discard
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '**' for objects of type '{self.typeName()}' and '{other.typeName()}'")
+
+
+proc pow(self: ptr NotANumber, other: ptr Obj): ptr NotANumber =
+    result = asNan()
+    case other.kind:
+        of ObjectType.NotANumber, ObjectType.Integer, ObjectType.Float:
+            discard
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '**' for objects of type '{self.typeName()}' and '{other.typeName()}'")
+
+
+
+proc pow(self: ptr Integer, other: ptr Obj): ptr Obj =  # This can yield a float!
+    case other.kind:
+        of ObjectType.Integer:
+            result = (self.toInt() ** cast[ptr Integer](other).toInt()).asInt()
+        of ObjectType.Float:
+            let res = ((float self.toInt()) ** cast[ptr Float](other).toFloat())
+            if res == system.Inf:
+                result = asInf()
+            elif res == -system.Inf:
+                let negInf = asInf()
+                negInf.isNegative = true
+                result = negInf
+            else:
+                result = res.asFloat()
+        of ObjectType.NotANumber:
+            result = asNan()
+        of ObjectType.Infinity:
+            result = cast[ptr Infinity](other)
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '**' for objects of type '{self.typeName()}' and '{other.typeName()}'")
+
+
+proc pow(self: ptr Float, other: ptr Obj): ptr Obj =
+    case other.kind:
+        of ObjectType.Integer:
+            result = (self.toFloat() ** float cast[ptr Integer](other).toInt()).asFloat()
+        of ObjectType.Float:
+            let res = (self.toFloat() ** cast[ptr Float](other).toFloat())
+            if res == system.Inf:
+                result = asInf()
+            elif res == -system.Inf:
+                let negInf = asInf()
+                negInf.isNegative = true
+                result = negInf
+            else:
+                result = res.asFloat()
+        of ObjectType.NotANumber:
+            result = asNan()
+        of ObjectType.Infinity:
+            result = cast[ptr Infinity](other)
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '**' for objects of type '{self.typeName()}' and '{other.typeName()}'")
+
+
+proc pow*(self, other: ptr Obj): ptr Obj =
+    ## Returns the result of self ** other (exponentiation)
     ## or raises NotImplementedError if the operation is unsupported
-    result = nil
+    case self.kind:
+        of ObjectType.Integer:
+            result = cast[ptr Integer](self).pow(other)
+        of ObjectType.Float:
+            result = cast[ptr Float](self).pow(other)
+        of ObjectType.NotANumber:
+            result = cast[ptr NotANumber](self).pow(other)
+        of ObjectType.Infinity:
+            result = cast[ptr Infinity](self).pow(other)
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '**' for objects of type '{self.typeName()}' and '{other.typeName()}'")
 
+
+proc divMod(self: ptr Infinity, other: ptr Obj): ptr Infinity =
+    result = asInf()
+    case other.kind:
+        of ObjectType.Infinity:
+            var other = cast[ptr Infinity](other)
+            if self.isNegative or other.isNegative:
+                result.isNegative = true
+        of ObjectType.Integer, ObjectType.Float:
+            discard
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '%' for objects of type '{self.typeName()}' and '{other.typeName()}'")
+
+
+proc divMod(self: ptr NotANumber, other: ptr Obj): ptr NotANumber =
+    result = asNan()
+    case other.kind:
+        of ObjectType.NotANumber, ObjectType.Integer, ObjectType.Float:
+            discard
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '%' for objects of type '{self.typeName()}' and '{other.typeName()}'")
+
+
+proc divMod(self: ptr Integer, other: ptr Obj): ptr Obj =  # This can yield a float!
+    case other.kind:
+        of ObjectType.Integer:
+            result = (self.toInt() mod cast[ptr Integer](other).toInt()).asInt()
+        of ObjectType.Float:
+            let res = ((float self.toInt()) mod cast[ptr Float](other).toFloat())
+            if res == system.Inf:
+                result = asInf()
+            elif res == -system.Inf:
+                let negInf = asInf()
+                negInf.isNegative = true
+                result = negInf
+            else:
+                result = res.asFloat()
+        of ObjectType.NotANumber:
+            result = asNan()
+        of ObjectType.Infinity:
+            result = cast[ptr Infinity](other)
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '%' for objects of type '{self.typeName()}' and '{other.typeName()}'")
+
+
+proc divMod(self: ptr Float, other: ptr Obj): ptr Obj =
+    case other.kind:
+        of ObjectType.Integer:
+            result = (self.toFloat() mod float cast[ptr Integer](other).toInt()).asFloat()
+        of ObjectType.Float:
+            let res = (self.toFloat() mod cast[ptr Float](other).toFloat())
+            if res == system.Inf:
+                result = asInf()
+            elif res == -system.Inf:
+                let negInf = asInf()
+                negInf.isNegative = true
+                result = negInf
+            else:
+                result = res.asFloat()
+        of ObjectType.NotANumber:
+            result = asNan()
+        of ObjectType.Infinity:
+            result = cast[ptr Infinity](other)
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '%' for objects of type '{self.typeName()}' and '{other.typeName()}'")
+
+
+proc divMod*(self, other: ptr Obj): ptr Obj =
+    ## Returns the result of self % other
+    ## or raises NotImplementedError if the operation is unsupported
+    case self.kind:
+        of ObjectType.Integer:
+            result = cast[ptr Integer](self).divMod(other)
+        of ObjectType.Float:
+            result = cast[ptr Float](self).divMod(other)
+        of ObjectType.NotANumber:
+            result = cast[ptr NotANumber](self).divMod(other)
+        of ObjectType.Infinity:
+            result = cast[ptr Infinity](self).divMod(other)
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '%' for objects of type '{self.typeName()}' and '{other.typeName()}'")
 
 proc binaryAnd(self, other: ptr Obj): ptr Obj =
     ## Returns the result of self & other
