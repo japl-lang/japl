@@ -19,6 +19,8 @@
 import ../memory
 import strformat
 import math
+import bitops
+import strutils
 
 
 type
@@ -1039,6 +1041,16 @@ proc mul(self: ptr Integer, other: ptr Obj): ptr Obj =  # This can yield a float
             result = asNan()
         of ObjectType.Infinity:
             result = cast[ptr Infinity](other)
+        of ObjectType.String:
+            result = cast[ptr String](other).toStr().repeat(self.toInt()).asStr()
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '*' for objects of type '{self.typeName()}' and '{other.typeName()}'")
+
+
+proc mul(self: ptr String, other: ptr Obj): ptr Obj =  # This can yield a float!
+    case other.kind:
+        of ObjectType.Integer:
+            result = self.toStr().repeat(cast[ptr Integer](other).toInt()).asStr()
         else:
             raise newException(NotImplementedError, &"unsupported binary operator '*' for objects of type '{self.typeName()}' and '{other.typeName()}'")
 
@@ -1077,6 +1089,8 @@ proc mul*(self, other: ptr Obj): ptr Obj =
             result = cast[ptr NotANumber](self).mul(other)
         of ObjectType.Infinity:
             result = cast[ptr Infinity](self).mul(other)
+        of ObjectType.String:
+            result = cast[ptr String](self).mul(other)
         else:
             raise newException(NotImplementedError, &"unsupported binary operator '*' for objects of type '{self.typeName()}' and '{other.typeName()}'")
 
@@ -1328,28 +1342,89 @@ proc divMod*(self, other: ptr Obj): ptr Obj =
         else:
             raise newException(NotImplementedError, &"unsupported binary operator '%' for objects of type '{self.typeName()}' and '{other.typeName()}'")
 
-proc binaryAnd(self, other: ptr Obj): ptr Obj =
+
+proc binaryAnd(self, other: ptr Integer): ptr Integer =
+    result = bitand(self.toInt(), other.toInt()).asInt()
+
+
+proc binaryAnd*(self, other: ptr Obj): ptr Obj =
     ## Returns the result of self & other
     ## or raises NotImplementedError if the operation is unsupported
-    result = nil
+    case self.kind:
+        of ObjectType.Integer:
+            result = cast[ptr Integer](self).binaryAnd(cast[ptr Integer](other))
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '&' for objects of type '{self.typeName()}' and '{other.typeName()}'")
 
 
-proc binaryOr(self, other: ptr Obj): ptr Obj =
+proc binaryOr(self, other: ptr Integer): ptr Integer =
+    result = bitor(self.toInt(), other.toInt()).asInt()
+
+
+proc binaryOr*(self, other: ptr Obj): ptr Obj =
     ## Returns the result of self | other
     ## or raises NotImplementedError if the operation is unsupported
-    result = nil
+    case self.kind:
+        of ObjectType.Integer:
+            result = cast[ptr Integer](self).binaryOr(cast[ptr Integer](other))
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '|' for objects of type '{self.typeName()}' and '{other.typeName()}'")
 
 
-proc binaryNot(self: ptr Obj): ptr Obj =
+proc binaryNot(self: ptr Integer): ptr Integer =
+    result = bitnot(self.toInt()).asInt()
+
+
+proc binaryNot*(self: ptr Obj): ptr Obj =
     ## Returns the result of ~self
     ## or raises NotImplementedError if the operation is unsupported
-    result = nil
+    case self.kind:
+        of ObjectType.Integer:
+            result = cast[ptr Integer](self).binaryNot()
+        else:
+            raise newException(NotImplementedError, &"unsupported unary operator '~' for object of type '{self.typeName()}'")
 
 
-proc binaryXor(self, other: ptr Obj): ptr Obj =
+proc binaryXor(self, other: ptr Integer): ptr Integer =
+    result = bitxor(self.toInt(), other.toInt()).asInt()
+
+
+proc binaryXor*(self, other: ptr Obj): ptr Obj =
     ## Returns the result of self ^ other
     ## or raises NotImplementedError if the operation is unsupported
-    result = nil
+    case self.kind:
+        of ObjectType.Integer:
+            result = cast[ptr Integer](self).binaryXor(cast[ptr Integer](other))
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '^' for object of type '{self.typeName()}'")
+
+
+proc binaryShr(self, other: ptr Integer): ptr Integer =
+    result = (self.toInt() shr other.toInt()).asInt()
+
+
+proc binaryShr*(self, other: ptr Obj): ptr Obj =
+    ## Returns the result of self >> other
+    ## or raises NotImplementedError if the operation is unsupported
+    case self.kind:
+        of ObjectType.Integer:
+            result = cast[ptr Integer](self).binaryShr(cast[ptr Integer](other))
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '>>' for object of type '{self.typeName()}'")
+
+
+proc binaryShl(self, other: ptr Integer): ptr Integer =
+    result = (self.toInt() shr other.toInt()).asInt()
+
+
+proc binaryShl*(self, other: ptr Obj): ptr Obj =
+    ## Returns the result of self << other
+    ## or raises NotImplementedError if the operation is unsupported
+    case self.kind:
+        of ObjectType.Integer:
+            result = cast[ptr Integer](self).binaryShl(cast[ptr Integer](other))
+        else:
+            raise newException(NotImplementedError, &"unsupported binary operator '<<' for object of type '{self.typeName()}'")
 
 
 proc newString*(str: string): ptr String =
@@ -1365,7 +1440,6 @@ proc newString*(str: string): ptr String =
 
 
 proc asStr*(s: string): ptr String =
-
     ## Converts a nim string into a
     ## JAPL string
     result = newString(s)

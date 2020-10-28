@@ -302,18 +302,52 @@ proc run(self: var VM, repl: bool): InterpretResult =
                 except NotImplementedError:
                     self.error(newTypeError(getCurrentExceptionMsg()))
                     return RuntimeError
-            of OpCode.Shl:   # Binary left-shift
-                discard
-            of OpCode.Shr:   # Binary right-shift
-                discard
-            of OpCode.Xor:   # Binary xor
-                discard
-            of OpCode.Bor:  # Binary or
-                discard
-            of OpCode.Bnot:  # Binary not
-                discard
-            of OpCode.Band:  # Binary and
-                discard
+            of OpCode.Shl:   # Bitwise left-shift
+                var left = self.pop()
+                var right = self.pop()
+                try:
+                    self.push(right.binaryShl(left))
+                except NotImplementedError:
+                    self.error(newTypeError(getCurrentExceptionMsg()))
+                    return RuntimeError
+            of OpCode.Shr:   # Bitwise right-shift
+                var left = self.pop()
+                var right = self.pop()
+                try:
+                    self.push(right.binaryShr(left))
+                except NotImplementedError:
+                    self.error(newTypeError(getCurrentExceptionMsg()))
+                    return RuntimeError
+            of OpCode.Xor:   # Bitwise xor
+                var left = self.pop()
+                var right = self.pop()
+                try:
+                    self.push(right.binaryXor(left))
+                except NotImplementedError:
+                    self.error(newTypeError(getCurrentExceptionMsg()))
+                    return RuntimeError
+            of OpCode.Bor:  # Bitwise or
+                var left = self.pop()
+                var right = self.pop()
+                try:
+                    self.push(right.binaryOr(left))
+                except NotImplementedError:
+                    self.error(newTypeError(getCurrentExceptionMsg()))
+                    return RuntimeError
+            of OpCode.Bnot:  # Bitwise not
+                try:
+                    self.push(self.pop().binaryNot())
+                except NotImplementedError:
+                    self.error(newTypeError(getCurrentExceptionMsg()))
+                    return RuntimeError
+            of OpCode.Band:  # Bitwise and
+                var left = self.pop()
+                var right = self.pop()
+                try:
+                    self.push(right.binaryAnd(left))
+                except NotImplementedError:
+                    self.error(newTypeError(getCurrentExceptionMsg()))
+                    return RuntimeError
             of OpCode.Add:
                 var left = self.pop()
                 var right = self.pop()
