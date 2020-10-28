@@ -23,7 +23,7 @@ In no particular order, here's a list that is constantly updated and that helps 
 of what's done in JAPL:
 
 - Parsing/Lexing :heavy_check_mark:
-- Type system  (__Rework Needed__)
+- Type system  :heavy_check_mark:
 - Control flow (if/else)  :heavy_check_mark:
 - Loops (for/while)  :heavy_check_mark:
 - Basic comparisons operators (`>`, `<`, `>=`, `<=`, `!=`, `==`) :heavy_check_mark:
