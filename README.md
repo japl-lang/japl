@@ -75,7 +75,7 @@ To get started, you might want to have a look at the currently open issues and s
 ## Community
 
 Our first goal is to create a welcoming and helpful community, so if you are so inclined,
-you might want to join our [Discord server](https://discord.gg/P8FYZvM)! We can't wait to welcome you into
+you might want to join our [Discord server](https://discord.gg/P8FYZvM) and our [forum](https://forum.japl-lang.com)! We can't wait to welcome you into
 our community :D
 
 
