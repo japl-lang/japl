@@ -83,3 +83,39 @@ our community :D
 
 JAPL is born thanks to the amazing work of Bob Nystrom that wrote a book available completely for free
 at [this](https://craftinginterpreters.com) link, where he describes the implementation of a simple language called Lox.
+
+
+# JAPL - Installing
+
+JAPL is currently in its early stages and is therefore in a state of high mutability, so this installation guide might
+not be always up to date.
+
+## Requirements
+
+To compile JAPL, you need the following:
+- Nim >= 1.2 installed on your system
+- Git (to clone the repository)
+- Python >= 3.6 (Build script)
+
+## Cloning the repo
+
+Once you've installed all the required tooling, you can clone the repo with the following command
+
+```
+git clone https://github.com/japl-lang/japl
+```
+
+## Running the build script
+
+As a next step, you need to run the build script. This will generate the required configuration files,
+compile the JAPL runtime and run tests (when we'll actually have some tests). There are some options that
+can be tweaked with command-line options, for more information, run `python3 build.py --help`.
+
+
+To compile the JAPL runtime, you'll first need to move into the project's directory you cloned before,
+so run `cd japl`, then `python build.py ./src --flags gc:markAndSweep,d:release` and wait for it
+to complete. You should now find an executable named `japl` (or `japl.exe` on windows) inside the `src` folder.
+
+If you're running under windows, you might encounter some issues when using forward-slashes as opposed to back-slashes in paths,
+so you should replace `./src` with `.\src`
+
