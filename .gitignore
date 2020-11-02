@@ -21,3 +21,7 @@ main
 
 *.deps
 *.dot
+
+# JAPL build config file
+
+config.nim
