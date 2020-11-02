@@ -24,8 +24,7 @@ from pprint import pformat
 from subprocess import Popen, PIPE, DEVNULL
 
 
-NEWLINE = "\n"
-TAB = "\t"
+
 CONFIG_TEMPLATE = '''# Copyright 2020 Mattia Giambirtone
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
