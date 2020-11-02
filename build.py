@@ -74,14 +74,13 @@ Command-line options
 """'''
 
 
-def build(path: str = os.getcwd(), flags: Dict[str, str] = {}, options: Dict[str, bool] = {}):
+def build(path: str, flags: Dict[str, str] = {}, options: Dict[str, bool] = {}, override: bool = False):
     """
     Compiles the JAPL runtime, generating the appropriate
     configuration needed for compilation to succeed.
     Nim 1.2 or above is required to build JAPL
 
-    :param path: The directory where JAPL's main.nim file
-    is located, defaults to the current directory
+    :param path: The path to JAPL's main source directory
     :type path: string, optional
     :param flags: Any extra compiler flags that will
     be passed to nim. Keys and values should be strings,
@@ -94,29 +93,37 @@ def build(path: str = os.getcwd(), flags: Dict[str, str] = {}, options: Dict[str
     :type options: dict, optional
     """
 
+
+    config_path = os.path.join(path, "config.nim")
+    main_path = os.path.join(path, "japl.nim")
     logging.info("Just Another Build Tool, version 0.2")
     if not os.path.exists(path):
         logging.error(f"Input path '{path}' does not exist")
         return
-    logging.debug(f"Generating config file at '{os.path.join(path, 'config.nim')}'")
-    try:
-        with open(os.path.join(path, 'config.nim'), "w") as build_config:
-            build_config.write(CONFIG_TEMPLATE.format(
-                **options
-            ))
-    except Exception as fatal:
-        logging.error(f"A fatal unhandled exception occurred -> {type(fatal).__name__}: {fatal}")
+    if os.path.isfile(config_path) and not override:
+        logging.warning(f"A config file exists at '{config_path}', keeping it")
     else:
-        logging.debug(f"Config file has been generated, compiling with options as follows: \n{pformat(options, indent=2)}")
-    logging.debug(f"Compiling '{os.path.join(path, 'main.nim')}'")
+        if os.path.isfile(config_path) and override:
+            logging.warning(f"Overriding config file at '{config_path}'")
+        logging.debug(f"Generating config file at '{config_path}'")
+        try:
+            with open(config_path, "w") as build_config:
+                build_config.write(CONFIG_TEMPLATE.format(
+                    **options
+                ))
+        except Exception as fatal:
+            logging.error(f"A fatal unhandled exception occurred -> {type(fatal).__name__}: {fatal}")
+        else:
+            logging.debug(f"Config file has been generated, compiling with options as follows: \n{pformat(options, indent=2)}")
+    logging.debug(f"Compiling '{main_path}'")
     nim_flags = " ".join(f"-{name}:{value}" if len(name) == 1 else f"--{name}:{value}" for name, value in flags.items())
     command = "nim {flags} compile {path}"
-    command = command.format(flags=nim_flags, path=os.path.join(path, 'main.nim'))
+    command = command.format(flags=nim_flags, path=main_path)
     logging.debug(f"Running '{command}'")
     logging.info("Compiling JAPL")
     start = time()
     try:
-        process = Popen(shlex.split(command), stdout=DEVNULL, stderr=PIPE)
+        process = Popen(shlex.split(command, posix=os.name != "nt"), stdout=DEVNULL, stderr=PIPE)
         _, stderr = process.communicate()
         stderr = stderr.decode()
         assert process.returncode == 0, f"Command '{command}' exited with non-0 exit code {process.returncode}, output below:\n{stderr}"
@@ -129,10 +136,12 @@ def build(path: str = os.getcwd(), flags: Dict[str, str] = {}, options: Dict[str
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--path", help="The directory where JAPL's main.nim file is located, defaults to the current directory")
+    parser.add_argument("path", help="The path to JAPL's source directory")
     parser.add_argument("--verbose", help="Prints debug information to stdout", action="store_true")
     parser.add_argument("--flags", help="Optional flags to be passed to the nim compiler. Must be a comma-separated list of name:value (without spaces)")
-    parser.add_argument("--options", help="Set compile-time options and constants, pass a comma-separated lisr of name:value (without spaces)")
+    parser.add_argument("--options", help="Set compile-time options and constants, pass a comma-separated list of name:value (without spaces). "
+    "Note that if a config.nim file exists in the destination directory, that will override any setting defined here unless --override-config is used")
+    parser.add_argument("--override-config", help="Overrides the setting of an already existing config.nim file in the destination directory", action="store_true")
     args = parser.parse_args()
     flags = {}
     options = {
@@ -171,5 +180,5 @@ if __name__ == "__main__":
         except Exception:
             logging.error("Invalid parameter for --options")
             exit()
-    build(args.path or os.getcwd(), flags, options)
+    build(args.path, flags, options, args.override_config)
     logging.debug("Build tool exited")
