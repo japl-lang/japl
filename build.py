@@ -102,7 +102,7 @@ def build(path: str, flags: Dict[str, str] = {}, options: Dict[str, bool] = {}, 
     if os.path.isfile(config_path) and not override:
         logging.warning(f"A config file exists at '{config_path}', keeping it")
     else:
-        if os.path.isfile(config_path) and override:
+        if os.path.isfile(config_path):
             logging.warning(f"Overriding config file at '{config_path}'")
         logging.debug(f"Generating config file at '{config_path}'")
         try:
@@ -152,10 +152,7 @@ if __name__ == "__main__":
         "array_grow_factor": "2",
         "frames_max": "800"
     }
-    if args.verbose:
-        level = logging.DEBUG
-    else:
-        level = logging.INFO
+    level = logging.DEBUG if args.verbose else logging.INFO
     logging.basicConfig(format="[%(levelname)s - %(asctime)s] %(message)s",
                         datefmt="%T",
                         level=level
