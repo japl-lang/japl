@@ -23,20 +23,19 @@ In no particular order, here's a list that is constantly updated and that helps 
 of what's done in JAPL:
 
 - Parsing/Lexing :heavy_check_mark:
-- Type system  :heavy_check_mark:
+- Object oriented type system  :heavy_check_mark:
 - Control flow (if/else)  :heavy_check_mark:
 - Loops (for/while)  :heavy_check_mark:
 - Basic comparisons operators (`>`, `<`, `>=`, `<=`, `!=`, `==`) :heavy_check_mark:
-- Logical operators (`!`, `or`, `and`)  :heavy_check_mark:
+- Logical operators (`!`, `or`, `and`)  (__Rework Needed__)
 - Multi-line comments `/* like this */` (can be nested)  :heavy_check_mark:
-- Differentiation between integers and floating point numbers  :heavy_check_mark:
 - `inf` and `nan` types  :heavy_check_mark:
 - Basic arithmetic (`+`, `-`, `/`, `*`)  :heavy_check_mark:
 - Modulo division (`%`) and exponentiation (`**`)  :heavy_check_mark:
 - Bitwise operators (AND, OR, XOR, NOT)  :heavy_check_mark:
 - Global and local variables  (__WIP__)
 - Explicit scopes using brackets (__WIP__)
-- Garbage collector
+- Garbage collector  (__Coming soon__)
 - String slicing, with start:end syntax as well  :heavy_check_mark:
 - Operations on strings (addition, multiplication)  :heavy_check_mark:
 - Functions and Closures (__WIP__)
