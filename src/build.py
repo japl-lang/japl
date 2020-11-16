@@ -68,10 +68,7 @@ if __name__ == "__main__":
     parser.add_argument("--flags", help="Optional flags to be passed to the nim compiler. Must be a comma-separated list of name:value (without spaces)")
     args = parser.parse_args()
     flags = {}
-    if args.verbose:
-        level = logging.DEBUG
-    else:
-        level = logging.INFO
+    level = logging.DEBUG if args.verbose else logging.INFO
     logging.basicConfig(format="[%(levelname)s - %(asctime)s] %(message)s",
                         datefmt="%T",
                         level=level
