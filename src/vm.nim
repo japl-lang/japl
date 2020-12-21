@@ -17,8 +17,6 @@
 
 import algorithm
 import strformat
-import math
-import lenientops
 import config
 import compiler
 import tables
@@ -30,8 +28,6 @@ import tables
 when DEBUG_TRACE_VM:
     import util/debug
 
-
-## Move these into appropriate int/float modules
 
 type
     KeyboardInterrupt* = object of CatchableError
@@ -52,7 +48,7 @@ type
         stackTop*: int
         objects*: seq[ptr Obj]
         globals*: Table[string, ptr Obj]
-        cached: array[2, ptr Obj]
+        cached: array[5, ptr Obj]
         file*: string
 
 
@@ -78,7 +74,6 @@ proc getBoolean(self: var VM, kind: bool): ptr Obj =
         return self.cached[0]
     else:
         return self.cached[1]
-
 
 
 proc error*(self: var VM, error: ptr JAPLException) =
@@ -238,50 +233,60 @@ proc callObject(self: var VM, callee: ptr Obj, argCount: uint8): bool =
         return false
 
 
+proc readByte(self: CallFrame): byte =
+    ## Reads a single byte from the given
+    ## frame's chunk of bytecode
+    inc(self.ip)
+    result = self.function.chunk.code[self.ip - 1]
+
+
+proc readBytes(self: CallFrame): int =
+    ## Reads and decodes 3 bytes from the
+    ## given frame's chunk into an integer
+    var arr = [self.readByte(), self.readByte(), self.readByte()]
+    var index: int
+    copyMem(index.addr, unsafeAddr(arr), sizeof(arr))
+    result = index
+
+
+proc readShort(self: CallFrame): uint16 =
+    ## Reads a 16 bit number from the
+    ## given frame's chunk
+    inc(self.ip)
+    inc(self.ip)
+    cast[uint16]((self.function.chunk.code[self.ip - 2] shl 8) or self.function.chunk.code[self.ip - 1])
+
+
+proc readConstant(self: CallFrame): ptr Obj =
+    ## Reads a constant from the given
+    ## frame's constant table
+    result = self.function.chunk.consts[int(self.readByte())]
+
+
+proc readLongConstant(self: CallFrame): ptr Obj =
+    ## Reads a long constant from the
+    ## given frame's constant table
+    var arr = [self.readByte(), self.readByte(), self.readByte()]
+    var idx: int
+    copyMem(idx.addr, unsafeAddr(arr), sizeof(arr))
+    result = self.function.chunk.consts[idx]
+
+
 proc run(self: var VM, repl: bool): InterpretResult =
     ## Chews trough bytecode instructions executing
-    ## them one at a time, this is the runtime's
+    ## them one at a time: this is the runtime's
     ## main loop
     var frame = self.frames[self.frameCount - 1]
-    template readByte: untyped =
-        ## Reads a single byte from the current
-        ## frame's chunk of bytecode
-        inc(frame.ip)
-        frame.function.chunk.code[frame.ip - 1]
-    template readBytes: untyped =
-        ## Reads and decodes 3 bytes from the
-        ## current frame's chunk into an integer
-        var arr = [readByte(), readByte(), readByte()]
-        var index: int
-        copyMem(index.addr, unsafeAddr(arr), sizeof(arr))
-        index
-    template readShort: untyped =
-        ## Reads a 16 bit number from the
-        ## current frame's chunk
-        inc(frame.ip)
-        inc(frame.ip)
-        cast[uint16]((frame.function.chunk.code[frame.ip - 2] shl 8) or frame.function.chunk.code[frame.ip - 1])
-    template readConstant: ptr Obj =
-        ## Reads a constant from the current
-        ## frame's constant table
-        frame.function.chunk.consts[int(readByte())]
-    template readLongConstant: ptr Obj =
-        ## Reads a long constant from the
-        ## current frame's constant table
-        var arr = [readByte(), readByte(), readByte()]
-        var idx: int
-        copyMem(idx.addr, unsafeAddr(arr), sizeof(arr))
-        frame.function.chunk.consts[idx]
     var instruction: uint8
     var opcode: OpCode
     var stackOffset: int = 2
     while true:
         {.computedgoto.}   # See https://nim-lang.org/docs/manual.html#pragmas-computedgoto-pragma
-        instruction = readByte()
+        instruction = frame.readByte()
         opcode = OpCode(instruction)
         ## This offset dictates how the call frame behaves when converting
-        ## relative opcode indexes to absolute stack indexes, since the behavior
-        ## in the function local vs. global/scope-local scope is different
+        ## relative frame indexes to absolute stack indexes, since the behavior
+        ## in function local vs. global/scope-local scope is different
         if frame.function.name == nil:
             stackOffset = 2
         else:
@@ -313,9 +318,9 @@ proc run(self: var VM, repl: bool): InterpretResult =
             discard disassembleInstruction(frame.function.chunk, frame.ip - 1)
         case opcode:   # Main OpCodes dispatcher
             of OpCode.Constant:
-                self.push(readConstant())
+                self.push(frame.readConstant())
             of OpCode.ConstantLong:
-                self.push(readLongConstant())
+                self.push(frame.readLongConstant())
             of OpCode.Negate:
                 try:
                     self.push(self.pop().negate())
@@ -323,34 +328,34 @@ proc run(self: var VM, repl: bool): InterpretResult =
                     self.error(newTypeError(getCurrentExceptionMsg()))
                     return RuntimeError
             of OpCode.Shl:   # Bitwise left-shift
-                var left = self.pop()
                 var right = self.pop()
+                var left = self.pop()
                 try:
-                    self.push(right.binaryShl(left))
+                    self.push(left.binaryShl(right))
                 except NotImplementedError:
                     self.error(newTypeError(getCurrentExceptionMsg()))
                     return RuntimeError
             of OpCode.Shr:   # Bitwise right-shift
-                var left = self.pop()
                 var right = self.pop()
+                var left = self.pop()
                 try:
-                    self.push(right.binaryShr(left))
+                    self.push(left.binaryShr(right))
                 except NotImplementedError:
                     self.error(newTypeError(getCurrentExceptionMsg()))
                     return RuntimeError
             of OpCode.Xor:   # Bitwise xor
-                var left = self.pop()
                 var right = self.pop()
+                var left = self.pop()
                 try:
-                    self.push(right.binaryXor(left))
+                    self.push(left.binaryXor(right))
                 except NotImplementedError:
                     self.error(newTypeError(getCurrentExceptionMsg()))
                     return RuntimeError
             of OpCode.Bor:  # Bitwise or
-                var left = self.pop()
                 var right = self.pop()
+                var left = self.pop()
                 try:
-                    self.push(right.binaryOr(left))
+                    self.push(left.binaryOr(right))
                 except NotImplementedError:
                     self.error(newTypeError(getCurrentExceptionMsg()))
                     return RuntimeError
@@ -361,58 +366,58 @@ proc run(self: var VM, repl: bool): InterpretResult =
                     self.error(newTypeError(getCurrentExceptionMsg()))
                     return RuntimeError
             of OpCode.Band:  # Bitwise and
-                var left = self.pop()
                 var right = self.pop()
+                var left = self.pop()
                 try:
-                    self.push(right.binaryAnd(left))
+                    self.push(left.binaryAnd(right))
                 except NotImplementedError:
                     self.error(newTypeError(getCurrentExceptionMsg()))
                     return RuntimeError
             of OpCode.Add:
-                var left = self.pop()
                 var right = self.pop()
+                var left = self.pop()
                 try:
-                    self.push(right.sum(left))
+                    self.push(left.sum(right))
                 except NotImplementedError:
                     self.error(newTypeError(getCurrentExceptionMsg()))
                     return RuntimeError
             of OpCode.Subtract:
-                var left = self.pop()
                 var right = self.pop()
+                var left = self.pop()
                 try:
-                    self.push(right.sub(left))
+                    self.push(left.sub(right))
                 except NotImplementedError:
                     self.error(newTypeError(getCurrentExceptionMsg()))
                     return RuntimeError
             of OpCode.Divide:
-                var left = self.pop()
                 var right = self.pop()
+                var left = self.pop()
                 try:
-                    self.push(right.trueDiv(left))
+                    self.push(left.trueDiv(right))
                 except NotImplementedError:
                     self.error(newTypeError(getCurrentExceptionMsg()))
                     return RuntimeError
             of OpCode.Multiply:
-                var left = self.pop()
                 var right = self.pop()
+                var left = self.pop()
                 try:
-                    self.push(right.mul(left))
+                    self.push(left.mul(right))
                 except NotImplementedError:
                     self.error(newTypeError(getCurrentExceptionMsg()))
                     return RuntimeError
             of OpCode.Mod:
-                var left = self.pop()
                 var right = self.pop()
+                var left = self.pop()
                 try:
-                    self.push(right.divMod(left))
+                    self.push(left.divMod(right))
                 except NotImplementedError:
                     self.error(newTypeError(getCurrentExceptionMsg()))
                     return RuntimeError
             of OpCode.Pow:
-                var left = self.pop()
                 var right = self.pop()
+                var left = self.pop()
                 try:
-                    self.push(right.pow(left))
+                    self.push(left.pow(right))
                 except NotImplementedError:
                     self.error(newTypeError(getCurrentExceptionMsg()))
                     return RuntimeError
@@ -421,11 +426,11 @@ proc run(self: var VM, repl: bool): InterpretResult =
             of OpCode.False:
                 self.push(cast[ptr Bool](self.getBoolean(false)))
             of OpCode.Nil:
-                self.push(asNil())
+                self.push(cast[ptr Nil](self.cached[2]))
             of OpCode.Nan:
-                self.push(asNan())
+                self.push(cast[ptr NotANumber](self.cached[4]))
             of OpCode.Inf:
-                self.push(asInf())
+                self.push(cast[ptr Infinity](self.cached[3]))
             of OpCode.Not:
                 self.push(self.pop().isFalsey().asBool())
             of OpCode.Equal:
@@ -435,43 +440,44 @@ proc run(self: var VM, repl: bool): InterpretResult =
                 # Doesn't this chain of calls look beautifully
                 # intuitive?
             of OpCode.Less:
-                var left = self.pop()
                 var right = self.pop()
+                var left = self.pop()
                 try:
-                    self.push(right.lt(left).asBool())
+                    self.push(left.lt(right).asBool())
                 except NotImplementedError:
                     self.error(newTypeError(getCurrentExceptionMsg()))
                     return RuntimeError
             of OpCode.Greater:
-                var left = self.pop()
                 var right = self.pop()
+                var left = self.pop()
                 try:
-                    self.push(right.gt(left).asBool())
+                    self.push(left.gt(right).asBool())
                 except NotImplementedError:
                     self.error(newTypeError(getCurrentExceptionMsg()))
                     return RuntimeError
-            of OpCode.Slice:
+            of OpCode.GetItem:
+                # TODO: More generic method
                 if not self.slice():
                     return RuntimeError
-            of OpCode.SliceRange:
+            of OpCode.Slice:
                 if not self.sliceRange():
                     return RuntimeError
             of OpCode.DefineGlobal:
                 if frame.function.chunk.consts.len > 255:
-                    self.globals[readLongConstant().toStr()] = self.peek(0)
+                    self.globals[frame.readLongConstant().toStr()] = self.peek(0)
                 else:
-                    self.globals[readConstant().toStr()] = self.peek(0)
-                discard self.pop()   # This will help when we have a custom GC
+                    self.globals[frame.readConstant().toStr()] = self.peek(0)
+                discard self.pop()
             of OpCode.GetGlobal:
                 if frame.function.chunk.consts.len > 255:
-                    var constant = readLongConstant().toStr()
+                    var constant = frame.readLongConstant().toStr()
                     if constant notin self.globals:
                         self.error(newReferenceError(&"undefined name '{constant}'"))
                         return RuntimeError
                     else:
                         self.push(self.globals[constant])
                 else:
-                    var constant = readConstant().toStr()
+                    var constant = frame.readConstant().toStr()
                     if constant notin self.globals:
                         self.error(newReferenceError(&"undefined name '{constant}'"))
                         return RuntimeError
@@ -479,30 +485,31 @@ proc run(self: var VM, repl: bool): InterpretResult =
                         self.push(self.globals[constant])
             of OpCode.SetGlobal:
                 if frame.function.chunk.consts.len > 255:
-                    var constant = readLongConstant().toStr()
+                    var constant = frame.readLongConstant().toStr()
                     if constant notin self.globals:
                         self.error(newReferenceError(&"assignment to undeclared name '{constant}'"))
                         return RuntimeError
                     else:
                         self.globals[constant] = self.peek(0)
                 else:
-                    var constant = readConstant().toStr()
+                    var constant = frame.readConstant().toStr()
                     if constant notin self.globals:
                         self.error(newReferenceError(&"assignment to undeclared name '{constant}'"))
                         return RuntimeError
                     else:
                         self.globals[constant] = self.peek(0)
+                    discard self.pop()
             of OpCode.DeleteGlobal:
-                # This OpCode, as well as DeleteLocal, is currently unused due to potential issues with the GC
+                # This opcode, as well as DeleteLocal, is currently unused due to potential issues with the GC
                 if frame.function.chunk.consts.len > 255:
-                    var constant = readLongConstant().toStr()
+                    var constant = frame.readLongConstant().toStr()
                     if constant notin self.globals:
                         self.error(newReferenceError(&"undefined name '{constant}'"))
                         return RuntimeError
                     else:
                         self.globals.del(constant)
                 else:
-                    var constant = readConstant().toStr()
+                    var constant = frame.readConstant().toStr()
                     if constant notin self.globals:
                         self.error(newReferenceError(&"undefined name '{constant}'"))
                         return RuntimeError
@@ -510,34 +517,35 @@ proc run(self: var VM, repl: bool): InterpretResult =
                         self.globals.del(constant)
             of OpCode.GetLocal:
                 if frame.len > 255:
-                    self.push(frame[readBytes(), stackOffset])
+                    self.push(frame[frame.readBytes(), stackOffset])
                 else:
-                    self.push(frame[int readByte(), stackOffset])
+                    self.push(frame[int frame.readByte(), stackOffset])
             of OpCode.SetLocal:
                 if frame.len > 255:
-                    frame[readBytes(), stackOffset] = self.peek(0)
+                    frame[frame.readBytes(), stackOffset] = self.peek(0)
                 else:
-                    frame[int readByte(), stackOffset] = self.peek(0)
+                    frame[int frame.readByte(), stackOffset] = self.peek(0)
+                discard self.pop()
             of OpCode.DeleteLocal:
                 # Unused due to GC potential issues
                 if frame.len > 255:
-                    var slot = readBytes()
+                    var slot = frame.readBytes()
                     frame.delete(slot, stackOffset)
                 else:
-                    var slot = readByte()
+                    var slot = frame.readByte()
                     frame.delete(int slot, stackOffset)
             of OpCode.Pop:
                 self.lastPop = self.pop()
             of OpCode.JumpIfFalse:
-                let jmpOffset = int readShort()
+                let jmpOffset = int frame.readShort()
                 if isFalsey(self.peek(0)):
                     frame.ip += int jmpOffset
             of OpCode.Jump:
-                frame.ip += int readShort()
+                frame.ip += int frame.readShort()
             of OpCode.Loop:
-                frame.ip -= int readShort()
+                frame.ip -= int frame.readShort()
             of OpCode.Call:
-                var argCount = readByte()
+                var argCount = frame.readByte()
                 if not self.callObject(self.peek(int argCount), argCount):
                     return RuntimeError
                 frame = self.frames[self.frameCount - 1]
@@ -546,7 +554,7 @@ proc run(self: var VM, repl: bool): InterpretResult =
             of OpCode.Return:
                 var retResult = self.pop()
                 if repl:
-                    if not self.lastPop.isNil() and self.frameCount == 1:   # This is to avoid
+                    if not self.lastPop.isNil() and self.frameCount == 1:
                         # This avoids unwanted output with recursive calls
                         echo stringify(self.lastPop)
                         self.lastPop = asNil()
@@ -583,13 +591,13 @@ proc freeObject(obj: ptr Obj) =
 proc freeObjects(self: var VM) =
     ## Frees all the allocated objects
     ## from the VM
-    var objCount = len(self.objects)
     for obj in reversed(self.objects):
         freeObject(obj)
         discard self.objects.pop()
     for cached_obj in self.cached:
         freeObject(cached_obj)
     when DEBUG_TRACE_ALLOCATION:
+        var objCount = len(self.objects)
         echo &"DEBUG: Freed {objCount} objects"
 
 
@@ -605,11 +613,23 @@ proc freeVM*(self: var VM) =
         quit(71)
 
 
+proc initVMCache: array[5, ptr Obj] = 
+    ## Initializes the static cache for singletons
+    ## such as nil, true, false and nan
+    
+    return [cast[ptr Obj](true.asBool()),
+            cast[ptr Obj](false.asBool()),
+            cast[ptr Obj](asNil()),
+            cast[ptr Obj](asInf()),
+            cast[ptr Obj](asNan())]
+
+
 proc initVM*(): VM =
     ## Initializes the VM
     setControlCHook(handleInterrupt)
     var globals: Table[string, ptr Obj] = initTable[string, ptr Obj]()
-    result = VM(lastPop: asNil(), objects: @[], globals: globals, cached: [cast[ptr Obj](true.asBool()), cast[ptr Obj](false.asBool())], source: "", file: "")
+    let cache = initVMCache()
+    result = VM(lastPop: asNil(), objects: @[], globals: globals, cached: cache, source: "", file: "")
 
 
 proc interpret*(self: var VM, source: string, repl: bool = false, file: string): InterpretResult =

@@ -329,19 +329,24 @@ proc bracketAssign(self: ref Compiler, canAssign: bool) =
 
 
 proc bracket(self: ref Compiler, canAssign: bool) =
-    ## Parses slice expressions, such as "hello"[0].
-    ## Slice can take up to two arguments, a start
+    ## Parses getitem/slice expressions, such as "hello"[0:1]
+    ## or someList[5]. Slices can take up to two arguments, a start
     ## and an end index in the chosen iterable.
     ## Both arguments are optional, so doing "hi"[::]
     ## will basically copy the string into a new object.
     ## Indexes start from 0, and while the start index is
     ## inclusive, the end index is not. If an end index is
-    ## not specified like this "hello"[0:], then the it is
+    ## not specified--like in "hello"[0:]--, then the it is
     ## assumed to be the length of the iterable. Likewise,
     ## if the start index is missing, it is assumed to be 0.
     ## Like in Python, using an end index that's out of bounds
     ## will not raise an error. Doing "hello"[0:999] will just
-    ## return the whole string instead
+    ## return the whole string instead.
+    ## It has to be noted that negative indexes are allowed: -1
+    ## means the last element in the iterable, -2 the element
+    ## before that and so on, but that if a negative index's value
+    ## goes back too far it does NOT loop back to the end of the 
+    ## iterable and will cause an IndexError at runtime instead
     if self.parser.peek.kind == TokenType.COLON:
         self.emitByte(OpCode.Nil)
         discard self.parser.advance()
@@ -349,18 +354,18 @@ proc bracket(self: ref Compiler, canAssign: bool) =
             self.emitByte(OpCode.Nil)
         else:
             self.parsePrecedence(Precedence.Term)
-        self.emitByte(OpCode.SliceRange)
+        self.emitByte(OpCode.Slice)
     else:
         self.parsePrecedence(Precedence.Term)
         if self.parser.peek().kind == TokenType.RS:
-            self.emitByte(OpCode.Slice)
+            self.emitByte(OpCode.GetItem)
         elif self.parser.peek().kind == TokenType.COLON:
             discard self.parser.advance()
             if self.parser.peek().kind == TokenType.RS:
                 self.emitByte(OpCode.Nil)
             else:
                 self.parsePrecedence(Precedence.Term)
-            self.emitByte(OpCode.SliceRange)
+            self.emitByte(OpCode.Slice)
     if self.parser.peek().kind == TokenType.EQ:
         discard self.parser.advance()
         self.parsePrecedence(Precedence.Term)
