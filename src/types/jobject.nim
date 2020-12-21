@@ -229,9 +229,19 @@ proc newObj*(): ptr Obj =
     ## Allocates a generic JAPL object
     result = allocateObj(Obj, ObjectType.BaseObject)
 
+proc hash(self: ptr String): uint64   # Forward declaration for asStr
 
-proc newString*(str: string): ptr String
-proc asStr*(s: string): ptr String       # Forward declarations
+
+proc asStr*(s: string): ptr String =
+    ## Converts a nim string into a
+    ## JAPL string
+    result = allocateObj(String, ObjectType.String)
+    result.str = allocate(UncheckedArray[char], char, len(s))
+    for i in 0..len(s) - 1:
+        result.str[i] = s[i]
+    result.len = len(s)
+    result.hashValue = result.hash()
+    result.isHashable = true
 
 
 
@@ -258,7 +268,7 @@ proc newFunction*(name: string = "", chunk: Chunk = newChunk(), arity: int = 0):
     # TODO: Add support for optional parameters
     result = allocateObj(Function, ObjectType.Function)
     if name.len > 1:
-        result.name = newString(name)
+        result.name = name.asStr()
     else:
         result.name = nil
     result.arity = arity
@@ -689,7 +699,7 @@ proc lt(self: ptr Integer, other: ptr Obj): bool =
             else:
                 result = true
         else:
-            raise newException(NotImplementedError, &"unsupported binary operator '<' for object of type '{self.typeName()}'")
+            raise newException(NotImplementedError, &"unsupported binary operator '<' for objects of type '{self.typeName()}' and '{other.typeName()}'")
 
 
 proc lt(self: ptr Float, other: ptr Obj): bool =
@@ -705,7 +715,7 @@ proc lt(self: ptr Float, other: ptr Obj): bool =
             else:
                 result = true
         else:
-            raise newException(NotImplementedError, &"unsupported binary operator '<' for object of type '{self.typeName()}'")
+            raise newException(NotImplementedError, &"unsupported binary operator '<' for objects of type '{self.typeName()}' and '{other.typeName()}'")
 
 
 proc lt(self: ptr Infinity, other: ptr Obj): bool =
@@ -729,7 +739,7 @@ proc lt(self: ptr Infinity, other: ptr Obj): bool =
             else:
                 result = false
         else:
-            raise newException(NotImplementedError, &"unsupported binary operator '<' for object of type '{self.typeName()}'")
+            raise newException(NotImplementedError, &"unsupported binary operator '<' for objects of type '{self.typeName()}' and '{other.typeName()}'")
 
 
 proc lt*(self: ptr Obj, other: ptr Obj): bool = 
@@ -744,7 +754,7 @@ proc lt*(self: ptr Obj, other: ptr Obj): bool =
         of ObjectType.Infinity:
             result = cast[ptr Infinity](self).lt(other)
         else:
-            raise newException(NotImplementedError, &"unsupported binary operator '<' for object of type '{self.typeName()}'")
+            raise newException(NotImplementedError, &"unsupported binary operator '<' for objects of type '{self.typeName()}' and '{other.typeName()}'")
 
 
 proc gt(self: ptr Integer, other: ptr Obj): bool =
@@ -760,7 +770,7 @@ proc gt(self: ptr Integer, other: ptr Obj): bool =
             else:
                 result = false
         else:
-            raise newException(NotImplementedError, &"unsupported binary operator '>' for object of type '{self.typeName()}'")
+            raise newException(NotImplementedError, &"unsupported binary operator '>' for objects of type '{self.typeName()}' and '{other.typeName()}'")
 
 
 proc gt(self: ptr Float, other: ptr Obj): bool =
@@ -776,7 +786,7 @@ proc gt(self: ptr Float, other: ptr Obj): bool =
             else:
                 result = false
         else:
-            raise newException(NotImplementedError, &"unsupported binary operator '>' for object of type '{self.typeName()}'")
+            raise newException(NotImplementedError, &"unsupported binary operator '>' for objects of type '{self.typeName()}' and '{other.typeName()}'")
 
 
 proc gt(self: ptr Infinity, other: ptr Obj): bool =
@@ -800,7 +810,7 @@ proc gt(self: ptr Infinity, other: ptr Obj): bool =
             else:
                 result = false
         else:
-            raise newException(NotImplementedError, &"unsupported binary operator '>' for object of type '{self.typeName()}'")
+            raise newException(NotImplementedError, &"unsupported binary operator '>' for objects of type '{self.typeName()}' and '{other.typeName()}'")
 
 
 proc gt*(self: ptr Obj, other: ptr Obj): bool = 
@@ -815,7 +825,7 @@ proc gt*(self: ptr Obj, other: ptr Obj): bool =
         of ObjectType.Infinity:
             result = cast[ptr Infinity](self).gt(other)
         else:
-            raise newException(NotImplementedError, &"unsupported binary operator '>' for object of type '{self.typeName()}'")
+            raise newException(NotImplementedError, &"unsupported binary operator '>' for objects of type '{self.typeName()}' and '{other.typeName()}'")
 
 
 proc sum(self: ptr Infinity, other: ptr Obj): ptr Infinity =
@@ -828,7 +838,7 @@ proc sum(self: ptr Infinity, other: ptr Obj): ptr Infinity =
         of ObjectType.Integer, ObjectType.Float:
             discard
         else:
-            raise newException(NotImplementedError, &"unsupported binary operator '+' for objects of type '{self.typeName()}' and '{other.typeName()}'")
+            raise newException(NotImplementedError, &"unsupported binary operator '+' for objects of type '{self.typeName()}' and '{other.typeName()}' ")
 
 
 proc sum(self: ptr NotANumber, other: ptr Obj): ptr NotANumber =
@@ -1078,7 +1088,7 @@ proc mul(self: ptr Float, other: ptr Obj): ptr Obj =
 
 
 proc mul*(self, other: ptr Obj): ptr Obj =
-    ## Returns the result of self + other
+    ## Returns the result of self * other
     ## or raises NotImplementedError if the operation is unsupported
     case self.kind:
         of ObjectType.Integer:
@@ -1425,21 +1435,3 @@ proc binaryShl*(self, other: ptr Obj): ptr Obj =
             result = cast[ptr Integer](self).binaryShl(cast[ptr Integer](other))
         else:
             raise newException(NotImplementedError, &"unsupported binary operator '<<' for object of type '{self.typeName()}'")
-
-
-proc newString*(str: string): ptr String =
-    # TODO -> Unicode
-    # TODO -> Move this into asStr
-    result = allocateObj(String, ObjectType.String)
-    result.str = allocate(UncheckedArray[char], char, len(str))
-    for i in 0..len(str) - 1:
-        result.str[i] = str[i]
-    result.len = len(str)
-    result.hashValue = result.hash()
-    result.isHashable = true
-
-
-proc asStr*(s: string): ptr String =
-    ## Converts a nim string into a
-    ## JAPL string
-    result = newString(s)

@@ -26,6 +26,7 @@ import meta/opcode
 import meta/frame
 import types/jobject
 import memory
+import tables
 when DEBUG_TRACE_VM:
     import util/debug
 
@@ -51,6 +52,7 @@ type
         stackTop*: int
         objects*: seq[ptr Obj]
         globals*: Table[string, ptr Obj]
+        cached: array[2, ptr Obj]
         file*: string
 
 
@@ -67,6 +69,16 @@ proc resetStack*(self: var VM) =
     self.frames = @[]
     self.frameCount = 0
     self.stackTop = 0
+
+
+proc getBoolean(self: var VM, kind: bool): ptr Obj =
+    ## Tiny little optimization for booleans
+    ## which are pre-allocated on startup
+    if kind:
+        return self.cached[0]
+    else:
+        return self.cached[1]
+
 
 
 proc error*(self: var VM, error: ptr JAPLException) =
@@ -151,7 +163,7 @@ proc slice(self: var VM): bool =
                     self.error(newIndexError("string index out of bounds"))
                     return false
                 else:
-                    self.push(addObject(addr self, jobject.newString(&"{str[index]}")))
+                    self.push(addObject(addr self, jobject.asStr(&"{str[index]}")))
                     return true
         else:
             self.error(newTypeError(&"unsupported slicing for object of type '{peeked.typeName()}'"))
@@ -182,14 +194,14 @@ proc sliceRange(self: var VM): bool =
                     if startIndex < 0:
                         sliceStart = (len(str) + sliceEnd.toInt()).asInt()
                 elif startIndex - 1 > len(str) - 1:
-                    self.push(addObject(addr self, jobject.newString("")))
+                    self.push(addObject(addr self, jobject.asStr("")))
                     return true
                 if endIndex - 1 > len(str) - 1:
                     sliceEnd = len(str).asInt()
                 if startIndex > endIndex:
-                    self.push(addObject(addr self, jobject.newString("")))
+                    self.push(addObject(addr self, jobject.asStr("")))
                     return true
-                self.push(addObject(addr self, jobject.newString(str[sliceStart.toInt()..<sliceEnd.toInt()])))
+                self.push(addObject(addr self, jobject.asStr(str[sliceStart.toInt()..<sliceEnd.toInt()])))
                 return true
         else:
             self.error(newTypeError(&"unsupported slicing for object of type '{popped.typeName()}'"))
@@ -206,7 +218,7 @@ proc call(self: var VM, function: ptr Function, argCount: uint8): bool =
     if self.frameCount == FRAMES_MAX:
         self.error(newRecursionError("max recursion depth exceeded"))
         return false
-    var frame = CallFrame(function: function, ip: 0, slot: argCount, endSlot: self.stackTop, stack: self.stack)   # TODO: 
+    var frame = CallFrame(function: function, ip: 0, slot: argCount, endSlot: self.stackTop - 1, stack: self.stack)   # TODO: 
     # Check why this raises NilAccessError when high recursion limit is hit
     self.frames.add(frame)
     self.frameCount += 1
@@ -262,10 +274,18 @@ proc run(self: var VM, repl: bool): InterpretResult =
         frame.function.chunk.consts[idx]
     var instruction: uint8
     var opcode: OpCode
+    var stackOffset: int = 2
     while true:
         {.computedgoto.}   # See https://nim-lang.org/docs/manual.html#pragmas-computedgoto-pragma
         instruction = readByte()
         opcode = OpCode(instruction)
+        ## This offset dictates how the call frame behaves when converting
+        ## relative opcode indexes to absolute stack indexes, since the behavior
+        ## in the function local vs. global/scope-local scope is different
+        if frame.function.name == nil:
+            stackOffset = 2
+        else:
+            stackOffset = 1
         when DEBUG_TRACE_VM:    # Insight inside the VM
             stdout.write("Current VM stack status: [")
             for v in self.stack:
@@ -397,9 +417,9 @@ proc run(self: var VM, repl: bool): InterpretResult =
                     self.error(newTypeError(getCurrentExceptionMsg()))
                     return RuntimeError
             of OpCode.True:
-                self.push((true).asBool())
+                self.push(cast[ptr Bool](self.getBoolean(true)))
             of OpCode.False:
-                self.push((false).asBool())
+                self.push(cast[ptr Bool](self.getBoolean(false)))
             of OpCode.Nil:
                 self.push(asNil())
             of OpCode.Nan:
@@ -490,27 +510,28 @@ proc run(self: var VM, repl: bool): InterpretResult =
                         self.globals.del(constant)
             of OpCode.GetLocal:
                 if frame.len > 255:
-                    self.push(frame[readBytes()])
+                    self.push(frame[readBytes(), stackOffset])
                 else:
-                    self.push(frame[int readByte()])
+                    self.push(frame[int readByte(), stackOffset])
             of OpCode.SetLocal:
                 if frame.len > 255:
-                    frame[readBytes()] = self.peek(0)
+                    frame[readBytes(), stackOffset] = self.peek(0)
                 else:
-                    frame[int readByte()] = self.peek(0)
+                    frame[int readByte(), stackOffset] = self.peek(0)
             of OpCode.DeleteLocal:
                 # Unused due to GC potential issues
                 if frame.len > 255:
                     var slot = readBytes()
-                    frame.delete(slot)
+                    frame.delete(slot, stackOffset)
                 else:
                     var slot = readByte()
-                    frame.delete(int slot)
+                    frame.delete(int slot, stackOffset)
             of OpCode.Pop:
                 self.lastPop = self.pop()
             of OpCode.JumpIfFalse:
+                let jmpOffset = int readShort()
                 if isFalsey(self.peek(0)):
-                    frame.ip += int readShort()
+                    frame.ip += int jmpOffset
             of OpCode.Jump:
                 frame.ip += int readShort()
             of OpCode.Loop:
@@ -566,6 +587,8 @@ proc freeObjects(self: var VM) =
     for obj in reversed(self.objects):
         freeObject(obj)
         discard self.objects.pop()
+    for cached_obj in self.cached:
+        freeObject(cached_obj)
     when DEBUG_TRACE_ALLOCATION:
         echo &"DEBUG: Freed {objCount} objects"
 
@@ -586,7 +609,7 @@ proc initVM*(): VM =
     ## Initializes the VM
     setControlCHook(handleInterrupt)
     var globals: Table[string, ptr Obj] = initTable[string, ptr Obj]()
-    result = VM(lastPop: asNil(), objects: @[], globals: globals, source: "", file: "")
+    result = VM(lastPop: asNil(), objects: @[], globals: globals, cached: [cast[ptr Obj](true.asBool()), cast[ptr Obj](false.asBool())], source: "", file: "")
 
 
 proc interpret*(self: var VM, source: string, repl: bool = false, file: string): InterpretResult =

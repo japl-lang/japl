@@ -8,6 +8,10 @@ htmldocs/
 
 .idea/
 
+# JAPL
+
+src/japl
+
 # MacOS
 
 .DS_Store

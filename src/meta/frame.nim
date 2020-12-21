@@ -29,28 +29,28 @@ type
         
 
 proc getView*(self: CallFrame): seq[ptr Obj] =
-    result = self.stack[self.slot..self.endSlot - 1]
+    result = self.stack[self.slot..self.endSlot]
 
 
-proc getAbsIndex(self: CallFrame, idx: int): int =
-    return idx + len(self.getView()) - 1   # TODO: Inspect this code (locals, functions)
+proc getAbsIndex(self: CallFrame, idx: int, offset: int): int =
+    return idx + len(self.getView()) - offset
 
 
 proc len*(self: CallFrame): int =
     result = len(self.getView())
 
 
-proc `[]`*(self: CallFrame, idx: int): ptr Obj =
-    result = self.stack[self.getAbsIndex(idx)]
+proc `[]`*(self: CallFrame, idx: int, offset: int): ptr Obj =
+    result = self.stack[self.getAbsIndex(idx, offset)]
 
 
-proc `[]=`*(self: CallFrame, idx: int, val: ptr Obj) =
+proc `[]=`*(self: CallFrame, idx: int, offset: int, val: ptr Obj) =
     if idx < self.slot:
         raise newException(IndexError, "CallFrame index out of range")
-    self.stack[self.getAbsIndex(idx)] = val
+    self.stack[self.getAbsIndex(idx, offset)] = val
 
 
-proc delete*(self: CallFrame, idx: int) =
+proc delete*(self: CallFrame, idx: int, offset: int) =
     if idx < self.slot or idx > self.endSlot:
         raise newException(IndexError, "CallFrame index out of range")
-    self.stack.delete(idx)
+    self.stack.delete(self.getAbsIndex(idx, offset))
