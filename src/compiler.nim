@@ -30,9 +30,9 @@ when isMainModule:
     import util/debug
 
 type
-    Compiler* = object
+    Compiler* = ref object
         ## The state of the compiler
-        enclosing*: ref Compiler
+        enclosing*: Compiler
         function*: ptr Function
         context*: FunctionType
         locals*: seq[Local]
@@ -67,7 +67,7 @@ type
         Call,
         Primary
 
-    ParseFn = proc(self: ref Compiler, canAssign: bool): void
+    ParseFn = proc(self: Compiler, canAssign: bool): void
 
     ParseRule = ref object
         prefix, infix: ParseFn
@@ -134,12 +134,12 @@ proc consume(self: var Parser, expected: TokenType, message: string) =
     self.parseError(self.peek(), message)
 
 
-proc currentChunk(self: ref Compiler): var Chunk =
+proc currentChunk(self: Compiler): var Chunk =
     ## Returns the current chunk being compiled
     result = self.function.chunk
 
 
-proc compileError(self: ref Compiler, message: string) =
+proc compileError(self: Compiler, message: string) =
     ## Notifies the user about an error occurred during
     ## compilation, writing to the standard error file
     stderr.write(&"A fatal error occurred while compiling '{self.file}', line {self.parser.peek().line}, at '{self.parser.peek().lexeme}' -> {message}\n")
@@ -147,7 +147,7 @@ proc compileError(self: ref Compiler, message: string) =
     self.parser.panicMode = true
 
 
-proc emitByte(self: ref Compiler, byt: OpCode|uint8) =
+proc emitByte(self: Compiler, byt: OpCode|uint8) =
     ## Emits a single bytecode instruction and writes it
     ## to the current chunk being compiled
     when DEBUG_TRACE_COMPILER:
@@ -156,7 +156,7 @@ proc emitByte(self: ref Compiler, byt: OpCode|uint8) =
     self.currentChunk.writeChunk(uint8 byt, self.parser.previous.line)
 
 
-proc emitBytes(self: ref Compiler, byt1: OpCode|uint8, byt2: OpCode|uint8) =
+proc emitBytes(self: Compiler, byt1: OpCode|uint8, byt2: OpCode|uint8) =
     ## Emits multiple bytes instead of a single one, this is useful
     ## to emit operators along with their operands or for multi-byte
     ## instructions that are longer than one byte
@@ -164,7 +164,7 @@ proc emitBytes(self: ref Compiler, byt1: OpCode|uint8, byt2: OpCode|uint8) =
     self.emitByte(uint8 byt2)
 
 
-proc emitBytes(self: ref Compiler, bytarr: array[3, uint8]) =
+proc emitBytes(self: Compiler, bytarr: array[3, uint8]) =
     ## Handy helper method to write an array of 3 bytes into
     ## the current chunk, calling emiteByte(s) on each of its
     ## elements
@@ -172,20 +172,20 @@ proc emitBytes(self: ref Compiler, bytarr: array[3, uint8]) =
     self.emitByte(bytarr[2])
 
 
-proc makeConstant(self: ref Compiler, obj: ptr Obj): uint8 =
+proc makeConstant(self: Compiler, obj: ptr Obj): uint8 =
     ## Adds a constant (literal) to the current chunk's
     ## constants table
     result = uint8 self.currentChunk.addConstant(obj)
 
 
-proc makeLongConstant(self: ref Compiler, val: ptr Obj): array[3, uint8] =
+proc makeLongConstant(self: Compiler, val: ptr Obj): array[3, uint8] =
     ## Does the same as makeConstant(), but encodes the index in the
     ## chunk's constant table as an array (which is later reconstructed
     ## into an integer at runtime) to store more than 256 constants in the table
     result = self.currentChunk.writeConstant(val)
 
 
-proc emitConstant(self: ref Compiler, obj: ptr Obj) =
+proc emitConstant(self: Compiler, obj: ptr Obj) =
     ## Emits a Constant or ConstantLong instruction along
     ## with its operand
     if self.currentChunk().consts.len > 255:
@@ -197,23 +197,12 @@ proc emitConstant(self: ref Compiler, obj: ptr Obj) =
 
 proc initParser*(tokens: seq[Token], file: string): Parser
 proc getRule(kind: TokenType): ParseRule  # Forward declarations for later use
-proc statement(self: ref Compiler)
-proc declaration(self: ref Compiler)
-proc initCompiler*(context: FunctionType, enclosing: ref Compiler = nil, parser: Parser = initParser(@[], ""), file: string): ref Compiler
+proc statement(self: Compiler)
+proc declaration(self: Compiler)
+proc initCompiler*(context: FunctionType, enclosing: Compiler = nil, parser: Parser = initParser(@[], ""), file: string): Compiler
 
 
-proc endCompiler(self: ref Compiler): ptr Function =
-    ## Ends the current compiler instance and returns its
-    ## compiled bytecode wrapped around a function object,
-    ## also emitting a return instruction with nil as operand.
-    ## Because of this, all functions implicitly return nil
-    ## if no return statement is supplied
-    self.emitByte(OpCode.Nil)
-    self.emitByte(OpCode.Return)
-    return self.function
-
-
-proc parsePrecedence(self: ref Compiler, precedence: Precedence) =
+proc parsePrecedence(self: Compiler, precedence: Precedence) =
     ## Parses expressions using pratt's elegant algorithm to precedence parsing
     discard self.parser.advance()
     var prefixRule = getRule(self.parser.previous.kind).prefix
@@ -238,12 +227,12 @@ proc parsePrecedence(self: ref Compiler, precedence: Precedence) =
         self.parser.parseError(self.parser.peek, "Invalid assignment target")
 
 
-proc expression(self: ref Compiler) =
+proc expression(self: Compiler) =
     ## Parses expressions
     self.parsePrecedence(Precedence.Assignment)  # The highest-level expression is assignment
 
 
-proc binary(self: ref Compiler, canAssign: bool) =
+proc binary(self: Compiler, canAssign: bool) =
     ## Parses binary operators
     var operator = self.parser.previous().kind
     var rule = getRule(operator)
@@ -287,7 +276,7 @@ proc binary(self: ref Compiler, canAssign: bool) =
             discard # Unreachable
 
 
-proc unary(self: ref Compiler, canAssign: bool) =
+proc unary(self: Compiler, canAssign: bool) =
     ## Parses unary expressions such as negation or
     ## binary inversion
     var operator = self.parser.previous().kind
@@ -307,7 +296,7 @@ proc unary(self: ref Compiler, canAssign: bool) =
             return
 
 
-template markObject*(self: ref Compiler, obj: ptr Obj): untyped =
+template markObject*(self: Compiler, obj: ptr Obj): untyped =
     ## Marks compile-time objects (since those take up memory as well)
     ## for the VM to reclaim space later on
     let temp = obj
@@ -315,7 +304,7 @@ template markObject*(self: ref Compiler, obj: ptr Obj): untyped =
     temp
 
 
-proc strVal(self: ref Compiler, canAssign: bool) =
+proc strVal(self: Compiler, canAssign: bool) =
     ## Parses string literals
     var str = self.parser.previous().lexeme
     var delimiter = &"{str[0]}"    # TODO: Add proper escape sequences support
@@ -323,12 +312,12 @@ proc strVal(self: ref Compiler, canAssign: bool) =
     self.emitConstant(self.markObject(jobject.asStr(str)))
 
 
-proc bracketAssign(self: ref Compiler, canAssign: bool) =
+proc bracketAssign(self: Compiler, canAssign: bool) =
     ## Parses assignments such as a[0] = "something"
     discard # TODO -> Implement this
 
 
-proc bracket(self: ref Compiler, canAssign: bool) =
+proc bracket(self: Compiler, canAssign: bool) =
     ## Parses getitem/slice expressions, such as "hello"[0:1]
     ## or someList[5]. Slices can take up to two arguments, a start
     ## and an end index in the chosen iterable.
@@ -372,7 +361,7 @@ proc bracket(self: ref Compiler, canAssign: bool) =
     self.parser.consume(TokenType.RS, "Expecting ']' after slice expression")
 
 
-proc literal(self: ref Compiler, canAssign: bool) =
+proc literal(self: Compiler, canAssign: bool) =
     ## Parses literal values such as true, nan and inf
     case self.parser.previous().kind:
         of TokenType.TRUE:
@@ -389,19 +378,19 @@ proc literal(self: ref Compiler, canAssign: bool) =
             discard  # Unreachable
 
 
-proc number(self: ref Compiler, canAssign: bool) =
+proc number(self: Compiler, canAssign: bool) =
     ## Parses numerical constants
     var value = self.parser.previous().lexeme
     try:
         if "." in value:
-            self.emitConstant(parseFloat(value).asFloat())
+            self.emitConstant(self.markObject(parseFloat(value).asFloat()))
         else:
-            self.emitConstant(parseInt(value).asInt())
+            self.emitConstant(self.markObject(parseInt(value).asInt()))
     except ValueError:
         self.compileError("number literal is too big")
 
 
-proc grouping(self: ref Compiler, canAssign: bool) =
+proc grouping(self: Compiler, canAssign: bool) =
     ## Parses parenthesized expressions. The only interesting
     ## semantic about parentheses is that they allow lower-precedence
     ## expressions where a higher precedence one is expected
@@ -414,7 +403,7 @@ proc grouping(self: ref Compiler, canAssign: bool) =
         self.parser.consume(TokenType.RP, "Expecting ')' after parentheszed expression")
 
 
-proc synchronize(self: ref Compiler) =
+proc synchronize(self: Compiler) =
     ## Synchronizes the parser's state. This is useful when
     ## dealing with parsing errors. When an error occurs, we
     ## note it with our nice panicMode and hadError fields, but
@@ -431,7 +420,7 @@ proc synchronize(self: ref Compiler) =
     ## will skip to the next valid token for a statement, like an
     ## if or a for loop or a class declaration, and then keep
     ## parsing from there. Note that hadError is never reset, but
-    ## panidMode is
+    ## panicMode is
     self.parser.panicMode = false
     while self.parser.peek().kind != TokenType.EOF:   # Infinite loops are bad, so we must take EOF into account
         if self.parser.previous().kind == TokenType.SEMICOLON:
@@ -446,18 +435,18 @@ proc synchronize(self: ref Compiler) =
         discard self.parser.advance()
 
 
-proc identifierConstant(self: ref Compiler, tok: Token): uint8 =
+proc identifierConstant(self: Compiler, tok: Token): uint8 =
     ## Emits instructions for identifiers
     return self.makeConstant(self.markObject(jobject.asStr(tok.lexeme)))
 
 
-proc identifierLongConstant(self: ref Compiler, tok: Token): array[3, uint8] =
+proc identifierLongConstant(self: Compiler, tok: Token): array[3, uint8] =
     ## Same as identifierConstant, but this is used when the constant table is longer
     ## than 255 elements
     return self.makeLongConstant(self.markObject(jobject.asStr(tok.lexeme)))
 
 
-proc addLocal(self: ref Compiler, name: Token) =
+proc addLocal(self: Compiler, name: Token) =
     ## Stores a local variable. Local name resolution
     ## happens at compile time rather than runtime,
     ## unlike global variables which are treated differently.
@@ -469,7 +458,7 @@ proc addLocal(self: ref Compiler, name: Token) =
     self.locals.add(local)
 
 
-proc declareVariable(self: ref Compiler) =
+proc declareVariable(self: Compiler) =
     ## Declares a variable, this is only useful
     ## for local variables, there is no way to
     ## "declare" a global at compile time. This
@@ -482,7 +471,7 @@ proc declareVariable(self: ref Compiler) =
     self.addLocal(name)
 
 
-proc parseVariable(self: ref Compiler, message: string): uint8 =
+proc parseVariable(self: Compiler, message: string): uint8 =
     ## Parses variables and declares them
     self.parser.consume(TokenType.ID, message)
     self.declareVariable()
@@ -491,7 +480,7 @@ proc parseVariable(self: ref Compiler, message: string): uint8 =
     return self.identifierConstant(self.parser.previous())
 
 
-proc parseLongVariable(self: ref Compiler, message: string): array[3, uint8] =
+proc parseLongVariable(self: Compiler, message: string): array[3, uint8] =
     ## Parses variables and declares them. This is used in place
     ## of parseVariable when there's more than 255 constants
     ## in the chunk table
@@ -502,7 +491,7 @@ proc parseLongVariable(self: ref Compiler, message: string): array[3, uint8] =
     return self.identifierLongConstant(self.parser.previous())
 
 
-proc markInitialized(self: ref Compiler) =
+proc markInitialized(self: Compiler) =
     ## Marks the latest defined global as
     ## initialized and ready for use
     if self.scopeDepth == 0:
@@ -510,7 +499,7 @@ proc markInitialized(self: ref Compiler) =
     self.locals[self.localCount - 1].depth = self.scopeDepth
 
 
-proc defineVariable(self: ref Compiler, idx: uint8) =
+proc defineVariable(self: Compiler, idx: uint8) =
     ## Defines a variable, emitting appropriate
     ## instructions if we're in the local scope
     ## or marking the last local as initialized
@@ -521,7 +510,7 @@ proc defineVariable(self: ref Compiler, idx: uint8) =
     self.emitBytes(OpCode.DefineGlobal, idx)
 
 
-proc defineVariable(self: ref Compiler, idx: array[3, uint8]) =
+proc defineVariable(self: Compiler, idx: array[3, uint8]) =
     ## Same as defineVariable, but this is used when
     ## there's more than 255 locals in the chunk's table
     if self.scopeDepth > 0:
@@ -531,7 +520,7 @@ proc defineVariable(self: ref Compiler, idx: array[3, uint8]) =
     self.emitBytes(idx)
 
 
-proc resolveLocal(self: ref Compiler, name: Token): int =
+proc resolveLocal(self: Compiler, name: Token): int =
     ## Resolves a local variable and catches errors such as
     ## var a = a
     var i = self.localCount - 1
@@ -544,7 +533,7 @@ proc resolveLocal(self: ref Compiler, name: Token): int =
     return -1
 
 
-proc namedVariable(self: ref Compiler, tok: Token, canAssign: bool) =
+proc namedVariable(self: Compiler, tok: Token, canAssign: bool) =
     ## Handles local and global variables assignment, as well
     ## as variable resolution.
     var arg = self.resolveLocal(tok)
@@ -565,7 +554,7 @@ proc namedVariable(self: ref Compiler, tok: Token, canAssign: bool) =
         self.emitBytes(get, uint8 arg)
 
 
-proc namedLongVariable(self: ref Compiler, tok: Token, canAssign: bool) =
+proc namedLongVariable(self: Compiler, tok: Token, canAssign: bool) =
     ## Handles local and global variables assignment, as well
     ## as variable resolution. This is only called when the constants
     ## table's length exceeds 255
@@ -591,7 +580,7 @@ proc namedLongVariable(self: ref Compiler, tok: Token, canAssign: bool) =
 
 
 
-proc variable(self: ref Compiler, canAssign: bool) =
+proc variable(self: Compiler, canAssign: bool) =
     ## Emits the code to declare a variable,
     ## both locally and globally
     if self.locals.len < 255:
@@ -600,7 +589,7 @@ proc variable(self: ref Compiler, canAssign: bool) =
         self.namedLongVariable(self.parser.previous(), canAssign)
 
 
-proc varDeclaration(self: ref Compiler) =
+proc varDeclaration(self: Compiler) =
     ## Parses a variable declaration, taking into account
     ## the possibility that the chunk table could already
     ## be bigger than 255 elements
@@ -623,7 +612,7 @@ proc varDeclaration(self: ref Compiler) =
         self.defineVariable(longName)
 
 
-proc expressionStatement(self: ref Compiler) =
+proc expressionStatement(self: Compiler) =
     ## Parses an expression statement, which is
     ## an expression followed by a semicolon. It then
     ## emits a pop instruction
@@ -633,7 +622,7 @@ proc expressionStatement(self: ref Compiler) =
 
 
 # TODO: This code will not be used right now as it might clash with the future GC, fix this to make it GC aware!
-proc deleteVariable(self: ref Compiler, canAssign: bool) =
+proc deleteVariable(self: Compiler, canAssign: bool) =
     self.expression()
     if self.parser.previous().kind in [TokenType.NUMBER, TokenType.STR]:
         self.compileError("cannot delete a literal")
@@ -652,7 +641,7 @@ proc deleteVariable(self: ref Compiler, canAssign: bool) =
         self.emitBytes(name[1], name[2])
 
 
-proc parseBlock(self: ref Compiler) =
+proc parseBlock(self: Compiler) =
     ## Parses a block statement, which is basically
     ## a list of other statements
     while not self.parser.check(TokenType.RB) and not self.parser.check(TokenType.EOF):
@@ -660,7 +649,7 @@ proc parseBlock(self: ref Compiler) =
     self.parser.consume(TokenType.RB, "Expecting '}' after block statement")
 
 
-proc beginScope(self: ref Compiler) =
+proc beginScope(self: Compiler) =
     ## Begins a scope by increasing the
     ## current scope depth. This is literally
     ## all it takes to create a scope, since the
@@ -669,7 +658,7 @@ proc beginScope(self: ref Compiler) =
     inc(self.scopeDepth)
 
 
-proc endScope(self: ref Compiler) =
+proc endScope(self: Compiler) =
     ## Ends a scope, popping off any local that
     ## was created inside it along the way
     self.scopeDepth = self.scopeDepth - 1
@@ -683,7 +672,7 @@ proc endScope(self: ref Compiler) =
     if start >= self.localCount:
         self.locals.delete(self.localCount, start)
 
-proc emitJump(self: ref Compiler, opcode: OpCode): int =
+proc emitJump(self: Compiler, opcode: OpCode): int =
     ## Emits a jump instruction with a placeholder offset
     ## that is later patched, check patchJump for more info
     ## about how jumps work
@@ -693,7 +682,7 @@ proc emitJump(self: ref Compiler, opcode: OpCode): int =
     return self.currentChunk.code.len - 2
 
 
-proc patchJump(self: ref Compiler, offset: int) =
+proc patchJump(self: Compiler, offset: int) =
     ## Patches a previously emitted jump instruction.
     ## Since it's impossible to know how much code
     ## needs to be jumped before compiling the code
@@ -715,7 +704,7 @@ proc patchJump(self: ref Compiler, offset: int) =
         self.currentChunk.code[offset + 1] = uint8 jump and 0xff
 
 
-proc ifStatement(self: ref Compiler) =
+proc ifStatement(self: Compiler) =
     ## Parses if statements in a C-style fashion
     self.parser.consume(TokenType.LP, "The if condition must be parenthesized")
     if self.parser.peek.kind != TokenType.EOF:
@@ -738,7 +727,7 @@ proc ifStatement(self: ref Compiler) =
         self.parser.parseError(self.parser.previous(), "The if condition must be parenthesized")
 
 
-proc emitLoop(self: ref Compiler, start: int) =
+proc emitLoop(self: Compiler, start: int) =
     ## Creates a loop and emits related instructions.
     self.emitByte(OpCode.Loop)
     var offset = self.currentChunk.code.len - start + 2
@@ -749,7 +738,7 @@ proc emitLoop(self: ref Compiler, start: int) =
         self.emitByte(uint8 offset and 0xff)
 
 
-proc endLooping(self: ref Compiler) =
+proc endLooping(self: Compiler) =
     ## This method is used to make
     ## the break statement work and patch
     ## it with a jump instruction
@@ -767,7 +756,7 @@ proc endLooping(self: ref Compiler) =
     self.loop = self.loop.outer
 
 
-proc whileStatement(self: ref Compiler) =
+proc whileStatement(self: Compiler) =
     ## Parses while loops in a C-style fashion
     var loop = Loop(depth: self.scopeDepth, outer: self.loop, start: self.currentChunk.code.len, alive: true, loopEnd: -1)
     self.loop = loop
@@ -791,7 +780,7 @@ proc whileStatement(self: ref Compiler) =
     self.endLooping()
 
 
-proc forStatement(self: ref Compiler) =
+proc forStatement(self: Compiler) =
     ## Parses for loops in a C-style fashion
     self.beginScope()
     self.parser.consume(TokenType.LP, "The loop condition must be parenthesized")
@@ -839,7 +828,7 @@ proc forStatement(self: ref Compiler) =
     self.endScope()
 
 
-proc parseBreak(self: ref Compiler) =
+proc parseBreak(self: Compiler) =
     ## Parses break statements. A break
     ## statement causes the current loop
     ## to exit and jump to its end
@@ -854,7 +843,7 @@ proc parseBreak(self: ref Compiler) =
         discard self.emitJump(OpCode.Break)
 
 
-proc parseAnd(self: ref Compiler, canAssign: bool) =
+proc parseAnd(self: Compiler, canAssign: bool) =
     ## Parses expressions such as a and b
     var jump = self.emitJump(OpCode.JumpIfFalse)
     self.emitByte(OpCode.Pop)
@@ -862,7 +851,7 @@ proc parseAnd(self: ref Compiler, canAssign: bool) =
     self.patchJump(jump)
 
 
-proc parseOr(self: ref Compiler, canAssign: bool) =
+proc parseOr(self: Compiler, canAssign: bool) =
     ## Parses expressions such as a or b
     var elseJump = self.emitJump(OpCode.JumpIfFalse)
     var endJump = self.emitJump(OpCode.Jump)
@@ -872,7 +861,7 @@ proc parseOr(self: ref Compiler, canAssign: bool) =
     self.patchJump(endJump)
 
 
-proc continueStatement(self: ref Compiler) =
+proc continueStatement(self: Compiler) =
     ## Parses continue statements inside loops.
     ## The continue statement causes the loop to skip
     ## to the next iteration
@@ -887,7 +876,18 @@ proc continueStatement(self: ref Compiler) =
         self.emitLoop(self.loop.start)
 
 
-proc parseFunction(self: ref Compiler, funType: FunctionType) =
+proc endCompiler(self: Compiler): ptr Function =
+    ## Ends the current compiler instance and returns its
+    ## compiled bytecode wrapped around a function object,
+    ## also emitting a return instruction with nil as operand.
+    ## Because of this, all functions implicitly return nil
+    ## if no return statement is supplied
+    self.emitByte(OpCode.Nil)
+    self.emitByte(OpCode.Return)
+    return self.function   # TODO: self.markObject?
+
+
+proc parseFunction(self: Compiler, funType: FunctionType) =
     ## Parses function declarations. Functions can have
     ## keyword arguments (WIP), but once a parameter is declared
     ## as a keyword one, all subsequent parameters must be
@@ -939,7 +939,7 @@ proc parseFunction(self: ref Compiler, funType: FunctionType) =
         self.emitBytes(self.makeLongConstant(fun))
 
 
-proc funDeclaration(self: ref Compiler) =
+proc funDeclaration(self: Compiler) =
     ## Parses function declarations and declares
     ## them in the current scope
     var funName = self.parseVariable("expecting function name")
@@ -948,7 +948,7 @@ proc funDeclaration(self: ref Compiler) =
     self.defineVariable(funName)
 
 
-proc argumentList(self: ref Compiler): uint8 =
+proc argumentList(self: Compiler): uint8 =
     ## Parses arguments passed to function calls
     result = 0
     if not self.parser.check(RP):
@@ -963,14 +963,14 @@ proc argumentList(self: ref Compiler): uint8 =
     self.parser.consume(RP, "Expecting ')' after arguments")
 
 
-proc call(self: ref Compiler, canAssign: bool) =
+proc call(self: Compiler, canAssign: bool) =
     ## Emits appropriate bytecode to call
     ## a function
     var argCount = self.argumentList()
     self.emitBytes(OpCode.Call, argCount)
 
 
-proc returnStatement(self: ref Compiler) =
+proc returnStatement(self: Compiler) =
     ## Parses return statements and emits
     ## appropriate bytecode instructions
     ## for them
@@ -984,7 +984,8 @@ proc returnStatement(self: ref Compiler) =
         self.parser.consume(TokenType.SEMICOLON, "missing semicolon after return statement")
         self.emitByte(OpCode.Return)
 
-proc statement(self: ref Compiler) =
+
+proc statement(self: Compiler) =
     ## Parses statements
     if self.parser.match(TokenType.FOR):
         self.forStatement()
@@ -1006,7 +1007,7 @@ proc statement(self: ref Compiler) =
         self.expressionStatement()
 
 
-proc declaration(self: ref Compiler) =
+proc declaration(self: Compiler) =
     ## Parses declarations
     if self.parser.match(FUN):
         self.funDeclaration()
@@ -1083,7 +1084,7 @@ proc getRule(kind: TokenType): ParseRule =
     result = rules[kind]
 
 
-proc compile*(self: ref Compiler, source: string): ptr Function =
+proc compile*(self: Compiler, source: string): ptr Function =
     when DEBUG_TRACE_COMPILER:
         echo "==== COMPILER debugger starts ===="
         echo ""
@@ -1117,7 +1118,7 @@ proc compile*(self: ref Compiler, source: string): ptr Function =
 proc initParser*(tokens: seq[Token], file: string): Parser =
     result = Parser(current: 0, tokens: tokens, hadError: false, panicMode: false, file: file)
 
-proc initCompiler*(context: FunctionType, enclosing: ref Compiler = nil, parser: Parser = initParser(@[], ""), file: string): ref Compiler =
+proc initCompiler*(context: FunctionType, enclosing: Compiler = nil, parser: Parser = initParser(@[], ""), file: string): Compiler =
     ## Initializes a new compiler object and returns a reference
     ## to it
     result = new(Compiler)
@@ -1144,7 +1145,7 @@ when isMainModule:
     echo "JAPL Compiler REPL"
     while true:
         try:
-            var compiler: ref Compiler = initCompiler(SCRIPT, file="test")
+            var compiler: Compiler = initCompiler(SCRIPT, file="test")
             stdout.write("=> ")
             var compiled = compiler.compile(stdin.readLine())
             if compiled != nil:

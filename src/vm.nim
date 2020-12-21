@@ -125,7 +125,7 @@ proc peek*(self: var VM, distance: int): ptr Obj =
     return self.stack[self.stackTop - distance - 1]
 
 
-template addObject*(self: ptr VM, obj: ptr Obj): untyped =
+template addObject*(self: var VM, obj: ptr Obj): untyped =
     ## Stores an object in the VM's internal
     ## list of objects in order to reclaim
     ## its memory later
@@ -158,7 +158,7 @@ proc slice(self: var VM): bool =
                     self.error(newIndexError("string index out of bounds"))
                     return false
                 else:
-                    self.push(addObject(addr self, jobject.asStr(&"{str[index]}")))
+                    self.push(self.addObject(jobject.asStr(&"{str[index]}")))
                     return true
         else:
             self.error(newTypeError(&"unsupported slicing for object of type '{peeked.typeName()}'"))
@@ -189,14 +189,14 @@ proc sliceRange(self: var VM): bool =
                     if startIndex < 0:
                         sliceStart = (len(str) + sliceEnd.toInt()).asInt()
                 elif startIndex - 1 > len(str) - 1:
-                    self.push(addObject(addr self, jobject.asStr("")))
+                    self.push(self.addObject(jobject.asStr("")))
                     return true
                 if endIndex - 1 > len(str) - 1:
                     sliceEnd = len(str).asInt()
                 if startIndex > endIndex:
-                    self.push(addObject(addr self, jobject.asStr("")))
+                    self.push(self.addObject(jobject.asStr("")))
                     return true
-                self.push(addObject(addr self, jobject.asStr(str[sliceStart.toInt()..<sliceEnd.toInt()])))
+                self.push(self.addObject(jobject.asStr(str[sliceStart.toInt()..<sliceEnd.toInt()])))
                 return true
         else:
             self.error(newTypeError(&"unsupported slicing for object of type '{popped.typeName()}'"))
@@ -331,7 +331,7 @@ proc run(self: var VM, repl: bool): InterpretResult =
                 var right = self.pop()
                 var left = self.pop()
                 try:
-                    self.push(left.binaryShl(right))
+                    self.push(self.addObject(left.binaryShl(right)))
                 except NotImplementedError:
                     self.error(newTypeError(getCurrentExceptionMsg()))
                     return RuntimeError
@@ -339,7 +339,7 @@ proc run(self: var VM, repl: bool): InterpretResult =
                 var right = self.pop()
                 var left = self.pop()
                 try:
-                    self.push(left.binaryShr(right))
+                    self.push(self.addObject(left.binaryShr(right)))
                 except NotImplementedError:
                     self.error(newTypeError(getCurrentExceptionMsg()))
                     return RuntimeError
@@ -347,7 +347,7 @@ proc run(self: var VM, repl: bool): InterpretResult =
                 var right = self.pop()
                 var left = self.pop()
                 try:
-                    self.push(left.binaryXor(right))
+                    self.push(self.addObject(left.binaryXor(right)))
                 except NotImplementedError:
                     self.error(newTypeError(getCurrentExceptionMsg()))
                     return RuntimeError
@@ -355,13 +355,13 @@ proc run(self: var VM, repl: bool): InterpretResult =
                 var right = self.pop()
                 var left = self.pop()
                 try:
-                    self.push(left.binaryOr(right))
+                    self.push(self.addObject(left.binaryOr(right)))
                 except NotImplementedError:
                     self.error(newTypeError(getCurrentExceptionMsg()))
                     return RuntimeError
             of OpCode.Bnot:  # Bitwise not
                 try:
-                    self.push(self.pop().binaryNot())
+                    self.push(self.addObject(self.pop().binaryNot()))
                 except NotImplementedError:
                     self.error(newTypeError(getCurrentExceptionMsg()))
                     return RuntimeError
@@ -369,7 +369,7 @@ proc run(self: var VM, repl: bool): InterpretResult =
                 var right = self.pop()
                 var left = self.pop()
                 try:
-                    self.push(left.binaryAnd(right))
+                    self.push(self.addObject(left.binaryAnd(right)))
                 except NotImplementedError:
                     self.error(newTypeError(getCurrentExceptionMsg()))
                     return RuntimeError
@@ -377,7 +377,7 @@ proc run(self: var VM, repl: bool): InterpretResult =
                 var right = self.pop()
                 var left = self.pop()
                 try:
-                    self.push(left.sum(right))
+                    self.push(self.addObject(left.sum(right)))
                 except NotImplementedError:
                     self.error(newTypeError(getCurrentExceptionMsg()))
                     return RuntimeError
@@ -385,7 +385,7 @@ proc run(self: var VM, repl: bool): InterpretResult =
                 var right = self.pop()
                 var left = self.pop()
                 try:
-                    self.push(left.sub(right))
+                    self.push(self.addObject(left.sub(right)))
                 except NotImplementedError:
                     self.error(newTypeError(getCurrentExceptionMsg()))
                     return RuntimeError
@@ -393,7 +393,7 @@ proc run(self: var VM, repl: bool): InterpretResult =
                 var right = self.pop()
                 var left = self.pop()
                 try:
-                    self.push(left.trueDiv(right))
+                    self.push(self.addObject(left.trueDiv(right)))
                 except NotImplementedError:
                     self.error(newTypeError(getCurrentExceptionMsg()))
                     return RuntimeError
@@ -401,7 +401,7 @@ proc run(self: var VM, repl: bool): InterpretResult =
                 var right = self.pop()
                 var left = self.pop()
                 try:
-                    self.push(left.mul(right))
+                    self.push(self.addObject(left.mul(right)))
                 except NotImplementedError:
                     self.error(newTypeError(getCurrentExceptionMsg()))
                     return RuntimeError
@@ -409,7 +409,7 @@ proc run(self: var VM, repl: bool): InterpretResult =
                 var right = self.pop()
                 var left = self.pop()
                 try:
-                    self.push(left.divMod(right))
+                    self.push(self.addObject(left.divMod(right)))
                 except NotImplementedError:
                     self.error(newTypeError(getCurrentExceptionMsg()))
                     return RuntimeError
@@ -417,7 +417,7 @@ proc run(self: var VM, repl: bool): InterpretResult =
                 var right = self.pop()
                 var left = self.pop()
                 try:
-                    self.push(left.pow(right))
+                    self.push(self.addObject(left.pow(right)))
                 except NotImplementedError:
                     self.error(newTypeError(getCurrentExceptionMsg()))
                     return RuntimeError
@@ -436,14 +436,14 @@ proc run(self: var VM, repl: bool): InterpretResult =
             of OpCode.Equal:
                 # Here order doesn't matter, because if a == b
                 # then b == a (at least in *most* languages, sigh)
-                self.push(self.pop().eq(self.pop()).asBool())
+                self.push(self.getBoolean(self.pop().eq(self.pop())))
                 # Doesn't this chain of calls look beautifully
                 # intuitive?
             of OpCode.Less:
                 var right = self.pop()
                 var left = self.pop()
                 try:
-                    self.push(left.lt(right).asBool())
+                    self.push(self.getBoolean(left.lt(right)))
                 except NotImplementedError:
                     self.error(newTypeError(getCurrentExceptionMsg()))
                     return RuntimeError
@@ -451,7 +451,7 @@ proc run(self: var VM, repl: bool): InterpretResult =
                 var right = self.pop()
                 var left = self.pop()
                 try:
-                    self.push(left.gt(right).asBool())
+                    self.push(self.getBoolean(left.gt(right)))
                 except NotImplementedError:
                     self.error(newTypeError(getCurrentExceptionMsg()))
                     return RuntimeError
@@ -572,32 +572,37 @@ proc freeObject(obj: ptr Obj) =
     ## Frees the associated memory
     ## of an object
     case obj.kind:
-        of ObjectType.Function:
-            var fun = cast[ptr Function](obj)
-            when DEBUG_TRACE_ALLOCATION:
-                echo &"DEBUG: Freeing function object with value '{stringify(fun)}'"
-            fun.chunk.freeChunk()
-            discard free(ObjectType.Function, fun)
         of ObjectType.String:
             var str = cast[ptr String](obj)
             when DEBUG_TRACE_ALLOCATION:
                 echo &"DEBUG: Freeing string object with value '{stringify(str)}' of length {str.len}"
             discard freeArray(char, str.str, str.len)
             discard free(ObjectType.String, obj)
-        else:
-            discard
+        of ObjectType.Exception, ObjectType.Class,
+           ObjectType.Module, ObjectType.BaseObject, ObjectType.Integer,
+           ObjectType.Float, ObjectType.Bool, ObjectType.NotANumber, 
+           ObjectType.Infinity, ObjectType.Nil:
+               echo &"DEBUG: Freeing {obj.typeName()} object with value '{stringify(obj)}'"
+               discard free(obj.kind, obj)
+
+        of ObjectType.Function:
+            var fun = cast[ptr Function](obj)
+            when DEBUG_TRACE_ALLOCATION:
+                echo &"DEBUG: Freeing function object with value '{stringify(fun)}'"
+            fun.chunk.freeChunk()
+            discard free(ObjectType.Function, fun)
 
 
 proc freeObjects(self: var VM) =
     ## Frees all the allocated objects
     ## from the VM
+    var objCount = len(self.objects) + len(self.cached)
     for obj in reversed(self.objects):
         freeObject(obj)
         discard self.objects.pop()
     for cached_obj in self.cached:
         freeObject(cached_obj)
     when DEBUG_TRACE_ALLOCATION:
-        var objCount = len(self.objects)
         echo &"DEBUG: Freed {objCount} objects"
 
 
@@ -613,23 +618,25 @@ proc freeVM*(self: var VM) =
         quit(71)
 
 
-proc initVMCache: array[5, ptr Obj] = 
+proc initCache(self: var VM) = 
     ## Initializes the static cache for singletons
     ## such as nil, true, false and nan
-    
-    return [cast[ptr Obj](true.asBool()),
+    self.cached = 
+            [
+            cast[ptr Obj](true.asBool()),
             cast[ptr Obj](false.asBool()),
             cast[ptr Obj](asNil()),
             cast[ptr Obj](asInf()),
-            cast[ptr Obj](asNan())]
+            cast[ptr Obj](asNan())
+            ]
 
 
 proc initVM*(): VM =
     ## Initializes the VM
     setControlCHook(handleInterrupt)
     var globals: Table[string, ptr Obj] = initTable[string, ptr Obj]()
-    let cache = initVMCache()
-    result = VM(lastPop: asNil(), objects: @[], globals: globals, cached: cache, source: "", file: "")
+    result = VM(lastPop: asNil(), objects: @[], globals: globals, source: "", file: "")
+    result.initCache()
 
 
 proc interpret*(self: var VM, source: string, repl: bool = false, file: string): InterpretResult =
