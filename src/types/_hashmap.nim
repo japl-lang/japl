@@ -15,21 +15,22 @@
 
 # WIP - Not working
 
-import ../meta/valueobject
 import ../memory
-import stringtype
-import objecttype
 import lenientops
+import baseObject
+import methods
+import japlNil
+import japlString
 
 
 const HASH_MAP_LOAD_MAX = 0.75   # Hash map max load factor
 
+
 type
     Entry = ref object
-        key*: Value
-        value*: Value
-
-    HashMap = ref object of Obj
+        key*: ptr Obj
+        value*: ptr Obj
+    HashMap = object of Obj
         size*: int
         capacity*: int
         entries*: ptr UncheckedArray[Entry]
@@ -46,29 +47,29 @@ proc freeHashMap(self: var HashMap) =
     self.entries = nil
 
 
-proc findEntry(self: HashMap, key: Value): Entry =
-    var idx = (int key.hash) mod self.capacity
+proc findEntry(self: HashMap, key: ptr Obj): Entry =
+    var idx = (int key.hashValue) mod self.capacity
     var entry: Entry
     while true:
         entry = self.entries[idx]
-        if valuesEqual(entry.key, key) or entry.key == nil:
+        if entry.key.eq(key) or entry.key == nil:
             result = entry
             break
         idx = idx + 1 mod self.capacity
 
 
-proc adjustCapacity(self: HashMap, capacity: int) =
-    var entries = cast[ptr UncheckedArray[Entry]](allocate(Entry, capacity))
+proc adjustCapacity(self: var HashMap, capacity: int) =
+    var entries = allocate(UncheckedArray[Entry], Entry, capacity)
     var i = 0
     while i < capacity:
         entries[i].key = nil
-        entries[i].value = Value(kind: NIL)
+        entries[i].value = cast[ptr Obj](asNil())
         i += 1
     self.entries = entries
     self.capacity = capacity
 
 
-proc setEntry(self: HashMap, key: Value, value: Value): bool =
+proc setEntry(self: var HashMap, key: ptr Obj, value: ptr Obj): bool =
     if self.size + 1 > self.capacity * HASH_MAP_LOAD_MAX:
         var capacity = growCapacity(self.capacity)
         self.adjustCapacity(capacity)
@@ -79,3 +80,9 @@ proc setEntry(self: HashMap, key: Value, value: Value): bool =
     entry.key = key
     entry.value = value
     result = isNewKey
+
+
+when isMainModule:
+    var dictionary = newHashMap()
+    discard dictionary.setEntry(asObj[String]("helo".asStr()), asObj[String]("world".asStr()))
+    echo dictionary.findEntry(asObj[String]("helo".asStr())).value.toStr()

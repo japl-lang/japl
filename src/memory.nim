@@ -23,9 +23,9 @@
 
 
 import segfaults
-# import config
+import config
 # when DEBUG_TRACE_ALLOCATION:
- #   import util/debug   # TODO: Recursive dependency
+    # import util/debug   # TODO: Add memory debugging
 
 
 proc reallocate*(pointr: pointer, oldSize: int, newSize: int): pointer =

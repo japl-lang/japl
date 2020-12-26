@@ -102,8 +102,7 @@ def build(path: str, flags: Dict[str, str] = {}, options: Dict[str, bool] = {}, 
     if os.path.isfile(config_path) and not override:
         logging.warning(f"A config file exists at '{config_path}', keeping it")
     else:
-        if os.path.isfile(config_path):
-            logging.warning(f"Overriding config file at '{config_path}'")
+        logging.warning(f"Overriding config file at '{config_path}'")
         logging.debug(f"Generating config file at '{config_path}'")
         try:
             with open(config_path, "w") as build_config:

@@ -23,11 +23,15 @@ import lexer
 import meta/opcode
 import meta/token
 import meta/looptype
-import types/jobject
+import types/baseObject
+import types/function
+import types/numbers
+import types/japlString
 import tables
 import config
 when isMainModule:
     import util/debug
+
 
 type
     Compiler* = ref object
@@ -76,7 +80,7 @@ type
 
 proc makeRule(prefix, infix: ParseFn, precedence: Precedence): ParseRule =
     ## Creates a new rule for parsing
-    return ParseRule(prefix: prefix, infix: infix, precedence: precedence)
+    result = ParseRule(prefix: prefix, infix: infix, precedence: precedence)
 
 
 proc advance(self: var Parser): Token =
@@ -152,7 +156,6 @@ proc emitByte(self: Compiler, byt: OpCode|uint8) =
     ## to the current chunk being compiled
     when DEBUG_TRACE_COMPILER:
         echo "Compiler.emitByte byt:" & $byt & " (uint8 value of " & $(uint8 byt) & ")"
-
     self.currentChunk.writeChunk(uint8 byt, self.parser.previous.line)
 
 
@@ -309,7 +312,7 @@ proc strVal(self: Compiler, canAssign: bool) =
     var str = self.parser.previous().lexeme
     var delimiter = &"{str[0]}"    # TODO: Add proper escape sequences support
     str = str.unescape(delimiter, delimiter)
-    self.emitConstant(self.markObject(jobject.asStr(str)))
+    self.emitConstant(self.markObject(asStr(str)))
 
 
 proc bracketAssign(self: Compiler, canAssign: bool) =
@@ -322,7 +325,8 @@ proc bracket(self: Compiler, canAssign: bool) =
     ## or someList[5]. Slices can take up to two arguments, a start
     ## and an end index in the chosen iterable.
     ## Both arguments are optional, so doing "hi"[::]
-    ## will basically copy the string into a new object.
+    ## will basically copy the string (gets everything from
+    ## start to end of the iterable).
     ## Indexes start from 0, and while the start index is
     ## inclusive, the end index is not. If an end index is
     ## not specified--like in "hello"[0:]--, then the it is
@@ -437,13 +441,13 @@ proc synchronize(self: Compiler) =
 
 proc identifierConstant(self: Compiler, tok: Token): uint8 =
     ## Emits instructions for identifiers
-    return self.makeConstant(self.markObject(jobject.asStr(tok.lexeme)))
+    return self.makeConstant(self.markObject(asStr(tok.lexeme)))
 
 
 proc identifierLongConstant(self: Compiler, tok: Token): array[3, uint8] =
     ## Same as identifierConstant, but this is used when the constant table is longer
     ## than 255 elements
-    return self.makeLongConstant(self.markObject(jobject.asStr(tok.lexeme)))
+    return self.makeLongConstant(self.markObject(asStr(tok.lexeme)))
 
 
 proc addLocal(self: Compiler, name: Token) =
@@ -536,8 +540,8 @@ proc resolveLocal(self: Compiler, name: Token): int =
 proc namedVariable(self: Compiler, tok: Token, canAssign: bool) =
     ## Handles local and global variables assignment, as well
     ## as variable resolution.
-    var arg = self.resolveLocal(tok)
-    var
+    var 
+        arg = self.resolveLocal(tok)
         get: OpCode
         set: OpCode
     if arg != -1:
@@ -558,9 +562,10 @@ proc namedLongVariable(self: Compiler, tok: Token, canAssign: bool) =
     ## Handles local and global variables assignment, as well
     ## as variable resolution. This is only called when the constants
     ## table's length exceeds 255
-    var arg = self.resolveLocal(tok)
-    var casted = cast[array[3, uint8]](arg)
-    var
+    
+    var 
+        arg = self.resolveLocal(tok)
+        casted = cast[array[3, uint8]](arg)
         get: OpCode
         set: OpCode
     if arg != -1:
@@ -672,6 +677,7 @@ proc endScope(self: Compiler) =
     if start >= self.localCount:
         self.locals.delete(self.localCount, start)
 
+
 proc emitJump(self: Compiler, opcode: OpCode): int =
     ## Emits a jump instruction with a placeholder offset
     ## that is later patched, check patchJump for more info
@@ -696,12 +702,13 @@ proc patchJump(self: Compiler, offset: int) =
     ## be jumped over, so the size of the if/else conditions
     ## or loops is limited (hopefully 65 thousands and change
     ## instructions are enough for everyone)
-    var jump = self.currentChunk.code.len - offset - 2
+    let jump = self.currentChunk.code.len - offset - 2
     if jump > (int uint16.high):
         self.compileError("too much code to jump over")
     else:
-        self.currentChunk.code[offset] = uint8 (jump shr 8) and 0xff
-        self.currentChunk.code[offset + 1] = uint8 jump and 0xff
+        let casted = cast[array[2, uint8]](jump)
+        self.currentChunk.code[offset] = casted[0]
+        self.currentChunk.code[offset + 1] = casted[1]
 
 
 proc ifStatement(self: Compiler) =
@@ -1062,7 +1069,7 @@ var rules: array[TokenType, ParseRule] = [
     makeRule(literal, nil, Precedence.None), # TRUE
     makeRule(nil, nil, Precedence.None), # VAR
     makeRule(nil, nil, Precedence.None), # WHILE
-    makeRule(nil, nil, Precedence.None), # DEL  # TODO: Fix del statement to make it GC-aware
+    makeRule(deleteVariable, nil, Precedence.None), # DEL
     makeRule(nil, nil, Precedence.None), # BREAK
     makeRule(nil, nil, Precedence.None), # EOF
     makeRule(nil, nil, Precedence.None), # TokenType.COLON
@@ -1135,9 +1142,9 @@ proc initCompiler*(context: FunctionType, enclosing: Compiler = nil, parser: Par
     result.parser.file = file
     result.locals.add(Local(depth: 0, name: Token(kind: EOF, lexeme: "")))
     inc(result.localCount)
-    result.function = result.markObject(newFunction())
+    result.function = result.markObject(newFunction(chunk=newChunk()))
     if context != SCRIPT:   # If we're compiling a function, we give it its name
-        result.function.name = jobject.asStr(enclosing.parser.previous().lexeme)
+        result.function.name = asStr(enclosing.parser.previous().lexeme)
 
 # This way the compiler can be executed on its own
 # without the VM

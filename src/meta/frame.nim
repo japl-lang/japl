@@ -13,10 +13,12 @@
 # limitations under the License.
 
 ## Implementation of JAPL call frames. A call frame
-## is a subset of the VM's stack that represent
-## functions' local space
+## is a subset of the VM's stack that represents
+## function-local space
 
-import ../types/jobject     
+import ../types/function
+import ../types/baseObject
+{.experimental: "implicitDeref".}
 
 
 type
@@ -24,16 +26,11 @@ type
         function*: ptr Function
         ip*: int
         slot*: int
-        endSlot*: int
-        stack*: seq[ptr Obj]
-        
+        stack*: ref seq[ptr Obj]
+
 
 proc getView*(self: CallFrame): seq[ptr Obj] =
-    result = self.stack[self.slot..self.endSlot]
-
-
-proc getAbsIndex(self: CallFrame, idx: int, offset: int): int =
-    return idx + len(self.getView()) - offset
+    result = self.stack[self.slot..self.stack.high()]
 
 
 proc len*(self: CallFrame): int =
@@ -41,16 +38,16 @@ proc len*(self: CallFrame): int =
 
 
 proc `[]`*(self: CallFrame, idx: int, offset: int): ptr Obj =
-    result = self.stack[self.getAbsIndex(idx, offset)]
+    result = self.stack[idx + self.slot]
 
 
 proc `[]=`*(self: CallFrame, idx: int, offset: int, val: ptr Obj) =
     if idx < self.slot:
         raise newException(IndexError, "CallFrame index out of range")
-    self.stack[self.getAbsIndex(idx, offset)] = val
+    self.stack[idx + self.slot] = val
 
 
 proc delete*(self: CallFrame, idx: int, offset: int) =
-    if idx < self.slot or idx > self.endSlot:
+    if idx < self.slot:
         raise newException(IndexError, "CallFrame index out of range")
-    self.stack.delete(self.getAbsIndex(idx, offset))
+    self.stack.delete(idx + self.slot)

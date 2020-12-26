@@ -12,12 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-## The module dedicated to the Chunk type
-## A chunk is a piece of bytecode.
+## Implementation for bytecode chunks and the VM's opcodes
+## A chunk is a piece of bytecode together with its constants
 
-import ../types/jobject
+import ../types/baseObject
+
 
 type
+    Chunk* = ref object   # TODO: This shouldn't be here, but Function needs it. Consider refactoring
+        ## A piece of bytecode.
+        ## Consts represents the constants table the code is referring to
+        ## Code is the compiled bytecode
+        ## Lines maps bytecode instructions to line numbers (1 to 1 correspondence)
+        consts*: seq[ptr Obj]
+        code*: seq[uint8]
+        lines*: seq[int]   # TODO: Run-length encoding
     OpCode* {.pure.} = enum
         ## Enum of possible opcodes
         Constant = 0u8,
@@ -78,6 +87,11 @@ const constantLongInstructions* = {OpCode.ConstantLong}
 const byteInstructions* = {OpCode.SetLocal, OpCode.GetLocal, OpCode.DeleteLocal,
                            OpCode.Call}
 const jumpInstructions* = {OpCode.JumpIfFalse, OpCode.Jump, OpCode.Loop}
+
+
+proc newChunk*(): Chunk =
+    ## Initializes a new, empty chunk
+    result = Chunk(consts: @[], code: @[], lines: @[])
 
 
 proc writeChunk*(self: Chunk, newByte: uint8, line: int) =

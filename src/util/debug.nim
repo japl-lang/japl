@@ -16,7 +16,8 @@
 ## screen.
 
 import ../meta/opcode
-import ../types/jobject
+import ../types/baseObject
+import ../types/methods
 import strformat
 
 
@@ -52,8 +53,9 @@ proc constantInstruction(name: string, chunk: Chunk, offset: int): int =
 
 
 proc jumpInstruction(name: string, chunk: Chunk, offset: int): int =
-    var jump = uint16 (chunk.code[offset + 1] shr 8)
-    jump = jump or chunk.code[offset + 2]
+    var jumpArray: array[2, uint8] = [chunk.code[offset + 1], chunk.code[offset + 2]]
+    var jump: int
+    copyMem(jump.addr, unsafeAddr(jumpArray), sizeof(uint16))
     echo &"\tInstruction at IP: {name}\n\tJump offset: {jump}\n"
     return offset + 3
 

@@ -14,6 +14,8 @@
 
 ## A stack-based bytecode virtual machine implementation.
 ## This is the entire runtime environment for JAPL
+{.experimental: "implicitDeref".}
+
 
 import algorithm
 import strformat
@@ -22,7 +24,14 @@ import compiler
 import tables
 import meta/opcode
 import meta/frame
-import types/jobject
+import types/baseObject
+import types/japlString
+import types/japlNil
+import types/exception
+import types/numbers
+import types/boolean
+import types/methods
+import types/function
 import memory
 import tables
 when DEBUG_TRACE_VM:
@@ -44,7 +53,7 @@ type
         frameCount*: int
         source*: string
         frames*: seq[CallFrame]
-        stack*: seq[ptr Obj]
+        stack*: ref seq[ptr Obj]
         stackTop*: int
         objects*: seq[ptr Obj]
         globals*: Table[string, ptr Obj]
@@ -61,7 +70,7 @@ func handleInterrupt() {.noconv.} =
 
 proc resetStack*(self: var VM) =
     ## Resets the VM stack to a blank state
-    self.stack = @[]
+    self.stack = new(seq[ptr Obj])
     self.frames = @[]
     self.frameCount = 0
     self.stackTop = 0
@@ -116,6 +125,8 @@ proc pop*(self: var VM): ptr Obj =
 proc push*(self: var VM, obj: ptr Obj) =
     ## Pushes an object onto the stack
     self.stack.add(obj)
+    if obj notin self.objects and obj notin self.cached:
+        self.objects.add(obj)
     self.stackTop += 1
 
 
@@ -158,13 +169,13 @@ proc slice(self: var VM): bool =
                     self.error(newIndexError("string index out of bounds"))
                     return false
                 else:
-                    self.push(self.addObject(jobject.asStr(&"{str[index]}")))
+                    self.push(asStr(&"{str[index]}"))
                     return true
         else:
             self.error(newTypeError(&"unsupported slicing for object of type '{peeked.typeName()}'"))
             return false
 
-# TODO: Move this to jobject.nim
+# TODO: Move this to types/
 proc sliceRange(self: var VM): bool =
     ## Handles slices when there's both a start
     ## and an end index (even implicit ones)
@@ -189,14 +200,14 @@ proc sliceRange(self: var VM): bool =
                     if startIndex < 0:
                         sliceStart = (len(str) + sliceEnd.toInt()).asInt()
                 elif startIndex - 1 > len(str) - 1:
-                    self.push(self.addObject(jobject.asStr("")))
+                    self.push(asStr(""))
                     return true
                 if endIndex - 1 > len(str) - 1:
                     sliceEnd = len(str).asInt()
                 if startIndex > endIndex:
-                    self.push(self.addObject(jobject.asStr("")))
+                    self.push(asStr(""))
                     return true
-                self.push(self.addObject(jobject.asStr(str[sliceStart.toInt()..<sliceEnd.toInt()])))
+                self.push(asStr(str[sliceStart.toInt()..<sliceEnd.toInt()]))
                 return true
         else:
             self.error(newTypeError(&"unsupported slicing for object of type '{popped.typeName()}'"))
@@ -213,7 +224,7 @@ proc call(self: var VM, function: ptr Function, argCount: uint8): bool =
     if self.frameCount == FRAMES_MAX:
         self.error(newRecursionError("max recursion depth exceeded"))
         return false
-    var frame = CallFrame(function: function, ip: 0, slot: argCount, endSlot: self.stackTop - 1, stack: self.stack)   # TODO: 
+    var frame = CallFrame(function: function, ip: 0, slot: argCount, stack: self.stack)   # TODO: 
     # Check why this raises NilAccessError when high recursion limit is hit
     self.frames.add(frame)
     self.frameCount += 1
@@ -233,7 +244,7 @@ proc callObject(self: var VM, callee: ptr Obj, argCount: uint8): bool =
         return false
 
 
-proc readByte(self: CallFrame): byte =
+proc readByte(self: CallFrame): uint8 =
     ## Reads a single byte from the given
     ## frame's chunk of bytecode
     inc(self.ip)
@@ -244,23 +255,20 @@ proc readBytes(self: CallFrame): int =
     ## Reads and decodes 3 bytes from the
     ## given frame's chunk into an integer
     var arr = [self.readByte(), self.readByte(), self.readByte()]
-    var index: int
-    copyMem(index.addr, unsafeAddr(arr), sizeof(arr))
-    result = index
+    copyMem(result.addr, unsafeAddr(arr), sizeof(arr))
 
 
 proc readShort(self: CallFrame): uint16 =
     ## Reads a 16 bit number from the
     ## given frame's chunk
-    inc(self.ip)
-    inc(self.ip)
-    cast[uint16]((self.function.chunk.code[self.ip - 2] shl 8) or self.function.chunk.code[self.ip - 1])
+    let arr = [self.readByte(), self.readByte()]
+    copyMem(result.addr, unsafeAddr(arr), sizeof(uint16))
 
 
 proc readConstant(self: CallFrame): ptr Obj =
     ## Reads a constant from the given
     ## frame's constant table
-    result = self.function.chunk.consts[int(self.readByte())]
+    result = self.function.chunk.consts[uint8 self.readByte()]
 
 
 proc readLongConstant(self: CallFrame): ptr Obj =
@@ -322,106 +330,111 @@ proc run(self: var VM, repl: bool): InterpretResult =
             of OpCode.ConstantLong:
                 self.push(frame.readLongConstant())
             of OpCode.Negate:
+                let operand = self.pop()
                 try:
-                    self.push(self.pop().negate())
+                    self.push(operand.negate())
                 except NotImplementedError:
-                    self.error(newTypeError(getCurrentExceptionMsg()))
+                    self.error(newTypeError(&"unsupported unary operator '-' for object of type '{operand.typeName()}'"))
                     return RuntimeError
             of OpCode.Shl:   # Bitwise left-shift
                 var right = self.pop()
                 var left = self.pop()
                 try:
-                    self.push(self.addObject(left.binaryShl(right)))
+                    self.push(left.binaryShl(right))
                 except NotImplementedError:
-                    self.error(newTypeError(getCurrentExceptionMsg()))
+                    self.error(newTypeError(&"unsupported binary operator '<<' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
             of OpCode.Shr:   # Bitwise right-shift
                 var right = self.pop()
                 var left = self.pop()
                 try:
-                    self.push(self.addObject(left.binaryShr(right)))
+                    self.push(left.binaryShr(right))
                 except NotImplementedError:
-                    self.error(newTypeError(getCurrentExceptionMsg()))
+                    self.error(newTypeError(&"unsupported binary operator '>>' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
             of OpCode.Xor:   # Bitwise xor
                 var right = self.pop()
                 var left = self.pop()
                 try:
-                    self.push(self.addObject(left.binaryXor(right)))
+                    self.push(left.binaryXor(right))
                 except NotImplementedError:
-                    self.error(newTypeError(getCurrentExceptionMsg()))
+                    self.error(newTypeError(&"unsupported binary operator '^' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
             of OpCode.Bor:  # Bitwise or
                 var right = self.pop()
                 var left = self.pop()
                 try:
-                    self.push(self.addObject(left.binaryOr(right)))
+                    self.push(left.binaryOr(right))
                 except NotImplementedError:
-                    self.error(newTypeError(getCurrentExceptionMsg()))
+                    self.error(newTypeError(&"unsupported binary operator '&' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
             of OpCode.Bnot:  # Bitwise not
+                var operand = self.pop()
                 try:
-                    self.push(self.addObject(self.pop().binaryNot()))
+                    self.push(operand.binaryNot())
                 except NotImplementedError:
-                    self.error(newTypeError(getCurrentExceptionMsg()))
+                    self.error(newTypeError(&"unsupported unary operator '~' for object of type '{operand.typeName()}'"))
                     return RuntimeError
             of OpCode.Band:  # Bitwise and
                 var right = self.pop()
                 var left = self.pop()
                 try:
-                    self.push(self.addObject(left.binaryAnd(right)))
+                    self.push(left.binaryAnd(right))
                 except NotImplementedError:
-                    self.error(newTypeError(getCurrentExceptionMsg()))
+                    self.error(newTypeError(&"unsupported binary operator '&' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
             of OpCode.Add:
                 var right = self.pop()
                 var left = self.pop()
                 try:
-                    self.push(self.addObject(left.sum(right)))
+                    self.push(left.sum(right))
                 except NotImplementedError:
-                    self.error(newTypeError(getCurrentExceptionMsg()))
+                    self.error(newTypeError(&"unsupported binary operator '+' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
             of OpCode.Subtract:
                 var right = self.pop()
                 var left = self.pop()
                 try:
-                    self.push(self.addObject(left.sub(right)))
+                    self.push(left.sub(right))
                 except NotImplementedError:
-                    self.error(newTypeError(getCurrentExceptionMsg()))
+                    self.error(newTypeError(&"unsupported binary operator '-' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
             of OpCode.Divide:
                 var right = self.pop()
                 var left = self.pop()
                 try:
-                    self.push(self.addObject(left.trueDiv(right)))
+                    self.push(left.trueDiv(right))
                 except NotImplementedError:
-                    self.error(newTypeError(getCurrentExceptionMsg()))
+                    self.error(newTypeError(&"unsupported binary operator '/' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
             of OpCode.Multiply:
                 var right = self.pop()
                 var left = self.pop()
                 try:
-                    self.push(self.addObject(left.mul(right)))
+                    self.push(left.mul(right))
                 except NotImplementedError:
-                    self.error(newTypeError(getCurrentExceptionMsg()))
+                    self.error(newTypeError(&"unsupported binary operator '*' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
             of OpCode.Mod:
                 var right = self.pop()
                 var left = self.pop()
                 try:
-                    self.push(self.addObject(left.divMod(right)))
+                    self.push(left.divMod(right))
                 except NotImplementedError:
-                    self.error(newTypeError(getCurrentExceptionMsg()))
+                    self.error(newTypeError(&"unsupported binary operator '%' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
             of OpCode.Pow:
                 var right = self.pop()
                 var left = self.pop()
                 try:
-                    self.push(self.addObject(left.pow(right)))
+                    self.push(left.pow(right))
                 except NotImplementedError:
-                    self.error(newTypeError(getCurrentExceptionMsg()))
+                    self.error(newTypeError(&"unsupported binary operator '**' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
             of OpCode.True:
+                ## TODO: Make sure that even operations that can yield
+                ## preallocated types, but do not have access to the VM,
+                ## yield these cached types
                 self.push(cast[ptr Bool](self.getBoolean(true)))
             of OpCode.False:
                 self.push(cast[ptr Bool](self.getBoolean(false)))
@@ -445,7 +458,7 @@ proc run(self: var VM, repl: bool): InterpretResult =
                 try:
                     self.push(self.getBoolean(left.lt(right)))
                 except NotImplementedError:
-                    self.error(newTypeError(getCurrentExceptionMsg()))
+                    self.error(newTypeError(&"unsupported binary operator '<' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
             of OpCode.Greater:
                 var right = self.pop()
@@ -453,7 +466,7 @@ proc run(self: var VM, repl: bool): InterpretResult =
                 try:
                     self.push(self.getBoolean(left.gt(right)))
                 except NotImplementedError:
-                    self.error(newTypeError(getCurrentExceptionMsg()))
+                    self.error(newTypeError(&"unsupported binary operator '>' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
             of OpCode.GetItem:
                 # TODO: More generic method
@@ -500,7 +513,7 @@ proc run(self: var VM, repl: bool): InterpretResult =
                         self.globals[constant] = self.peek(0)
                     discard self.pop()
             of OpCode.DeleteGlobal:
-                # This opcode, as well as DeleteLocal, is currently unused due to potential issues with the GC
+                # TODO: Inspect potential issues with the GC
                 if frame.function.chunk.consts.len > 255:
                     var constant = frame.readLongConstant().toStr()
                     if constant notin self.globals:
@@ -527,7 +540,7 @@ proc run(self: var VM, repl: bool): InterpretResult =
                     frame[int frame.readByte(), stackOffset] = self.peek(0)
                 discard self.pop()
             of OpCode.DeleteLocal:
-                # Unused due to GC potential issues
+                # TODO: Inspect potential issues with the GC
                 if frame.len > 255:
                     var slot = frame.readBytes()
                     frame.delete(slot, stackOffset)
@@ -553,11 +566,10 @@ proc run(self: var VM, repl: bool): InterpretResult =
                 discard
             of OpCode.Return:
                 var retResult = self.pop()
-                if repl:
-                    if not self.lastPop.isNil() and self.frameCount == 1:
-                        # This avoids unwanted output with recursive calls
-                        echo stringify(self.lastPop)
-                        self.lastPop = asNil()
+                if repl and not self.lastPop.isNil() and self.frameCount == 1:
+                    # This avoids unwanted output with recursive calls
+                    echo stringify(self.lastPop)
+                    self.lastPop = cast[ptr Nil](self.cached[2])
                 self.frameCount -= 1
                 discard self.frames.pop()
                 if self.frameCount == 0:
@@ -568,27 +580,33 @@ proc run(self: var VM, repl: bool): InterpretResult =
                 frame = self.frames[self.frameCount - 1]
 
 
-proc freeObject(obj: ptr Obj) =
+proc freeObject(self: VM, obj: ptr Obj) =
     ## Frees the associated memory
     ## of an object
     case obj.kind:
         of ObjectType.String:
             var str = cast[ptr String](obj)
             when DEBUG_TRACE_ALLOCATION:
-                echo &"DEBUG: Freeing string object with value '{stringify(str)}' of length {str.len}"
+                echo &"DEBUG: Freeing string object of length {str.len}"
             discard freeArray(char, str.str, str.len)
             discard free(ObjectType.String, obj)
         of ObjectType.Exception, ObjectType.Class,
            ObjectType.Module, ObjectType.BaseObject, ObjectType.Integer,
            ObjectType.Float, ObjectType.Bool, ObjectType.NotANumber, 
            ObjectType.Infinity, ObjectType.Nil:
-               echo &"DEBUG: Freeing {obj.typeName()} object with value '{stringify(obj)}'"
+               when DEBUG_TRACE_ALLOCATION:
+                    if obj notin self.cached:
+                        echo &"DEBUG: Freeing {obj.typeName()} object with value '{stringify(obj)}'"
+                    else:
+                        echo &"DEBUG: Freeing cached {obj.typeName()} object with value '{stringify(obj)}'"
                discard free(obj.kind, obj)
-
         of ObjectType.Function:
             var fun = cast[ptr Function](obj)
             when DEBUG_TRACE_ALLOCATION:
-                echo &"DEBUG: Freeing function object with value '{stringify(fun)}'"
+                if fun.name == nil:
+                    echo &"DEBUG: Freeing global code object"
+                else:
+                    echo &"DEBUG: Freeing function object with name '{stringify(fun)}'"
             fun.chunk.freeChunk()
             discard free(ObjectType.Function, fun)
 
@@ -596,26 +614,32 @@ proc freeObject(obj: ptr Obj) =
 proc freeObjects(self: var VM) =
     ## Frees all the allocated objects
     ## from the VM
-    var objCount = len(self.objects) + len(self.cached)
+    var runtimeObjCount = len(self.objects)
+    var cacheCount = len(self.cached)
+    var runtimeFreed = 0
+    var cachedFreed = 0
     for obj in reversed(self.objects):
-        freeObject(obj)
+        self.freeObject(obj)
         discard self.objects.pop()
+        runtimeFreed += 1
     for cached_obj in self.cached:
-        freeObject(cached_obj)
+        self.freeObject(cached_obj)
+        cachedFreed += 1
     when DEBUG_TRACE_ALLOCATION:
-        echo &"DEBUG: Freed {objCount} objects"
+        echo &"DEBUG: Freed {runtimeFreed + cachedFreed} objects out of {runtimeObjCount + cacheCount} ({cachedFreed}/{cacheCount} cached objects, {runtimeFreed}/{runtimeObjCount} runtime objects)"
 
 
 proc freeVM*(self: var VM) =
     ## Tears down the VM
-    when DEBUG_TRACE_ALLOCATION:
-        echo "\nDEBUG: Freeing all allocated memory before exiting"
     unsetControlCHook()
     try:
         self.freeObjects()
     except NilAccessError:
         stderr.write("A fatal error occurred -> could not free memory, segmentation fault\n")
         quit(71)
+    when DEBUG_TRACE_ALLOCATION:
+        if self.objects.len > 0:
+            echo &"DEBUG: Warning, {self.objects.len} objects were not freed"
 
 
 proc initCache(self: var VM) = 
@@ -623,11 +647,11 @@ proc initCache(self: var VM) =
     ## such as nil, true, false and nan
     self.cached = 
             [
-            cast[ptr Obj](true.asBool()),
-            cast[ptr Obj](false.asBool()),
-            cast[ptr Obj](asNil()),
-            cast[ptr Obj](asInf()),
-            cast[ptr Obj](asNan())
+            true.asBool().asObj(),
+            false.asBool().asObj(),
+            asNil().asObj(),
+            asInf().asObj(),
+            asNan().asObj()
             ]
 
 
@@ -646,7 +670,7 @@ proc interpret*(self: var VM, source: string, repl: bool = false, file: string):
     var compiled = compiler.compile(source)
     self.source = source
     self.file = file
-    self.objects = compiler.objects # TODO:
+    self.objects = self.objects & compiler.objects # TODO:
     # revisit the best way to transfer marked objects from the compiler
     # to the vm
     if compiled == nil:
