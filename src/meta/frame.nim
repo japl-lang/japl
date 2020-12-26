@@ -29,6 +29,12 @@ type
         stack*: ref seq[ptr Obj]
 
 
+proc clear*(self: CallFrame): int =
+    ## Returns how much to clear, and clears that many
+    while self.stack.len() > self.slot:
+        discard self.stack.pop()
+        inc result
+
 proc getView*(self: CallFrame): seq[ptr Obj] =
     result = self.stack[self.slot..self.stack.high()]
 

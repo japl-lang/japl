@@ -224,7 +224,8 @@ proc call(self: var VM, function: ptr Function, argCount: uint8): bool =
     if self.frameCount == FRAMES_MAX:
         self.error(newRecursionError("max recursion depth exceeded"))
         return false
-    var frame = CallFrame(function: function, ip: 0, slot: argCount, stack: self.stack)   # TODO: 
+    let slot = self.stack.high() - argCount
+    var frame = CallFrame(function: function, ip: 0, slot: slot, stack: self.stack)   # TODO: 
     # Check why this raises NilAccessError when high recursion limit is hit
     self.frames.add(frame)
     self.frameCount += 1
@@ -538,7 +539,6 @@ proc run(self: var VM, repl: bool): InterpretResult =
                     frame[frame.readBytes(), stackOffset] = self.peek(0)
                 else:
                     frame[int frame.readByte(), stackOffset] = self.peek(0)
-                discard self.pop()
             of OpCode.DeleteLocal:
                 # TODO: Inspect potential issues with the GC
                 if frame.len > 255:
@@ -575,8 +575,13 @@ proc run(self: var VM, repl: bool): InterpretResult =
                 if self.frameCount == 0:
                     discard self.pop()
                     return OK
+
+                self.stackTop -= frame.clear()
+                # frame.clear() clears the stack and returns the amount cleared
+
                 self.push(retResult)
-                self.stackTop = len(frame.getView()) - 1 # TODO
+#                self.stackTop = len(frame.getView()) - 1 # TODO
+
                 frame = self.frames[self.frameCount - 1]
 
 
