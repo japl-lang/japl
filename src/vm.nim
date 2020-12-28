@@ -592,7 +592,7 @@ proc freeObject(self: VM, obj: ptr Obj) =
         of ObjectType.String:
             var str = cast[ptr String](obj)
             when DEBUG_TRACE_ALLOCATION:
-                echo &"DEBUG: Freeing string object of length {str.len}"
+                echo &"DEBUG - VM: Freeing string object of length {str.len}"
             discard freeArray(char, str.str, str.len)
             discard free(ObjectType.String, obj)
         of ObjectType.Exception, ObjectType.Class,
@@ -601,17 +601,17 @@ proc freeObject(self: VM, obj: ptr Obj) =
            ObjectType.Infinity, ObjectType.Nil:
                when DEBUG_TRACE_ALLOCATION:
                     if obj notin self.cached:
-                        echo &"DEBUG: Freeing {obj.typeName()} object with value '{stringify(obj)}'"
+                        echo &"DEBUG- VM: Freeing {obj.typeName()} object with value '{stringify(obj)}'"
                     else:
-                        echo &"DEBUG: Freeing cached {obj.typeName()} object with value '{stringify(obj)}'"
+                        echo &"DEBUG - VM: Freeing cached {obj.typeName()} object with value '{stringify(obj)}'"
                discard free(obj.kind, obj)
         of ObjectType.Function:
             var fun = cast[ptr Function](obj)
             when DEBUG_TRACE_ALLOCATION:
                 if fun.name == nil:
-                    echo &"DEBUG: Freeing global code object"
+                    echo &"DEBUG - VM: Freeing global code object"
                 else:
-                    echo &"DEBUG: Freeing function object with name '{stringify(fun)}'"
+                    echo &"DEBUG - VM: Freeing function object with name '{stringify(fun)}'"
             fun.chunk.freeChunk()
             discard free(ObjectType.Function, fun)
 
@@ -631,7 +631,7 @@ proc freeObjects(self: var VM) =
         self.freeObject(cached_obj)
         cachedFreed += 1
     when DEBUG_TRACE_ALLOCATION:
-        echo &"DEBUG: Freed {runtimeFreed + cachedFreed} objects out of {runtimeObjCount + cacheCount} ({cachedFreed}/{cacheCount} cached objects, {runtimeFreed}/{runtimeObjCount} runtime objects)"
+        echo &"DEBUG - VM: Freed {runtimeFreed + cachedFreed} objects out of {runtimeObjCount + cacheCount} ({cachedFreed}/{cacheCount} cached objects, {runtimeFreed}/{runtimeObjCount} runtime objects)"
 
 
 proc freeVM*(self: var VM) =
@@ -644,7 +644,7 @@ proc freeVM*(self: var VM) =
         quit(71)
     when DEBUG_TRACE_ALLOCATION:
         if self.objects.len > 0:
-            echo &"DEBUG: Warning, {self.objects.len} objects were not freed"
+            echo &"DEBUG - VM: Warning, {self.objects.len} objects were not freed"
 
 
 proc initCache(self: var VM) = 
@@ -671,14 +671,19 @@ proc initVM*(): VM =
 proc interpret*(self: var VM, source: string, repl: bool = false, file: string): InterpretResult =
     ## Interprets a source string containing JAPL code
     self.resetStack()
-    var compiler = initCompiler(SCRIPT, file=file)
-    var compiled = compiler.compile(source)
     self.source = source
     self.file = file
+    var compiler = initCompiler(SCRIPT, file=file)
+    var compiled = compiler.compile(source)
+    # Here we take into account that self.interpret() might
+    # get called multiple times and we don't wanna loose
+    # what we allocated before, so we merge everything we
+    # allocated + everything the compiler allocated at compile time
     self.objects = self.objects & compiler.objects # TODO:
     # revisit the best way to transfer marked objects from the compiler
     # to the vm
     if compiled == nil:
+        compiler.freeCompiler()
         return CompileError
     self.push(compiled)
     discard self.callObject(compiled, 0)

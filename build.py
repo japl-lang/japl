@@ -143,7 +143,9 @@ if __name__ == "__main__":
     "Note that if a config.nim file exists in the destination directory, that will override any setting defined here unless --override-config is used")
     parser.add_argument("--override-config", help="Overrides the setting of an already existing config.nim file in the destination directory", action="store_true")
     args = parser.parse_args()
-    flags = {}
+    flags = {
+            "gc": "markAndSweep",
+            }
     options = {
         "debug_vm": "false",
         "debug_gc": "false",

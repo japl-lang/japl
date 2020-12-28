@@ -27,8 +27,10 @@ import types/baseObject
 import types/function
 import types/numbers
 import types/japlString
+import types/methods
 import tables
 import config
+import memory
 when isMainModule:
     import util/debug
 
@@ -46,6 +48,7 @@ type
         loop*: Loop
         objects*: seq[ptr Obj]
         file*: string
+        interned*: Table[string, ptr Obj]
 
     Local* = ref object   # A local variable
        name*: Token
@@ -312,7 +315,14 @@ proc strVal(self: Compiler, canAssign: bool) =
     var str = self.parser.previous().lexeme
     var delimiter = &"{str[0]}"    # TODO: Add proper escape sequences support
     str = str.unescape(delimiter, delimiter)
-    self.emitConstant(self.markObject(asStr(str)))
+    if str notin self.interned:
+        self.interned[str] = str.asStr()
+        self.emitConstant(self.markObject(self.interned[str]))
+    else:
+        # We intern only constant strings!
+        # Note that we don't call self.markObject on an already
+        # interned string because that has already been marked
+        self.emitConstant(self.interned[str])
 
 
 proc bracketAssign(self: Compiler, canAssign: bool) =
@@ -1025,6 +1035,46 @@ proc declaration(self: Compiler) =
     if self.parser.panicMode:
         self.synchronize()
 
+proc freeObject(self: Compiler, obj: ptr Obj) =
+    ## Frees the associated memory
+    ## of an object
+    case obj.kind:
+        of ObjectType.String:
+            var str = cast[ptr String](obj)
+            when DEBUG_TRACE_ALLOCATION:
+                echo &"DEBUG - Compiler: Freeing string object of length {str.len}"
+            discard freeArray(char, str.str, str.len)
+            discard free(ObjectType.String, obj)
+        of ObjectType.Exception, ObjectType.Class,
+           ObjectType.Module, ObjectType.BaseObject, ObjectType.Integer,
+           ObjectType.Float, ObjectType.Bool, ObjectType.NotANumber, 
+           ObjectType.Infinity, ObjectType.Nil:
+               when DEBUG_TRACE_ALLOCATION:
+                    echo &"DEBUG - Compiler: Freeing {obj.typeName()} object with value '{stringify(obj)}'"
+               discard free(obj.kind, obj)
+        of ObjectType.Function:
+            var fun = cast[ptr Function](obj)
+            when DEBUG_TRACE_ALLOCATION:
+                if fun.name == nil:
+                    echo &"DEBUG - Compiler: Freeing global code object"
+                else:
+                    echo &"DEBUG - Compiler: Freeing function object with name '{stringify(fun)}'"
+            fun.chunk.freeChunk()
+            discard free(ObjectType.Function, fun)
+
+
+proc freeCompiler*(self: Compiler) =
+    ## Frees all the allocated objects
+    ## from the compiler
+    var objCount = len(self.objects)
+    var objFreed = 0
+    for obj in reversed(self.objects):
+        self.freeObject(obj)
+        discard self.objects.pop()
+        objFreed += 1
+    when DEBUG_TRACE_ALLOCATION:
+        echo &"DEBUG - Compiler: Freed {objFreed} objects out of {objCount} compile-time objects"
+
 
 # The array of all parse rules
 var rules: array[TokenType, ParseRule] = [
@@ -1104,12 +1154,10 @@ proc compile*(self: Compiler, source: string): ptr Function =
         self.parser = initParser(tokens, self.file)
         while not self.parser.match(EOF):
             self.declaration()
-
         var function = self.endCompiler()
         when DEBUG_TRACE_COMPILER:
             echo "\n==== COMPILER debugger ends ===="
             echo ""
-
         if not self.parser.hadError:
             when DEBUG_TRACE_COMPILER:
                 echo "Result: Ok"
@@ -1117,6 +1165,7 @@ proc compile*(self: Compiler, source: string): ptr Function =
         else:
             when DEBUG_TRACE_COMPILER:
                 echo "Result: Fail"
+            # self.freeCompiler()
             return nil
     else:
         return nil
@@ -1124,6 +1173,7 @@ proc compile*(self: Compiler, source: string): ptr Function =
 
 proc initParser*(tokens: seq[Token], file: string): Parser =
     result = Parser(current: 0, tokens: tokens, hadError: false, panicMode: false, file: file)
+
 
 proc initCompiler*(context: FunctionType, enclosing: Compiler = nil, parser: Parser = initParser(@[], ""), file: string): Compiler =
     ## Initializes a new compiler object and returns a reference

@@ -24,19 +24,25 @@
 
 import segfaults
 import config
-# when DEBUG_TRACE_ALLOCATION:
-    # import util/debug   # TODO: Add memory debugging
+import strformat
 
 
 proc reallocate*(pointr: pointer, oldSize: int, newSize: int): pointer =
     ## Wrapper around realloc/dealloc
     try:
         if newSize == 0 and pointr != nil:   # pointr is awful, but clashing with builtins is even more awful
+            when DEBUG_TRACE_ALLOCATION:
+                echo &"DEBUG - Memory manager: Deallocating {oldSize} bytes"
             dealloc(pointr)
             return nil
+        when DEBUG_TRACE_ALLOCATION:
+            if oldSize == 0:
+                echo &"DEBUG - Memory manager: Allocating {newSize} bytes of memory"
+            else:
+                echo &"DEBUG - Memory manager: Resizing {oldSize} bytes of memory to {newSize} bytes"
         result = realloc(pointr, newSize)
     except NilAccessError:
-        stderr.write("A fatal error occurred -> could not allocate memory, segmentation fault\n")
+        stderr.write("A fatal error occurred -> could not manage memory, segmentation fault\n")
         quit(71)   # For now, there's not much we can do if we can't get the memory we need
 
 

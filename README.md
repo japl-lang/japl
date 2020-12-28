@@ -33,8 +33,9 @@ of what's done in JAPL:
 - Basic arithmetic (`+`, `-`, `/`, `*`)  :heavy_check_mark:
 - Modulo division (`%`) and exponentiation (`**`)  :heavy_check_mark:
 - Bitwise operators (AND, OR, XOR, NOT)  :heavy_check_mark:
-- Global and local variables  (__WIP__)
-- Explicit scopes using brackets (__WIP__)
+- Global and local variables  :heavy_check_mark:
+- Explicit scopes using brackets :heavy_check_mark:
+- Simple optimizations (constant string interning, singletons caching) :heavy_check_mark:
 - Garbage collector  (__Coming soon__)
 - String slicing, with start:end syntax as well  :heavy_check_mark:
 - Operations on strings (addition, multiplication)  :heavy_check_mark:
@@ -112,9 +113,37 @@ can be tweaked with command-line options, for more information, run `python3 bui
 
 
 To compile the JAPL runtime, you'll first need to move into the project's directory you cloned before,
-so run `cd japl`, then `python build.py ./src --flags gc:markAndSweep,d:release` and wait for it
-to complete. You should now find an executable named `japl` (or `japl.exe` on windows) inside the `src` folder.
+so run `cd japl`, then `python3 build.py ./src` and wait for it to complete. You should now find an
+executable named `japl` (or `japl.exe` on windows) inside the `src` folder.
 
 If you're running under windows, you might encounter some issues when using forward-slashes as opposed to back-slashes in paths,
 so you should replace `./src` with `.\src`
+
+If you're running under linux, you can also call the build script with `./build.py` (assuming python is installed in the directory indicated by the shebang at the top of the file)
+
+## Advanced builds
+
+If you need more customizability or want to enable debugging for JAPL, there's a few things you can do.
+
+### Nim compiler options
+
+The build tool calls the system's nim compiler to build JAPL and by default, the only extra flag that's passed
+to it is `--gc:markAndSweep`. If you want to customize the options passed to the compiler, you can pass a comma
+separated list of key:value options (spaces are not allowed). For example, doing `python3 build.py src --flags d:release,threads:on`
+will call `nim compile src/japl --gc:markAndSweep -d:release --threads:on`.
+
+### JAPL Debugging options
+
+JAPL has some (still very beta) internal tooling to debug various parts of its ecosystem (compiler, runtime, GC, etc).
+There are also some compile-time constants (such as the heap grow factor for the garbage collector) that can be set via the
+`--options` parameter in the same fashion as the nim's compiler options. The available options are:
+- `debug_vm` -> Debugs the runtime, instruction by instruction, showing the effects of the bytecode on the VM's stack and scopes in real time (beware of bugs!)
+- `debug_gc` -> Debugs the garbage collector (once we have one)
+- `debug_alloc` -> Debugs memory allocation/deallocation
+- `debug_compiler` -> Debugs the compiler, showing each bytes that is spit into the bytecode
+
+
+Each of these options is independent of the others and can be enabled/disabled at will. To enable an option, pass `option_name:true` to `--options` while to disable it, replace `true` with `false`.
+
+Note that the build tool will generate a file named `config.nim` inside the `src` directory and will use that for subsequent builds, so if you want to override it you'll have to pass `--override-config` as a command-line options. Passing it without any option will fallback to (somewhat) sensible defaults
 
