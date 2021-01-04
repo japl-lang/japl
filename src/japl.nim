@@ -20,10 +20,12 @@ import parseopt
 import os
 import config
 import vm
+import stdlib
 
 
 proc repl() =
     var bytecodeVM = initVM()
+    stdlibInit(bytecodeVM)
     echo JAPL_VERSION_STRING
     echo &"[Nim {NimVersion} on {hostOs} ({hostCPU})]"
     when DEBUG_TRACE_VM:

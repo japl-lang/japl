@@ -24,6 +24,7 @@ type
         ## All the possible object types
         String, Exception, Function,
         Class, Module, BaseObject,
+        Native,
         Integer, Float, Bool, NotANumber,
         Infinity, Nil
     Obj* = object of RootObj

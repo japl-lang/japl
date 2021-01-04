@@ -22,6 +22,7 @@ import function
 import boolean
 import japlNil
 import numbers
+import native
 
 
 proc typeName*(self: ptr Obj): string =
@@ -45,8 +46,10 @@ proc typeName*(self: ptr Obj): string =
             result = cast[ptr NotANumber](self).typeName()
         of ObjectType.Nil:
             result = cast[ptr Nil](self).typeName()
+        of ObjectType.Native:
+            result = cast[ptr Native](self).typeName()
         else:
-            discard  # TODO
+            discard
 
 
 proc stringify*(self: ptr Obj): string =
@@ -71,8 +74,10 @@ proc stringify*(self: ptr Obj): string =
             result = cast[ptr NotANumber](self).stringify()
         of ObjectType.Nil:
             result = cast[ptr Nil](self).stringify()
+        of ObjectType.Native:
+            result = cast[ptr Native](self).stringify()
         else:
-            discard  # TODO
+            discard
 
 
 proc hash*(self: ptr Obj): uint64 =
@@ -104,8 +109,10 @@ proc hash*(self: ptr Obj): uint64 =
             result = cast[ptr NotANumber](self).hash()
         of ObjectType.Nil:
             result = cast[ptr Nil](self).hash()
+        of ObjectType.Native:
+            result = cast[ptr Native](self).hash()
         else:
-            discard  # TODO
+            discard
 
 
 proc isFalsey*(self: ptr Obj): bool =
@@ -130,8 +137,10 @@ proc isFalsey*(self: ptr Obj): bool =
             result = cast[ptr NotANumber](self).isFalsey()
         of ObjectType.Nil:
             result = cast[ptr Nil](self).isFalsey()
+        of ObjectType.Native:
+            result = cast[ptr Native](self).isFalsey()
         else:
-            discard  # TODO
+            discard
 
 
 proc eq*(self, other: ptr Obj): bool =
@@ -176,8 +185,12 @@ proc eq*(self, other: ptr Obj): bool =
             var self = cast[ptr Nil](self)
             var other = cast[ptr Nil](other)
             result = self.eq(other)
+        of ObjectType.Native:
+            var self = cast[ptr Native](self)
+            var other = cast[ptr Native](other)
+            result = self.eq(other)
         else:
-            discard  # TODO
+            discard
 
 
 proc negate*(self: ptr Obj): ptr Obj = 
@@ -402,7 +415,7 @@ proc objType*(obj: ptr Obj): ObjectType =
 proc isCallable*(obj: ptr Obj): bool =
     ## Returns true if the given object
     ## is callable, false otherwise
-    result = obj.kind in {ObjectType.Function, ObjectType.Class}
+    result = obj.kind in {ObjectType.Function, ObjectType.Class, ObjectType.Native}
 
 
 proc isNil*(obj: ptr Obj): bool =
