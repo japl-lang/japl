@@ -512,7 +512,6 @@ proc run(self: var VM, repl: bool): InterpretResult =
                         return RuntimeError
                     else:
                         self.globals[constant] = self.peek(0)
-                    discard self.pop()
             of OpCode.DeleteGlobal:
                 # TODO: Inspect potential issues with the GC
                 if frame.function.chunk.consts.len > 255:
