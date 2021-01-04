@@ -32,6 +32,7 @@ import types/numbers
 import types/boolean
 import types/methods
 import types/function
+import types/native
 import memory
 import tables
 when DEBUG_TRACE_VM:
@@ -214,10 +215,9 @@ proc sliceRange(self: var VM): bool =
             return false
 
 
-proc call(self: var VM, function: ptr Function, argCount: uint8): bool =
+proc call(self: var VM, function: ptr Function, argCount: int): bool =
     ## Sets up the call frame and performs error checking
     ## when calling callables
-    var argCount = int argCount
     if argCount != function.arity:
         self.error(newTypeError(&"function '{stringify(function.name)}' takes {function.arity} argument(s), got {argCount}"))
         return false
@@ -231,19 +231,41 @@ proc call(self: var VM, function: ptr Function, argCount: uint8): bool =
     self.frameCount += 1
     return true
 
+proc call(self: var VM, native: ptr Native, argCount: int): bool =
+    if argCount != native.arity:
+        self.error(newTypeError(&"function '{stringify(native.name)}' takes {native.arity} argument(s), got {argCount}"))
+        return false
+    let slot = self.stack.high() - argCount + 1
+    var args: seq[ptr Obj]
+    for i in countup(slot, self.stack.high()):
+        args.add(self.stack[i])
+    let nativeResult = native.nimproc(args)
+    if not nativeResult.ok:
+        self.error(cast[ptr JaplException](nativeResult.result))
+        # assumes that all native procs behave well, and if not ok, they 
+        # only return japl exceptions
+    for i in countup(slot - 1, self.stack.high()):
+        discard self.pop() # TODO once stack is a custom datatype,
+        # just reduce its length
+    self.push(nativeResult.result) 
+    return true
 
 proc callObject(self: var VM, callee: ptr Obj, argCount: uint8): bool =
     ## Wrapper around call() to do type checking
     if callee.isCallable():
         case callee.kind:
             of ObjectType.Function:
-                return self.call(cast[ptr Function](callee), argCount)
+                return self.call(cast[ptr Function](callee), int(argCount))
+            of ObjectType.Native:
+                return self.call(cast[ptr Native](callee), int(argCount))
             else:   # TODO: Classes
                 discard  # Unreachable
     else:
         self.error(newTypeError(&"object of type '{callee.typeName()}' is not callable"))
         return false
 
+proc defineGlobal*(self: VM, name: string, value: ptr Obj) =
+    self.globals[name] = value
 
 proc readByte(self: CallFrame): uint8 =
     ## Reads a single byte from the given
@@ -597,7 +619,7 @@ proc freeObject(self: VM, obj: ptr Obj) =
         of ObjectType.Exception, ObjectType.Class,
            ObjectType.Module, ObjectType.BaseObject, ObjectType.Integer,
            ObjectType.Float, ObjectType.Bool, ObjectType.NotANumber, 
-           ObjectType.Infinity, ObjectType.Nil:
+           ObjectType.Infinity, ObjectType.Nil, ObjectType.Native:
                when DEBUG_TRACE_ALLOCATION:
                     if obj notin self.cached:
                         echo &"DEBUG- VM: Freeing {obj.typeName()} object with value '{stringify(obj)}'"

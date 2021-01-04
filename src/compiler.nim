@@ -1050,7 +1050,7 @@ proc freeObject(self: Compiler, obj: ptr Obj) =
         of ObjectType.Exception, ObjectType.Class,
            ObjectType.Module, ObjectType.BaseObject, ObjectType.Integer,
            ObjectType.Float, ObjectType.Bool, ObjectType.NotANumber, 
-           ObjectType.Infinity, ObjectType.Nil:
+           ObjectType.Infinity, ObjectType.Nil, ObjectType.Native:
                when DEBUG_TRACE_ALLOCATION:
                     echo &"DEBUG - Compiler: Freeing {obj.typeName()} object with value '{stringify(obj)}'"
                discard free(obj.kind, obj)
