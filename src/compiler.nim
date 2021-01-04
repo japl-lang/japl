@@ -31,6 +31,7 @@ import types/methods
 import tables
 import config
 import memory
+import multibyte
 when isMainModule:
     import util/debug
 
@@ -716,7 +717,7 @@ proc patchJump(self: Compiler, offset: int) =
     if jump > (int uint16.high):
         self.compileError("too much code to jump over")
     else:
-        let casted = cast[array[2, uint8]](jump)
+        let casted = toDouble(jump)
         self.currentChunk.code[offset] = casted[0]
         self.currentChunk.code[offset + 1] = casted[1]
 
@@ -751,8 +752,9 @@ proc emitLoop(self: Compiler, start: int) =
     if offset > (int uint16.high):
         self.compileError("loop body is too large")
     else:
-        self.emitByte(uint8 offset and 0xff)
-        self.emitByte(uint8 (offset shr 8) and 0xff)
+        let offsetBytes = toDouble(offset)
+        self.emitByte(offsetBytes[0])
+        self.emitByte(offsetBytes[1])
 
 
 proc endLooping(self: Compiler) =
