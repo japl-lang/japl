@@ -751,8 +751,8 @@ proc emitLoop(self: Compiler, start: int) =
     if offset > (int uint16.high):
         self.compileError("loop body is too large")
     else:
-        self.emitByte(uint8 (offset shr 8) and 0xff)
         self.emitByte(uint8 offset and 0xff)
+        self.emitByte(uint8 (offset shr 8) and 0xff)
 
 
 proc endLooping(self: Compiler) =
@@ -775,7 +775,7 @@ proc endLooping(self: Compiler) =
 
 proc whileStatement(self: Compiler) =
     ## Parses while loops in a C-style fashion
-    var loop = Loop(depth: self.scopeDepth, outer: self.loop, start: self.currentChunk.code.len, alive: true, loopEnd: -1)
+    let loop = Loop(depth: self.scopeDepth, outer: self.loop, start: self.currentChunk.code.len, alive: true, loopEnd: -1)
     self.loop = loop
     self.parser.consume(TokenType.LP, "The loop condition must be parenthesized")
     if self.parser.peek.kind != TokenType.EOF:
@@ -788,8 +788,8 @@ proc whileStatement(self: Compiler) =
             self.loop.body = self.currentChunk.code.len
             self.statement()
             self.emitLoop(self.loop.start)
-            self.patchJump(self.loop.loopEnd)
-            self.emitByte(OpCode.Pop)
+            #self.patchJump(self.loop.loopEnd) # Prod2: imo will get patched over by endLooping anyways
+            #self.emitByte(OpCode.Pop)
         else:
             self.parser.parseError(self.parser.previous(), "Invalid syntax")
     else:
