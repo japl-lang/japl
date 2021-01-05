@@ -1137,7 +1137,7 @@ var rules: array[TokenType, ParseRule] = [
     makeRule(literal, nil, Precedence.Term), # NAN
     makeRule(nil, binary, Precedence.Term), # BAND
     makeRule(nil, binary, Precedence.Term), # BOR
-    makeRule(unary, nil, Precedence.Term), # TILDE
+    makeRule(unary, nil, Precedence.None), # TILDE
 ]
 
 

@@ -1,0 +1,9 @@
+print(~5 | 5);//output:-1
+print(1 | 2);//output:3
+print(1 & 2);//output:0
+print(~124 & 124);//output:0
+print(1 | 2 | 4 | 8);//output:15
+print(32 | 64);//output:96
+print(96 & 32);//output:32
+print(~0);//output:-1
+print(~356);//output:-357
