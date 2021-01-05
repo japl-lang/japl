@@ -71,6 +71,7 @@ type
         Comparison,
         Term,
         Factor,
+        Exponentiation,
         Unary,
         Call,
         Primary
@@ -1092,7 +1093,7 @@ var rules: array[TokenType, ParseRule] = [
     makeRule(nil, binary, Precedence.Comparison), # GE
     makeRule(nil, binary, Precedence.Comparison), # LE
     makeRule(nil, binary, Precedence.Factor), # MOD
-    makeRule(nil, binary, Precedence.Factor), # POW
+    makeRule(nil, binary, Precedence.Exponentiation), # POW
     makeRule(nil, binary, Precedence.Comparison), # GT
     makeRule(grouping, call, Precedence.Call), # LP
     makeRule(nil, nil, Precedence.None), # RP
