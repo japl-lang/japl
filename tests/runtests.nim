@@ -56,37 +56,22 @@ proc log(file: File, msg: string) =
 proc detail(file: File, msg: string) =
     file.writeLine(&"[DETAIL] {msg}")
 
+const exceptions = ["all.jpl"]
 
-when isMainModule:
+proc main(testsDir: string, japlExec: string, testResultsFile: File) =
     try:
-        testMultibyte()
-        var testsDir = "tests" / "japl"
-        var japlExec = "src" / "japl"
-        # support running from both the japl root and the tests dir where it
-        # resides
-        var currentDir = getCurrentDir()
-        if currentDir.lastPathPart() == "tests":
-            testsDir = "japl"
-            japlExec = ".." / japlExec
-        let testResultsFile = open("testresults.txt", fmAppend)
         testResultsFile.writeLine(&"Executing tests at {$getTime()}")
         # Exceptions for tests that represent not-yet implemented behaviour
-        var exceptions = @["all.jpl"]
-        log(testResultsFile, "Running JAPL tests")
-        log(testResultsFile, &"Looking for JAPL tests in {testsDir}")
-        log(testResultsFile, &"Looking for JAPL executable at {japlExec}")
-        if not fileExists(japlExec):
-            log(testResultsFile, "JAPL executable not found")
-            quit(1)
-        if not dirExists(testsDir):
-            log(testResultsFile, "Tests dir not found")
-            quit(1)
         for file in walkDir(testsDir):
             block singleTest:
                 for exc in exceptions:
                     if exc == file.path.extractFilename:
                         log(testResultsFile, &"Skipping {file.path} because it's on the exceptions list")
                         break singleTest
+                if file.path.dirExists():
+                    log(testResultsFile, "Descending into " & file.path)
+                    main(file.path, japlExec, testResultsFile)
+                    break singleTest
                 log(testResultsFile, &"Running test {file.path}")
                 if fileExists("testoutput.txt"):
                     removeFile("testoutput.txt") # in case this crashed
@@ -110,6 +95,31 @@ when isMainModule:
                         detail(testResultsFile, &"Expected is '{expectedOutput[comparison.place]}' while received '{realOutput[comparison.place]}'")
                     log(testResultsFile, &"Test failed {file.path}, check 'testresults.txt' for details")
                     
-        testResultsFile.close()
     except IOError:
         stderr.write(&"Fatal IO error encountered while running tesrs -> {getCurrentExceptionMsg()}")
+
+when isMainModule:
+    let testResultsFile = open("testresults.txt", fmAppend)
+    testResultsFile.writeLine(&"Executing tests at {$getTime()}")
+    # nim tests
+    testMultibyte()
+
+    # japl tests
+    var testsDir = "tests" / "japl"
+    var japlExec = "src" / "japl"
+    var currentDir = getCurrentDir()
+    # support running from both the japl root and the tests dir where it
+    # resides
+    if currentDir.lastPathPart() == "tests":
+        testsDir = "japl"
+        japlExec = ".." / japlExec
+    log(testResultsFile, &"Looking for JAPL tests in {testsDir}")
+    log(testResultsFile, &"Looking for JAPL executable at {japlExec}")
+    if not fileExists(japlExec):
+        log(testResultsFile, "JAPL executable not found")
+        quit(1)
+    if not dirExists(testsDir):
+        log(testResultsFile, "Tests dir not found")
+        quit(1)
+    main(testsDir, japlExec, testResultsFile)
+    testResultsfile.close()
