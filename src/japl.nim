@@ -25,7 +25,7 @@ import stdlib
 
 proc repl() =
     var bytecodeVM = initVM()
-    stdlibInit(bytecodeVM)
+    bytecodeVM.stdlibInit()
     echo JAPL_VERSION_STRING
     echo &"[Nim {NimVersion} on {hostOs} ({hostCPU})]"
     when DEBUG_TRACE_VM:
@@ -75,6 +75,7 @@ proc main(file: string = "") =
         except IOError:
             echo &"Error: '{file}' could not be read, probably you don't have the permission to read it"
         var bytecodeVM = initVM()
+        bytecodeVM.stdlibInit()
         when DEBUG_TRACE_VM:
             echo "Debugger enabled, expect verbose output\n"
             echo "==== VM Constants ====\n"

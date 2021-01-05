@@ -231,8 +231,9 @@ proc call(self: var VM, function: ptr Function, argCount: int): bool =
     self.frameCount += 1
     return true
 
+
 proc call(self: var VM, native: ptr Native, argCount: int): bool =
-    if argCount != native.arity:
+    if argCount != native.arity and native.arity != -1:
         self.error(newTypeError(&"function '{stringify(native.name)}' takes {native.arity} argument(s), got {argCount}"))
         return false
     let slot = self.stack.high() - argCount + 1
@@ -242,13 +243,14 @@ proc call(self: var VM, native: ptr Native, argCount: int): bool =
     let nativeResult = native.nimproc(args)
     if not nativeResult.ok:
         self.error(cast[ptr JaplException](nativeResult.result))
-        # assumes that all native procs behave well, and if not ok, they 
+        # assumes that all native procs behave well, and if not ok, they
         # only return japl exceptions
     for i in countup(slot - 1, self.stack.high()):
         discard self.pop() # TODO once stack is a custom datatype,
         # just reduce its length
-    self.push(nativeResult.result) 
+    self.push(nativeResult.result)
     return true
+
 
 proc callObject(self: var VM, callee: ptr Obj, argCount: uint8): bool =
     ## Wrapper around call() to do type checking

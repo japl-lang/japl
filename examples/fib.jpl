@@ -6,4 +6,4 @@ fun fib(n) {
 }
 
 
-fib(20);  //TODO: Benchmark this
+print(fib(15));  //TODO: Benchmark this
