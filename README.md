@@ -27,7 +27,7 @@ of what's done in JAPL:
 - Control flow (if/else)  :heavy_check_mark:
 - Loops (for/while)  :heavy_check_mark:
 - Basic comparisons operators (`>`, `<`, `>=`, `<=`, `!=`, `==`) :heavy_check_mark:
-- Logical operators (`!`, `or`, `and`)  (__Rework Needed__)
+- Logical operators (`!`, `or`, `and`)  (:heavy_check_mark:)
 - Multi-line comments `/* like this */` (can be nested)  :heavy_check_mark:
 - `inf` and `nan` types  :heavy_check_mark:
 - Basic arithmetic (`+`, `-`, `/`, `*`)  :heavy_check_mark:
@@ -41,7 +41,8 @@ of what's done in JAPL:
 - Operations on strings (addition, multiplication)  :heavy_check_mark:
 - Functions and Closures (__WIP__)
 - Functions default and keyword arguments (__WIP__)
-- An OOP system (prototype- or class-based)  (__Coming soon__)
+- An OOP system (class-based)  (__Coming soon__)
+- Builtins as classes (types) (__Coming soon__)
 - A proper import system (__Coming soon__)
 - Native asynchronous (`await`/`async fun`) support (__Coming soon__)
 - Bytecode optimizations such as constant folding and stack caching (__Coming Soon__)
