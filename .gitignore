@@ -11,6 +11,7 @@ htmldocs/
 # JAPL
 
 src/japl
+src/compiler
 tests/runtests
 
 # MacOS

@@ -18,6 +18,21 @@ proc compileExpectedOutput(path: string): string =
         if line =~ re"^.*//output:(.*)$":
             result &= matches[0] & "\n"
 
+proc deepComp(left, right: string): tuple[same: bool, place: int] =
+    result.same = true
+    if left.high() != right.high():
+        result.same = false
+    for i in countup(0, left.high()):
+        result.place = i
+        if i > right.high():
+            # already false bc of the len check at the beginning
+            # already correct place bc it's updated every i
+            return
+        if left[i] != right[i]:
+            result.same = false
+            return
+
+
 var testsDir = "tests" / "japl"
 var japlExec = "src" / "japl"
 
@@ -62,19 +77,26 @@ for file in walkDir(testsDir):
                 break singularTest
 
         log &"Running test {file.path}"
+        if fileExists("testoutput.txt"):
+            removeFile("testoutput.txt") # in case this crashed
         discard execShellCmd(&"{japlExec} {file.path} >>testoutput.txt")
-        let expectedOutput = compileExpectedOutput(file.path)
+        let expectedOutput = compileExpectedOutput(file.path).replace(re"(\n*)$", "")
         let realOutputFile = open("testoutput.txt", fmRead)
-        let realOutput = realOutputFile.readAll()
+        let realOutput = realOutputFile.readAll().replace(re"([\n\r]*)$", "")
         realOutputFile.close()
         removeFile("testoutput.txt")
-        if expectedOutput == realOutput:
+        let comparison = deepComp(expectedOutput, realOutput)
+        if comparison.same:
             log &"Successful test {file.path}"
         else:
             detail &"Expected output:\n{expectedOutput}\n"
             detail &"Received output:\n{realOutput}\n"
+            detail &"Mismatch at pos {comparison.place}"
+            if comparison.place > expectedOutput.high() or 
+                comparison.place > realOutput.high():
+                detail &"Length mismatch"
+            else:
+                detail &"Expected is '{expectedOutput[comparison.place]}' while received '{realOutput[comparison.place]}'"
             log &"Test failed {file.path}, check 'testresults.txt' for details"
             
-
-
-
+testResultsFile.close()
