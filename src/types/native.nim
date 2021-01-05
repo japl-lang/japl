@@ -34,7 +34,7 @@ proc typeName*(self: ptr Native): string =
 
 proc stringify*(self: ptr Native): string =
     if self.name != nil:
-        result = "<function '" & self.name.toStr() & "'>"
+        result = "<built-in function '" & self.name.toStr() & "'>"
     else:
         result = "<code object>"
 
