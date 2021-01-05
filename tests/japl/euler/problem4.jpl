@@ -1,0 +1,65 @@
+// Find the largest palindrome that is a product of two 3 digit numbers
+
+fun isPalindrome(n)
+{
+// this is gona be long cuz no string lib
+// only works for possible 3 digit * 3 digit numbers (1000*1000=1000000
+// and 100*100 = 10000 so it can handle 5 and 6 digit numbers)
+    
+    var first;
+    var second;
+    var third;
+    var fourth;
+    var fifth;
+    var sixth;
+    var rem; //sorta temp var
+    var digit;
+    if (n > 99999)
+    {
+         rem = n % 100000;
+         sixth = (n - rem) / 100000; //hehe it go float :/
+         n = n - sixth * 100000;
+    }
+    for (var x = 5; x > 0; x = x - 1)
+    {
+        rem = n % 10 ** x;
+        digit = (n - rem) / 10 ** x;
+        n = n - digit * 10 ** x;
+        if (x == 5)
+            fifth = digit;
+        else if (x == 4)
+            fourth = digit;
+        else if (x == 3)
+            third = digit;
+        else if (x == 2)
+            second = digit;
+        else if (x == 1)
+            first = digit;
+    }
+    if (n > 99999)
+    {
+        return (sixth == first) and (fifth == second) and (fourth == third);
+    }
+    else
+    {
+        return (fifth == first) and (second == third);
+    }
+
+}
+
+var largest = 0;
+for (var i = 100; i < 1000; i = i + 1)
+{
+    for (var j = 100; j < 1000; j = j + 1)
+    {
+        if (isPalindrome(i * j))
+        {
+            if (i * j > largest)
+            {
+                largest = i * j;
+            }
+        }
+
+    }
+}
+print(largest);

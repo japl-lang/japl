@@ -1,0 +1,17 @@
+// Sum of even valued fibonacci numbers that don't exceed 4M
+
+var a = 1;
+var b = 1;
+var c;
+var sum = 0;
+
+while (a < 4000000)
+{
+    if (a % 2 == 0)
+        sum = sum + a;
+    c = a + b;
+    a = b;
+    b = c;
+}
+print(sum);//output:4613732
+
