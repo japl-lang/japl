@@ -1,0 +1,28 @@
+var x = 5;
+if (x > 2)
+{
+    print("large");//output:large
+}
+else
+{
+    print("smol");//won't run
+}
+
+if (x < 4)
+{
+    print("large");//won't run
+}
+print("beep");//output:beep
+
+if (x == 5)
+    print("equal to 5");//output:equal to 5
+
+if (2 != x)
+    print("not 2");//output:not 2
+else
+    print("2");
+
+if (2 == x)
+    print("2");
+else
+    print("not 2");//output:not 2
