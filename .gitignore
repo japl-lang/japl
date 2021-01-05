@@ -11,6 +11,8 @@ htmldocs/
 # JAPL
 
 src/japl
+src/compiler
+tests/runtests
 
 # MacOS
 
@@ -29,3 +31,7 @@ main
 # JAPL build config file
 
 config.nim
+
+# test results
+
+testresults.txt

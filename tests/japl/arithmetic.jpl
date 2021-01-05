@@ -1,0 +1,34 @@
+//int arithmetic
+
+print(7+5); //output:12
+print(-8); //output:-8
+print(5-8); //output:-3
+print(1+1+1+1+1); //output:5
+print(1-1+1-1+1-1); //output:0
+print(2*3+2);//output:8
+print(2+3*2);//output:8
+print(3+2*7);//output:17
+print(2-9*5);//output:-43
+print(2*9-5);//output:13
+print(2**5);//output:32
+print(3**3);//output:27
+print(3**3*2);//output:54
+print(8+2**4);//output:24
+print(2+7*2+4);//output:20
+print(1-2**2*5);//output:-19
+print(7*-2**3+4*7);//output:-28
+print(-2**2);//output:-4
+print((-2)**2);//output:4
+print(-2**3);//output:-8
+print((-2)**3);//output:-8
+print((2+3)*4);//output:20
+print(2*(2+2)*2);//output:16
+print(2*(2*2)*2);//output:16
+print(8%5);//output:3
+print(4%3);//output:1
+print(8/4);//output:2.0
+print(28/7/4);//output:1.0
+print(64/-64);//output:-1.0
+print(8/0);//output:inf
+print(8/-0);//output:inf
+print(-8/0);//output:-inf

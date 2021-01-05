@@ -31,8 +31,12 @@ proc natPrint(args: seq[ptr Obj]): tuple[ok: bool, result: ptr Obj] =
     ## is passed, they will be printed separated
     ## by a space
     var res = ""
-    for arg in args:
-        res = res & arg.stringify() & " "
+    for i in countup(0, args.high()):
+        let arg = args[i]
+        if i < args.high():
+            res = res & arg.stringify() & " "
+        else:
+            res = res & arg.stringify()
     echo res
     return (ok: true, result: asNil())
 

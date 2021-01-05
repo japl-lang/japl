@@ -1,0 +1,30 @@
+var x = 1;
+var y = 2;
+print(x);//output:1
+print(y);//output:2
+{
+    var x = 4;
+    var y = 5;
+    print(x);//output:4
+    print(y);//output:5
+    {
+        var z = 6;
+        var y = 2;
+        print(x);//output:4
+        print(y);//output:2
+    }
+    print(x);//output:4
+    print(y);//output:5
+}
+
+print(x);//output:1
+print(y);//output:2
+
+var longName;
+print(longName); //output:nil
+longName = 5;
+print(longName); //output:5
+longName = "hello";
+print(longName); //output:hello
+longName = longName + " world";
+print(longName); //output:hello world

@@ -30,7 +30,7 @@ proc simpleInstruction(name: string, index: int): int =
 proc byteInstruction(name: string, chunk: Chunk, offset: int): int =
     var slot = chunk.code[offset + 1]
     echo &"\tInstruction at IP: {name}, points to slot {slot}\n"
-    return offset + 1
+    return offset + 2
 
 
 proc constantLongInstruction(name: string, chunk: Chunk, offset: int): int =

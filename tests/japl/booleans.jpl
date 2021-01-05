@@ -1,0 +1,21 @@
+print(2 or 3);//output:2
+print(2 and 3);//output:3
+print(false or true);//output:true
+print(true or false);//output:true
+print(true and false);//output:false
+print(false and 3 or 4);//output:4
+print(true and 3 or 4);//output:3
+print(true and 2);//output:2
+print(false or 5);//output:5
+print(0 or 4);//output:4
+print(0 and true);//output:0
+print("" and true);//output:
+print("" or true);//output:true
+print(1 or 2 or 3 or 4);//output:1
+print(1 and 2 and 3 and 4);//output:4
+print(1 and 2 or 3 and 4);//output:2
+print(1 and false or 3 and 4);//output:4
+print(!0);//output:true
+print(!1);//output:false
+print(!1 and !2);//output:false
+print(!(1 and 0));//output:true
