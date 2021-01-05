@@ -335,13 +335,14 @@ proc run(self: var VM, repl: bool): InterpretResult =
                 stdout.write(k)
                 stdout.write(": ")
                 stdout.write(stringify(v))
+                stdout.write(", ")
             stdout.write("}\n")
             stdout.write("Current frame type:")
             if frame.function.name == nil:
                 stdout.write(" main\n")
             else:
                 stdout.write(&" function, '{frame.function.name.stringify()}'\n")
-            stdout.write(&"Current frame count: {self.frameCount}\n")
+            echo "Current frame count: {self.frameCount}"
             stdout.write("Current frame stack status: ")
             stdout.write("[")
             for e in frame.getView():

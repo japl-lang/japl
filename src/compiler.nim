@@ -637,10 +637,10 @@ proc expressionStatement(self: Compiler) =
     self.emitByte(OpCode.Pop)
 
 
-# TODO: This code will not be used right now as it might clash with the future GC, fix this to make it GC aware!
-proc deleteVariable(self: Compiler, canAssign: bool) =
+proc delStatement(self: Compiler) =
     self.expression()
-    if self.parser.previous().kind in [TokenType.NUMBER, TokenType.STR]:
+    # TODO: isLiteral?
+    if self.parser.previous().kind in {TokenType.NUMBER, TokenType.STR}:
         self.compileError("cannot delete a literal")
     var code: OpCode
     if self.scopeDepth == 0:
@@ -655,6 +655,7 @@ proc deleteVariable(self: Compiler, canAssign: bool) =
         var name = self.identifierLongConstant(self.parser.previous())
         self.emitBytes(code, name[0])
         self.emitBytes(name[1], name[2])
+    self.parser.consume(TokenType.SEMICOLON, "Missing semicolon after del statement")
 
 
 proc parseBlock(self: Compiler) =
@@ -1018,7 +1019,9 @@ proc statement(self: Compiler) =
         self.continueStatement()
     elif self.parser.match(TokenType.BREAK):
         self.parseBreak()
-    elif self.parser.match(LB):
+    elif self.parser.match(TokenType.DEL):
+        self.delStatement()
+    elif self.parser.match(TokenType.LB):
         self.beginScope()
         self.parseBlock()
         self.endScope()
@@ -1121,7 +1124,7 @@ var rules: array[TokenType, ParseRule] = [
     makeRule(literal, nil, Precedence.None), # TRUE
     makeRule(nil, nil, Precedence.None), # VAR
     makeRule(nil, nil, Precedence.None), # WHILE
-    makeRule(deleteVariable, nil, Precedence.None), # DEL
+    makeRule(nil, nil, Precedence.None), # DEL
     makeRule(nil, nil, Precedence.None), # BREAK
     makeRule(nil, nil, Precedence.None), # EOF
     makeRule(nil, nil, Precedence.None), # TokenType.COLON
