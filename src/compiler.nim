@@ -71,8 +71,8 @@ type
         Comparison,
         Term,
         Factor,
-        Exponentiation,
         Unary,
+        Exponentiation,
         Call,
         Primary
 

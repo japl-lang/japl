@@ -79,10 +79,11 @@ const simpleInstructions* = {OpCode.Return, OpCode.Add, OpCode.Multiply,
                              OpCode.Inf, OpCode.Shl, OpCode.Shr,
                              OpCode.Xor, OpCode.Not, OpCode.Equal,
                              OpCode.Greater, OpCode.Less, OpCode.GetItem,
-                             OpCode.Slice, OpCode.Pop, OpCode.DefineGlobal,
-                             OpCode.GetGlobal, OpCode.SetGlobal,
-                             OpCode.DeleteGlobal}
-const constantInstructions* = {OpCode.Constant}
+                             OpCode.Slice, OpCode.Pop, OpCode.Negate}
+const constantInstructions* = {OpCode.Constant, OpCode.DefineGlobal,
+                         OpCode.GetGlobal, OpCode.SetGlobal,
+                         OpCode.DeleteGlobal}
+
 const constantLongInstructions* = {OpCode.ConstantLong}
 const byteInstructions* = {OpCode.SetLocal, OpCode.GetLocal, OpCode.DeleteLocal,
                            OpCode.Call}
