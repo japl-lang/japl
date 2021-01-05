@@ -599,13 +599,8 @@ proc run(self: var VM, repl: bool): InterpretResult =
                 if self.frameCount == 0:
                     discard self.pop()
                     return OK
-
                 self.stackTop -= frame.clear()
-                # frame.clear() clears the stack and returns the amount cleared
-
                 self.push(retResult)
-#                self.stackTop = len(frame.getView()) - 1 # TODO
-
                 frame = self.frames[self.frameCount - 1]
 
 
