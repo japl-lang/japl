@@ -1,0 +1,14 @@
+fun fib(n) {
+    if (n < 2)
+        return n;
+    return fib(n-2) + fib(n-1);
+}
+print(fib(1));//output:1
+print(fib(2));//output:1
+print(fib(3));//output:2
+print(fib(4));//output:3
+print(fib(5));//output:5
+print(fib(6));//output:8
+print(fib(7));//output:13
+print(fib(8));//output:21
+print(fib(9));//output:34
