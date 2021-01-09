@@ -29,7 +29,7 @@ type
     WHILE, DEL, BREAK, EOF,
     COLON, CONTINUE, CARET,
     SHL, SHR, NAN, INF, BAND,
-    BOR, TILDE
+    BOR, TILDE, IS
   Token* = ref object
     kind*: TokenType
     lexeme*: string

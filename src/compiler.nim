@@ -280,6 +280,8 @@ proc binary(self: Compiler, canAssign: bool) =
             self.emitByte(OpCode.Bor)
         of TokenType.BAND:
             self.emitByte(OpCode.Band)
+        of TokenType.IS:
+            self.emitByte(OpCode.Is)
         else:
             discard # Unreachable
 
@@ -856,7 +858,7 @@ proc parseBreak(self: Compiler) =
     if not self.loop.alive:
         self.parser.parseError(self.parser.previous, "'break' outside loop")
     else:
-        self.parser.consume(TokenType.SEMICOLON, "missing semicolon after statement")
+        self.parser.consume(TokenType.SEMICOLON, "missing semicolon after break statement")
         var i = self.localCount - 1
         while i >= 0 and self.locals[i].depth > self.loop.depth:
             self.emitByte(OpCode.Pop)
@@ -889,7 +891,7 @@ proc continueStatement(self: Compiler) =
     if not self.loop.alive:
         self.parser.parseError(self.parser.previous, "'continue' outside loop")
     else:
-        self.parser.consume(TokenType.SEMICOLON, "missing semicolon after statement")
+        self.parser.consume(TokenType.SEMICOLON, "missing semicolon after continue statement")
         var i = self.localCount - 1
         while i >= 0 and self.locals[i].depth > self.loop.depth:
             self.emitByte(OpCode.Pop)
@@ -924,7 +926,7 @@ proc parseFunction(self: Compiler, funType: FunctionType) =
         while true:
             self.function.arity += 1
             if self.function.arity + self.function.optionals > 255:
-                self.compileError("cannot have more than 255 arguments")
+                self.compileError("functions cannot have more than 255 arguments")
                 break
             var paramIdx = self.parseVariable("expecting parameter name")
             if self.parser.hadError:
@@ -976,7 +978,7 @@ proc argumentList(self: Compiler): uint8 =
         while true:
             self.expression()
             if result == 255:
-                self.compileError("cannot have more than 255 arguments")
+                self.compileError("cannot pass more than 255 arguments")
                 return
             result += 1
             if not self.parser.match(COMMA):
@@ -986,9 +988,8 @@ proc argumentList(self: Compiler): uint8 =
 
 proc call(self: Compiler, canAssign: bool) =
     ## Emits appropriate bytecode to call
-    ## a function
-    var argCount = self.argumentList()
-    self.emitBytes(OpCode.Call, argCount)
+    ## a function with its arguments
+    self.emitBytes(OpCode.Call, self.argumentList())
 
 
 proc returnStatement(self: Compiler) =
@@ -1041,6 +1042,7 @@ proc declaration(self: Compiler) =
     if self.parser.panicMode:
         self.synchronize()
 
+
 proc freeObject(self: Compiler, obj: ptr Obj) =
     ## Frees the associated memory
     ## of an object
@@ -1072,12 +1074,14 @@ proc freeObject(self: Compiler, obj: ptr Obj) =
 proc freeCompiler*(self: Compiler) =
     ## Frees all the allocated objects
     ## from the compiler
-    var objCount = len(self.objects)
-    var objFreed = 0
+    when DEBUG_TRACE_ALLOCATION:
+        var objCount = len(self.objects)
+        var objFreed = 0
     for obj in reversed(self.objects):
         self.freeObject(obj)
         discard self.objects.pop()
-        objFreed += 1
+        when DEBUG_TRACE_ALLOCATION:
+            objFreed += 1
     when DEBUG_TRACE_ALLOCATION:
         echo &"DEBUG - Compiler: Freed {objFreed} objects out of {objCount} compile-time objects"
 
@@ -1109,7 +1113,7 @@ var rules: array[TokenType, ParseRule] = [
     makeRule(nil, nil, Precedence.None), # RS
     makeRule(number, nil, Precedence.None), # NUMBER
     makeRule(strVal, nil, Precedence.None), # STR
-    makeRule(nil, nil, Precedence.None), # semicolon
+    makeRule(nil, nil, Precedence.None), # SEMI
     makeRule(nil, parseAnd, Precedence.And), # AND
     makeRule(nil, nil, Precedence.None), # CLASS
     makeRule(nil, nil, Precedence.None), # ELSE
@@ -1128,7 +1132,7 @@ var rules: array[TokenType, ParseRule] = [
     makeRule(nil, nil, Precedence.None), # DEL
     makeRule(nil, nil, Precedence.None), # BREAK
     makeRule(nil, nil, Precedence.None), # EOF
-    makeRule(nil, nil, Precedence.None), # TokenType.COLON
+    makeRule(nil, nil, Precedence.None), # COLON
     makeRule(nil, nil, Precedence.None), # CONTINUE
     makeRule(nil, binary, Precedence.Term), # CARET
     makeRule(nil, binary, Precedence.Term), # SHL
@@ -1138,6 +1142,7 @@ var rules: array[TokenType, ParseRule] = [
     makeRule(nil, binary, Precedence.Term), # BAND
     makeRule(nil, binary, Precedence.Term), # BOR
     makeRule(unary, nil, Precedence.None), # TILDE
+    makeRule(nil, binary, Precedence.Term)   # IS
 ]
 
 

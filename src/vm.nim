@@ -16,12 +16,15 @@
 ## This is the entire runtime environment for JAPL
 {.experimental: "implicitDeref".}
 
-
+## Standard library imports
 import algorithm
 import strformat
+import tables
+import std/enumerate
+## Our modules
+import memory
 import config
 import compiler
-import tables
 import meta/opcode
 import meta/frame
 import types/baseObject
@@ -33,8 +36,6 @@ import types/boolean
 import types/methods
 import types/function
 import types/native
-import memory
-import tables
 when DEBUG_TRACE_VM:
     import util/debug
 
@@ -69,7 +70,7 @@ func handleInterrupt() {.noconv.} =
     raise newException(KeyboardInterrupt, "Ctrl+C")
 
 
-proc resetStack*(self: var VM) =
+proc resetStack*(self: VM) =
     ## Resets the VM stack to a blank state
     self.stack = new(seq[ptr Obj])
     self.frames = @[]
@@ -77,7 +78,7 @@ proc resetStack*(self: var VM) =
     self.stackTop = 0
 
 
-proc getBoolean(self: var VM, kind: bool): ptr Obj =
+proc getBoolean(self: VM, kind: bool): ptr Obj =
     ## Tiny little optimization for booleans
     ## which are pre-allocated on startup
     if kind:
@@ -86,11 +87,20 @@ proc getBoolean(self: var VM, kind: bool): ptr Obj =
         return self.cached[1]
 
 
-proc error*(self: var VM, error: ptr JAPLException) =
+proc error*(self: VM, error: ptr JAPLException) =
     ## Reports runtime errors with a nice traceback
-    # TODO: Exceptions
+
+    # TODO: Once we have proper exceptions,
+    # this procedure will be used to report
+    # those that were not catched and managed
+    # to climb the call stack to the first
+    # frame (the global code object)
+
+    # Exceptions are objects too and they need to
+    # be freed like any other entity in JAPL
+    self.objects.add(error)
     var previous = ""  # All this stuff seems overkill, but it makes the traceback look nicer
-    var repCount = 0   # and if we are here we are far beyond a point where performance matters
+    var repCount = 0   # and if we are here we are far beyond a point where performance matters anyway
     var mainReached = false
     var output = ""
     stderr.write("Traceback (most recent call last):\n")
@@ -117,13 +127,13 @@ proc error*(self: var VM, error: ptr JAPLException) =
     self.resetStack()
 
 
-proc pop*(self: var VM): ptr Obj =
+proc pop*(self: VM): ptr Obj =
     ## Pops an object off the stack
     result = self.stack.pop()
     self.stackTop -= 1
 
 
-proc push*(self: var VM, obj: ptr Obj) =
+proc push*(self: VM, obj: ptr Obj) =
     ## Pushes an object onto the stack
     self.stack.add(obj)
     if obj notin self.objects and obj notin self.cached:
@@ -131,23 +141,14 @@ proc push*(self: var VM, obj: ptr Obj) =
     self.stackTop += 1
 
 
-proc peek*(self: var VM, distance: int): ptr Obj =
+proc peek*(self: VM, distance: int): ptr Obj =
     ## Peeks an object (at a given distance from the
     ## current index) from the stack
     return self.stack[self.stackTop - distance - 1]
 
 
-template addObject*(self: var VM, obj: ptr Obj): untyped =
-    ## Stores an object in the VM's internal
-    ## list of objects in order to reclaim
-    ## its memory later
-    let temp = obj
-    self.objects.add(temp)
-    temp
-
-
-# TODO: Move this to jobject.nim
-proc slice(self: var VM): bool =
+# TODO: Move this to types/
+proc slice(self: VM): bool =
     ## Handles single-operator slice expressions
     ## (consider moving this to an appropriate
     ## slice method)
@@ -177,7 +178,7 @@ proc slice(self: var VM): bool =
             return false
 
 # TODO: Move this to types/
-proc sliceRange(self: var VM): bool =
+proc sliceRange(self: VM): bool =
     ## Handles slices when there's both a start
     ## and an end index (even implicit ones)
     var sliceEnd = self.pop()
@@ -215,7 +216,7 @@ proc sliceRange(self: var VM): bool =
             return false
 
 
-proc call(self: var VM, function: ptr Function, argCount: int): bool =
+proc call(self: VM, function: ptr Function, argCount: int): bool =
     ## Sets up the call frame and performs error checking
     ## when calling callables
     if argCount != function.arity:
@@ -232,7 +233,8 @@ proc call(self: var VM, function: ptr Function, argCount: int): bool =
     return true
 
 
-proc call(self: var VM, native: ptr Native, argCount: int): bool =
+proc call(self: VM, native: ptr Native, argCount: int): bool =
+    ## Does the same as self.call, but with native functions
     if argCount != native.arity and native.arity != -1:
         self.error(newTypeError(&"function '{stringify(native.name)}' takes {native.arity} argument(s), got {argCount}"))
         return false
@@ -243,16 +245,23 @@ proc call(self: var VM, native: ptr Native, argCount: int): bool =
     let nativeResult = native.nimproc(args)
     if not nativeResult.ok:
         self.error(cast[ptr JaplException](nativeResult.result))
+        return false
         # assumes that all native procs behave well, and if not ok, they
         # only return japl exceptions
     for i in countup(slot - 1, self.stack.high()):
         discard self.pop() # TODO once stack is a custom datatype,
         # just reduce its length
-    self.push(nativeResult.result)
+    if nativeResult.result == nil:
+        # Since nil is a singleton, natives
+        # don't reallocate it and we need to
+        # reuse our cached object instead
+        self.push(self.cached[2])
+    else:
+        self.push(nativeResult.result)
     return true
 
 
-proc callObject(self: var VM, callee: ptr Obj, argCount: uint8): bool =
+proc callObject(self: VM, callee: ptr Obj, argCount: uint8): bool =
     ## Wrapper around call() to do type checking
     if callee.isCallable():
         case callee.kind:
@@ -266,8 +275,11 @@ proc callObject(self: var VM, callee: ptr Obj, argCount: uint8): bool =
         self.error(newTypeError(&"object of type '{callee.typeName()}' is not callable"))
         return false
 
+
 proc defineGlobal*(self: VM, name: string, value: ptr Obj) =
+    ## Adds a key-value couple to the VM's global scope
     self.globals[name] = value
+
 
 proc readByte(self: CallFrame): uint8 =
     ## Reads a single byte from the given
@@ -305,14 +317,13 @@ proc readLongConstant(self: CallFrame): ptr Obj =
     result = self.function.chunk.consts[idx]
 
 
-proc run(self: var VM, repl: bool): InterpretResult =
+proc run(self: VM, repl: bool): InterpretResult =
     ## Chews trough bytecode instructions executing
     ## them one at a time: this is the runtime's
     ## main loop
     var frame = self.frames[self.frameCount - 1]
     var instruction: uint8
     var opcode: OpCode
-    var stackOffset: int = 2
     while true:
         {.computedgoto.}   # See https://nim-lang.org/docs/manual.html#pragmas-computedgoto-pragma
         instruction = frame.readByte()
@@ -320,10 +331,6 @@ proc run(self: var VM, repl: bool): InterpretResult =
         ## This offset dictates how the call frame behaves when converting
         ## relative frame indexes to absolute stack indexes, since the behavior
         ## in function local vs. global/scope-local scope is different
-        if frame.function.name == nil:
-            stackOffset = 2
-        else:
-            stackOffset = 1
         when DEBUG_TRACE_VM:    # Insight inside the VM
             stdout.write("Current VM stack status: [")
             for v in self.stack:
@@ -331,23 +338,26 @@ proc run(self: var VM, repl: bool): InterpretResult =
                 stdout.write(", ")
             stdout.write("]\n")
             stdout.write("Current global scope status: {")
-            for k, v in self.globals.pairs():
+            for i, (k, v) in enumerate(self.globals.pairs()):
                 stdout.write(k)
                 stdout.write(": ")
                 stdout.write(stringify(v))
-                stdout.write(", ")
+                if i < self.globals.len() - 1:
+                    stdout.write(", ")
             stdout.write("}\n")
-            stdout.write("Current frame type:")
+            stdout.write("Current frame type: ")
             if frame.function.name == nil:
-                stdout.write(" main\n")
+                stdout.write("main\n")
             else:
-                stdout.write(&" function, '{frame.function.name.stringify()}'\n")
-            echo "Current frame count: {self.frameCount}"
+                stdout.write(&"function, '{frame.function.name.stringify()}'\n")
+            echo &"Current frame count: {self.frameCount}"
+            echo &"Current frame length: {frame.len}"
             stdout.write("Current frame stack status: ")
             stdout.write("[")
-            for e in frame.getView():
+            for i, e in frame.getView():
                 stdout.write(stringify(e))
-                stdout.write(", ")
+                if i < len(frame) - 1:
+                    stdout.write(", ")
             stdout.write("]\n")
             discard disassembleInstruction(frame.function.chunk, frame.ip - 1)
         case opcode:   # Main OpCodes dispatcher
@@ -494,6 +504,12 @@ proc run(self: var VM, repl: bool): InterpretResult =
                 except NotImplementedError:
                     self.error(newTypeError(&"unsupported binary operator '>' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
+            of OpCode.Is:
+                # This is implemented internally for obvious
+                # reasons and works on any pair of objects
+                var right = self.pop()
+                var left = self.pop()
+                self.push(self.getBoolean(addr(left) == addr(right)))
             of OpCode.GetItem:
                 # TODO: More generic method
                 if not self.slice():
@@ -555,22 +571,22 @@ proc run(self: var VM, repl: bool): InterpretResult =
                         self.globals.del(constant)
             of OpCode.GetLocal:
                 if frame.len > 255:
-                    self.push(frame[frame.readBytes(), stackOffset])
+                    self.push(frame[frame.readBytes()])
                 else:
-                    self.push(frame[int frame.readByte(), stackOffset])
+                    self.push(frame[int frame.readByte()])
             of OpCode.SetLocal:
                 if frame.len > 255:
-                    frame[frame.readBytes(), stackOffset] = self.peek(0)
+                    frame[frame.readBytes()] = self.peek(0)
                 else:
-                    frame[int frame.readByte(), stackOffset] = self.peek(0)
+                    frame[int frame.readByte()] = self.peek(0)
             of OpCode.DeleteLocal:
                 # TODO: Inspect potential issues with the GC
                 if frame.len > 255:
                     var slot = frame.readBytes()
-                    frame.delete(slot, stackOffset)
+                    frame.delete(slot)
                 else:
                     var slot = frame.readByte()
-                    frame.delete(int slot, stackOffset)
+                    frame.delete(int slot)
             of OpCode.Pop:
                 self.lastPop = self.pop()
             of OpCode.JumpIfFalse:
@@ -591,7 +607,9 @@ proc run(self: var VM, repl: bool): InterpretResult =
             of OpCode.Return:
                 var retResult = self.pop()
                 if repl and not self.lastPop.isNil() and self.frameCount == 1:
-                    # This avoids unwanted output with recursive calls
+                    # Prints the last expression to stdout as long as we're
+                    # in REPL mode, the expression isn't nil and we're at the
+                    # top-level code
                     echo stringify(self.lastPop)
                     self.lastPop = cast[ptr Nil](self.cached[2])
                 self.frameCount -= 1
@@ -635,30 +653,33 @@ proc freeObject(self: VM, obj: ptr Obj) =
             discard free(ObjectType.Function, fun)
 
 
-proc freeObjects(self: var VM) =
+proc freeObjects(self: VM) =
     ## Frees all the allocated objects
     ## from the VM
-    var runtimeObjCount = len(self.objects)
-    var cacheCount = len(self.cached)
-    var runtimeFreed = 0
-    var cachedFreed = 0
+    when DEBUG_TRACE_ALLOCATION:
+        var runtimeObjCount = len(self.objects)
+        var cacheCount = len(self.cached)
+        var runtimeFreed = 0
+        var cachedFreed = 0
     for obj in reversed(self.objects):
         self.freeObject(obj)
         discard self.objects.pop()
-        runtimeFreed += 1
+        when DEBUG_TRACE_ALLOCATION:
+            runtimeFreed += 1
     for cached_obj in self.cached:
         self.freeObject(cached_obj)
-        cachedFreed += 1
+        when DEBUG_TRACE_ALLOCATION:
+            cachedFreed += 1
     when DEBUG_TRACE_ALLOCATION:
         echo &"DEBUG - VM: Freed {runtimeFreed + cachedFreed} objects out of {runtimeObjCount + cacheCount} ({cachedFreed}/{cacheCount} cached objects, {runtimeFreed}/{runtimeObjCount} runtime objects)"
 
 
-proc freeVM*(self: var VM) =
+proc freeVM*(self: VM) =
     ## Tears down the VM
     unsetControlCHook()
     try:
         self.freeObjects()
-    except NilAccessError:
+    except NilAccessDefect:
         stderr.write("A fatal error occurred -> could not free memory, segmentation fault\n")
         quit(71)
     when DEBUG_TRACE_ALLOCATION:
@@ -666,9 +687,16 @@ proc freeVM*(self: var VM) =
             echo &"DEBUG - VM: Warning, {self.objects.len} objects were not freed"
 
 
-proc initCache(self: var VM) = 
+proc initCache(self: VM) = 
     ## Initializes the static cache for singletons
-    ## such as nil, true, false and nan
+    ## such as true and false
+
+    # TODO -> Make sure that every operation
+    # concerning singletons ALWAYS returns
+    # these cached objects in order to 
+    # implement proper object identity
+    # in a quicker way than it is done
+    # for equality
     self.cached = 
             [
             true.asBool().asObj(),
@@ -687,7 +715,7 @@ proc initVM*(): VM =
     result.initCache()
 
 
-proc interpret*(self: var VM, source: string, repl: bool = false, file: string): InterpretResult =
+proc interpret*(self: VM, source: string, repl: bool = false, file: string): InterpretResult =
     ## Interprets a source string containing JAPL code
     self.resetStack()
     self.source = source
@@ -704,6 +732,10 @@ proc interpret*(self: var VM, source: string, repl: bool = false, file: string):
     if compiled == nil:
         compiler.freeCompiler()
         return CompileError
+    # Since in JAPL all code runs in some
+    # sort of function, we push our global
+    # "code object" and call it like any
+    # other function
     self.push(compiled)
     discard self.callObject(compiled, 0)
     when DEBUG_TRACE_VM:

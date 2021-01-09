@@ -109,7 +109,7 @@ git clone https://github.com/japl-lang/japl
 ## Running the build script
 
 As a next step, you need to run the build script. This will generate the required configuration files,
-compile the JAPL runtime and run tests (when we'll actually have some tests). There are some options that
+compile the JAPL runtime and run tests. There are some options that
 can be tweaked with command-line options, for more information, run `python3 build.py --help`.
 
 

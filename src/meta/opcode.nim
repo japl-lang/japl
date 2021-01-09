@@ -68,7 +68,8 @@ type
         Call,
         Bor,
         Band,
-        Bnot
+        Bnot,
+        Is
 
 
     
@@ -79,7 +80,8 @@ const simpleInstructions* = {OpCode.Return, OpCode.Add, OpCode.Multiply,
                              OpCode.Inf, OpCode.Shl, OpCode.Shr,
                              OpCode.Xor, OpCode.Not, OpCode.Equal,
                              OpCode.Greater, OpCode.Less, OpCode.GetItem,
-                             OpCode.Slice, OpCode.Pop, OpCode.Negate}
+                             OpCode.Slice, OpCode.Pop, OpCode.Negate,
+                             OpCode.Is}
 const constantInstructions* = {OpCode.Constant, OpCode.DefineGlobal,
                          OpCode.GetGlobal, OpCode.SetGlobal,
                          OpCode.DeleteGlobal}

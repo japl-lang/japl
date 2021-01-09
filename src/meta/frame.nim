@@ -35,6 +35,7 @@ proc clear*(self: CallFrame): int =
         discard self.stack.pop()
         inc result
 
+
 proc getView*(self: CallFrame): seq[ptr Obj] =
     result = self.stack[self.slot..self.stack.high()]
 
@@ -43,17 +44,17 @@ proc len*(self: CallFrame): int =
     result = len(self.getView())
 
 
-proc `[]`*(self: CallFrame, idx: int, offset: int): ptr Obj =
+proc `[]`*(self: CallFrame, idx: int): ptr Obj =
     result = self.stack[idx + self.slot]
 
 
-proc `[]=`*(self: CallFrame, idx: int, offset: int, val: ptr Obj) =
+proc `[]=`*(self: CallFrame, idx: int, val: ptr Obj) =
     if idx < self.slot:
-        raise newException(IndexError, "CallFrame index out of range")
+        raise newException(IndexDefect, "CallFrame index out of range")
     self.stack[idx + self.slot] = val
 
 
-proc delete*(self: CallFrame, idx: int, offset: int) =
+proc delete*(self: CallFrame, idx: int) =
     if idx < self.slot:
-        raise newException(IndexError, "CallFrame index out of range")
+        raise newException(IndexDefect, "CallFrame index out of range")
     self.stack.delete(idx + self.slot)

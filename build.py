@@ -23,7 +23,7 @@ import argparse
 from time import time
 from typing import Dict
 from pprint import pformat
-from subprocess import Popen, PIPE, DEVNULL
+from subprocess import Popen, PIPE, DEVNULL, run
 
 
 
@@ -75,7 +75,7 @@ Command-line options
 """'''
 
 
-def build(path: str, flags: Dict[str, str] = {}, options: Dict[str, bool] = {}, override: bool = False):
+def build(path: str, flags: Dict[str, str] = {}, options: Dict[str, bool] = {}, override: bool = False, skip_tests: bool = False):
     """
     Compiles the JAPL runtime, generating the appropriate
     configuration needed for compilation to succeed.
@@ -108,17 +108,15 @@ def build(path: str, flags: Dict[str, str] = {}, options: Dict[str, bool] = {}, 
         logging.debug(f"Generating config file at '{config_path}'")
         try:
             with open(config_path, "w") as build_config:
-                build_config.write(CONFIG_TEMPLATE.format(
-                    **options
-                ))
+                build_config.write(CONFIG_TEMPLATE.format(**options))
         except Exception as fatal:
             logging.error(f"A fatal unhandled exception occurred -> {type(fatal).__name__}: {fatal}")
+            return
         else:
             logging.debug(f"Config file has been generated, compiling with options as follows: \n{pformat(options, indent=2)}")
     logging.debug(f"Compiling '{main_path}'")
     nim_flags = " ".join(f"-{name}:{value}" if len(name) == 1 else f"--{name}:{value}" for name, value in flags.items())
-    command = "nim {flags} compile {path}"
-    command = command.format(flags=nim_flags, path=main_path)
+    command = "nim {flags} compile {path}".format(flags=nim_flags, path=main_path)
     logging.debug(f"Running '{command}'")
     logging.info("Compiling JAPL")
     start = time()
@@ -132,6 +130,37 @@ def build(path: str, flags: Dict[str, str] = {}, options: Dict[str, bool] = {}, 
     else:
         logging.debug(f"Compilation completed in {time() - start:.2f} seconds")
         logging.info("Build completed")
+        if skip_tests:
+            logging.warning("Skipping test suite")
+        else:
+            logging.info("Running tests under tests/")
+            logging.debug("Compiling test suite")
+            start = time()
+            tests_path = "./tests/runtests" if os.name != "nt" else ".\tests\runtests"
+            try:
+                process = Popen(shlex.split(f"nim compile {tests_path}", posix=os.name != "nt"), stdout=DEVNULL, stderr=PIPE)
+                _, stderr = process.communicate()
+                stderr = stderr.decode()
+                assert process.returncode == 0, f"Command '{command}' exited with non-0 exit code {process.returncode}, output below:\n{stderr}"
+            except Exception as fatal:
+                logging.error(f"A fatal unhandled exception occurred -> {type(fatal).__name__}: {fatal}")
+            else:
+                logging.debug(f"Test suite compilation completed in {time() - start:.2f} seconds")
+                logging.debug("Running tests")
+                start = time()
+                try:
+                    # TODO: Find a better way of running the test suite
+                    process = run(f"{tests_path}", stdout=PIPE, stderr=PIPE, shell=True)
+                    stderr = process.stderr.decode()
+                    assert process.returncode == 0, f"Command '{command}' exited with non-0 exit code {process.returncode}, output below:\n{stderr}"
+                except Exception as fatal:
+                    logging.error(f"A fatal unhandled exception occurred -> {type(fatal).__name__}: {fatal}")
+                else:
+                    logging.debug(f"Test suite ran in {time() - start:.2f} seconds")
+                    # This way it *looks* like we're running it now when it
+                    # actually already happened
+                    print(process.stdout.decode().rstrip("\n"))
+                    logging.info("Test suite completed!")
 
 
 if __name__ == "__main__":
@@ -142,6 +171,7 @@ if __name__ == "__main__":
     parser.add_argument("--options", help="Set compile-time options and constants, pass a comma-separated list of name:value (without spaces). "
     "Note that if a config.nim file exists in the destination directory, that will override any setting defined here unless --override-config is used")
     parser.add_argument("--override-config", help="Overrides the setting of an already existing config.nim file in the destination directory", action="store_true")
+    parser.add_argument("--skip-tests", help="Skips running the JAPL test suite", action="store_true")
     args = parser.parse_args()
     flags = {
             "gc": "markAndSweep",
@@ -153,7 +183,7 @@ if __name__ == "__main__":
         "debug_alloc": "false",
         "map_load_factor": "0.75",
         "array_grow_factor": "2",
-        "frames_max": "800"
+        "frames_max": "800",
     }
     level = logging.DEBUG if args.verbose else logging.INFO
     logging.basicConfig(format="[%(levelname)s - %(asctime)s] %(message)s",
@@ -179,5 +209,5 @@ if __name__ == "__main__":
         except Exception:
             logging.error("Invalid parameter for --options")
             exit()
-    build(args.path, flags, options, args.override_config)
+    build(args.path, flags, options, args.override_config, args.skip_tests)
     logging.debug("Build tool exited")
