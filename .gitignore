@@ -13,6 +13,10 @@ htmldocs/
 src/japl
 src/compiler
 tests/runtests
+src/lexer
+src/vm
+tests/runtests
+testresults.txt
 
 # MacOS
 
