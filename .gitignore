@@ -17,6 +17,7 @@ src/lexer
 src/vm
 tests/runtests
 testresults.txt
+testoutput.txt
 
 # MacOS
 
@@ -36,6 +37,3 @@ main
 
 config.nim
 
-# test results
-
-testresults.txt

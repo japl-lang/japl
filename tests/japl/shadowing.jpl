@@ -1,0 +1,76 @@
+//similar to vars.jpl, but more focused on shadowing
+
+// simple shadowing
+var x = 4;
+{
+    var x = 5;
+    print(x);//output:5
+}
+print(x);//output:4
+
+// type changing shadowing
+var y = true;
+{
+    var y = 2;
+    print(y);//output:2
+}
+print(y);//output:true
+
+// no shadowing here
+var z = 3;
+{
+    z = true;
+    print(z);//output:true
+}
+print(z);//output:true
+
+//in-function shadowing
+fun shadow(x) {
+    //will be called once with the input 3
+    print(x);//output:3
+    {
+        var x = 4;
+        print(x);//output:4
+    }
+    print(x);//output:3
+    x = nil;
+    print(x);//output:nil
+    return x;
+}
+
+print(shadow(3));//output:nil
+
+//shadowing functions
+fun hello() {
+    print("hello");
+}
+hello();//output:hello
+{
+    fun hello() {
+        print("hello in");
+    }
+    hello();//output:hello in
+    {
+        fun hello() {
+            print("hello inmost");
+        }
+        hello();//output:hello inmost
+    }
+    hello();//output:hello in
+}
+hello();//output:hello
+
+//functions shadowing with type change
+fun eat() {
+    print("nom nom nom");
+}
+eat();//output:nom nom nom
+{
+    var eat = 4;
+    print(eat);//output:4
+    {{{{{
+        eat = 5;
+    }}}}} //multiple scopes haha
+    print(eat);//output:5
+}
+eat();//output:nom nom nom
