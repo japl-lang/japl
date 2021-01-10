@@ -22,45 +22,36 @@ JAPL is licensed under the Apache 2.0 license.
 In no particular order, here's a list that is constantly updated and that helps us to keep track
 of what's done in JAPL:
 
-- Parsing/Lexing :heavy_check_mark:
-- Object oriented type system  :heavy_check_mark:
-- Control flow (if/else)  :heavy_check_mark:
-- Loops (for/while)  :heavy_check_mark:
-- Basic comparisons operators (`>`, `<`, `>=`, `<=`, `!=`, `==`) :heavy_check_mark:
-- Logical operators (`!`, `or`, `and`)  (:heavy_check_mark:)
-- Multi-line comments `/* like this */` (can be nested)  :heavy_check_mark:
-- `inf` and `nan` types  :heavy_check_mark:
-- Basic arithmetic (`+`, `-`, `/`, `*`)  :heavy_check_mark:
-- Modulo division (`%`) and exponentiation (`**`)  :heavy_check_mark:
-- Bitwise operators (AND, OR, XOR, NOT)  :heavy_check_mark:
-- Global and local variables  :heavy_check_mark:
-- Explicit scopes using brackets :heavy_check_mark:
-- Simple optimizations (constant string interning, singletons caching) :heavy_check_mark:
-- Garbage collector  (__Coming soon__)
-- String slicing, with start:end syntax as well  :heavy_check_mark:
-- Operations on strings (addition, multiplication)  :heavy_check_mark:
-- Functions and Closures (__WIP__)
-- Functions default and keyword arguments (__WIP__)
-- An OOP system (class-based)  (__Coming soon__)
-- Builtins as classes (types) (__Coming soon__)
-- A proper import system (__Coming soon__)
-- Native asynchronous (`await`/`async fun`) support (__Coming soon__)
-- Bytecode optimizations such as constant folding and stack caching (__Coming Soon__)
-- Arbitrary-precision arithmetic (__Coming soon__)
-- Generators (__Coming soon__)
-- A standard library with collections, I/O utilities, scientific modules, etc (__Coming soon__)
-- Multithreading and multiprocessing support with a global VM Lock like CPython (__Coming soon__)
-- Exceptions (__Coming soon__)
-- Optional JIT Compilation (__Coming soon__)
-
-
-
-### Classifiers
-
-- __WIP__: Work In Progress, being implemented right now
-- __Coming Soon__: Not yet implemented/designed but scheduled
-- __Rework Needed__: The feature works, but can (and must) be optimized/reimplemented properly
-- :heavy_check_mark:: The feature works as intended
+- Parsing/Lexing [x]
+- Object oriented type system  [x]
+- Control flow (if/else)  [x]
+- Loops (for/while)  [x]
+- Basic comparisons operators (`>`, `<`, `>=`, `<=`, `!=`, `==`) [x]
+- Logical operators (`!`, `or`, `and`)  ([x])
+- Multi-line comments `/* like this */` (can be nested)  [x]
+- `inf` and `nan` types  [x]
+- Basic arithmetic (`+`, `-`, `/`, `*`)  [x]
+- Modulo division (`%`) and exponentiation (`**`)  [x]
+- Bitwise operators (AND, OR, XOR, NOT)  [x]
+- Global and local variables  [x]
+- Explicit scopes using brackets [x]
+- Simple optimizations (constant string interning, singletons caching) [x]
+- Garbage collector  []
+- String slicing, with start:end syntax as well  [x]
+- Operations on strings (addition, multiplication)  [x]
+- Functions and Closures []
+- Functions default and keyword arguments []
+- An OOP system (class-based)  []
+- Builtins as classes (types) []
+- A proper import system []
+- Native asynchronous (`await`/`async fun`) support []
+- Bytecode optimizations such as constant folding and stack caching []
+- Arbitrary-precision arithmetic []
+- Generators []
+- A standard library with collections, I/O utilities, scientific modules, etc []
+- Multithreading and multiprocessing support with a global VM Lock like CPython []
+- Exceptions []
+- Optional JIT Compilation []
 
 
 ## Contributing
