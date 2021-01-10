@@ -12,7 +12,7 @@ color brightblue "fun [0-9A-Za-z_]+"
 color brightblue "method [0-9A-Za-z_]+"
 
 # Keywords.
-color brightcyan "\<(and|as|assert|async|await|break|class|continue)\>"
+color brightcyan "\<(and|as|var|assert|async|await|break|class|continue)\>"
 color brightcyan "\<(fun|del|elif|else|except|finally|for|from)\>"
 color brightcyan "\<(global|if|import|in|is|lambda|nonlocal|not|or)\>"
 color brightcyan "\<(pass|raise|return|try|while|with|yield)\>"
