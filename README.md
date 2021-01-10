@@ -20,12 +20,12 @@ JAPL is licensed under the Apache 2.0 license.
 In no particular order, here's a list that is constantly updated and that helps us to keep track
 of what's done in JAPL:
 
-- [x] Parsing/Lexin
+- [x] Parsing/Lexing
 - [x] Object oriented type system
 - [x] Control flow (if/else)
 - [x] Loops (for/while)
 - [x] Basic comparisons operators (`>`, `<`, `>=`, `<=`, `!=`, `==`)
-- [x] Logical operators (`!`, `or`, `and`)  (:heavy_check_mark:)
+- [x] Logical operators (`!`, `or`, `and`)
 - [x] Multi-line comments `/* like this */` (can be nested)
 - [x] `inf` and `nan` types
 - [x] Basic arithmetic (`+`, `-`, `/`, `*`)
@@ -34,22 +34,22 @@ of what's done in JAPL:
 - [x] Global and local variables
 - [x] Explicit scopes using bracket
 - [x] Simple optimizations (constant string interning, singletons caching
-- [ ] Garbage collector  (__Coming soon__)
+- [ ] Garbage collector
 - [x] String slicing, with start:end syntax as well
 - [x] Operations on strings (addition, multiplication)
-- [ ] Functions and Closures (__WIP__)
-- [ ] Functions default and keyword arguments (__WIP__)
-- [ ] An OOP system (class-based)  (__Coming soon__)
-- [ ] Builtins as classes (types) (__Coming soon__)
-- [ ] A proper import system (__Coming soon__)
-- [ ] Native asynchronous (`await`/`async fun`) support (__Coming soon__)
-- [ ] Bytecode optimizations such as constant folding and stack caching (__Coming Soon__)
-- [ ] Arbitrary-precision arithmetic (__Coming soon__)
-- [ ] Generators (__Coming soon__)
-- [ ] A standard library with collections, I/O utilities, scientific modules, etc (__Coming soon__)
-- [ ] Multithreading and multiprocessing support with a global VM Lock like CPython (__Coming soon__)
-- [ ] Exceptions (__Coming soon__)
-- [ ] Optional JIT Compilation (__Coming soon__)
+- [ ] Functions and Closures
+- [ ] Functions default and keyword arguments
+- [ ] An OOP system (class-based)
+- [ ] Builtins as classes (types) 
+- [ ] A proper import system 
+- [ ] Native asynchronous (`await`/`async fun`) support 
+- [ ] Bytecode optimizations such as constant folding and stack caching 
+- [ ] Arbitrary-precision arithmetic 
+- [ ] Generators 
+- [ ] A standard library with collections, I/O utilities, scientific modules, etc
+- [ ] Multithreading and multiprocessing support with a global VM Lock like CPython
+- [ ] Exceptions 
+- [ ] Optional JIT Compilation 
 
 ### Classifiers
 
