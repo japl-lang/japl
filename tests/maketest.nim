@@ -18,7 +18,10 @@
 
 
 # Imports nim tests as well
-import multibyte, os, strformat, times, re, terminal
+import multibyte, os, strformat, times, re, terminal, strutils
+
+const tempCodeFile = ".tempcode.jpl"
+const tempOutputFile = ".tempoutput.txt"
 
 proc autoremove(path: string) =
     if fileExists(path):
@@ -46,18 +49,19 @@ when isMainModule:
     if response =~ re"^file:(.*)$":
         codepath = matches[0]
     else:
-        writeFile("tempcode.jpl", response)
+        writeFile(tempCodeFile, response)
+        codepath = tempCodeFile
 
     let japlCode = readFile(codepath)
     discard execShellCmd(&"{japlExec} {codepath} > testoutput.txt")
-    let output = readFile("testoutput.txt")
-    autoremove("tempcode.jpl")
-    autoremove("testoutput.txt")
+    let output = readFile(tempOutputFile)
+    autoremove(tempCodeFile) 
+    autoremove(tempOutputFile)
         
     echo "Got the following output:"
     echo output                
     echo "Do you want to keep it as a test? [y/N]"
-    let keep = stdin.readChar().toLower() == 'y'
+    let keep = ($stdin.readChar()).toLower() == "y"
     if keep:
         block saving:
             while true:

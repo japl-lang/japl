@@ -13,11 +13,14 @@ htmldocs/
 src/japl
 src/compiler
 tests/runtests
+tests/maketest
 src/lexer
 src/vm
 tests/runtests
 testresults.txt
 testoutput.txt
+.tempcode.jpl
+.tempoutput.txt
 
 # MacOS
 
