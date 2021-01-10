@@ -1,0 +1,25 @@
+{
+    var x = 5;
+    var y = x;
+    y = 6;
+    print(x);//output:5
+}
+
+var g = 7;
+var p = g;
+{
+    var k = g;
+    p = 3;
+    k = 9;
+    print(g);//output:7
+}
+print(g);//output:7
+
+fun resetter(x) {
+    x = 7;
+    print(x);
+}
+
+var q = 5;
+resetter(q);//output:7
+print(q);//output:5

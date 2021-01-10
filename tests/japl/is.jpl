@@ -1,0 +1,22 @@
+var x = 4;
+var y = x;
+
+print(x is y);//output:false
+print(x is x);//output:true
+print(x is 4);//output:false
+
+var z = true;
+var u = true;
+
+print(z is u);//output:true
+print(z is x);//output:false
+print(z is z);//output:true
+
+var l = false;
+print((not l) is z);//output:true
+print(l is z);//output:false
+print((l is z) is l);//output:true
+
+var k;
+print(k is nil);//output:true
+

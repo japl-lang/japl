@@ -1,0 +1,22 @@
+fun printInt(x) {
+    if (x == 1)
+        print("one");
+    else if (x == 2)
+        print("two");
+    else if (x == 3)
+        print("three");
+    else if (x == 4)
+        print("four");
+    else if (x == 5)
+        print("five");
+    else if (x == 6)
+        print("six");
+}
+var x = 3;
+printInt(x);//output:three
+x = 5;
+printInt(x);//output:five
+x = 7;
+printInt(x);
+x = 1;
+printInt(x);//output:one

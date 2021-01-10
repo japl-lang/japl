@@ -22,11 +22,26 @@
 
 
 # Imports nim tests as well
-import multibyte, os, strformat, times, re
+import multibyte, os, strformat, times, re, terminal, strutils
+
+const tempOutputFile = ".testoutput.txt"
+const testResultsPath = "testresults.txt"
 
 
 # Exceptions for tests that represent not-yet implemented behaviour
-const exceptions = ["all.jpl"]
+const exceptions = ["all.jpl", "for_with_function.jpl"]
+# for_with_function.jpl probably contains an algorithmic error too
+# TODO: fix that test
+
+type LogLevel {.pure.} = enum
+    Debug, # always written to file only (large outputs, such as the entire output of the failing test or stacktrace)
+    Info, # important information about the progress of the test suite
+    Error, # failing tests (printed with red)
+    Stdout, # always printed to stdout only (for cli experience)
+
+
+const echoedLogs = { LogLevel.Info, LogLevel.Error, LogLevel.Stdout }
+const savedLogs = { LogLevel.Debug, LogLevel.Info, LogLevel.Error }
 
 
 proc compileExpectedOutput(path: string): string =
@@ -35,37 +50,52 @@ proc compileExpectedOutput(path: string): string =
             result &= matches[0] & "\n"
 
 
-proc deepComp(left, right: string): tuple[same: bool, place: int] =
+proc deepComp(left, right: string, path: string): tuple[same: bool, place: int] =
+    var mleft, mright: string
     result.same = true
     if left.high() != right.high():
-        result.same = false
-    for i in countup(0, left.high()):
+        if left.replace(path, "").high() == right.replace(path, "").high():
+            mleft = left.replace(path, "")
+            mright = right.replace(path, "")
+        else:
+            result.same = false
+    else:
+        mleft = left
+        mright = right
+    for i in countup(0, mleft.high()):
         result.place = i
-        if i > right.high():
+        if i > mright.high():
             # already false because of the len check at the beginning
             # already correct place because it's updated every i
             return
-        if left[i] != right[i]:
+        if mleft[i] != mright[i]:
             result.same = false
             return
 
 
-# Quick logging levels using procs
+proc logWithLevel(level: LogLevel, file: File, msg: string) =
+    let msg = &"[{$level} - {$getTime()}] {msg}" 
 
-proc log(file: File, msg: string, toFile: bool = true) =
-    ## Logs to stdout and to the log file unless
-    ## toFile == false
-    if toFile:
-        file.writeLine(&"[LOG - {$getTime()}] {msg}")
-    echo &"[LOG - {$getTime()}] {msg}"
+    if level in savedLogs:
+        file.writeLine(msg)
+    if level in echoedLogs:
+        if level == LogLevel.Error:
+            setForegroundColor(fgRed)
+        echo msg
+        if level == LogLevel.Error:
+            setForegroundColor(fgDefault)
 
 
-proc detail(file: File, msg: string) =
-    ## Logs only to the log file
-    file.writeLine(&"[DETAIL - {$getTime()}] {msg}")
 
 
 proc main(testsDir: string, japlExec: string, testResultsFile: File): tuple[numOfTests: int, successTests: int, failedTests: int, skippedTests: int] =
+    template detail(msg: string) =
+        logWithLevel(LogLevel.Debug, testResultsFile, msg)
+    template log(msg: string) =
+        logWithLevel(LogLevel.Info, testResultsFile, msg)
+    template error(msg: string) =
+        logWithLevel(LogLevel.Error, testResultsFile, msg)
+
     var numOfTests = 0
     var successTests = 0
     var failedTests = 0
@@ -74,59 +104,61 @@ proc main(testsDir: string, japlExec: string, testResultsFile: File): tuple[numO
         for file in walkDir(testsDir):
             block singleTest:
                 if file.path.extractFilename in exceptions:
-                    detail(testResultsFile, &"Skipping '{file.path}'")
+                    detail(&"Skipping '{file.path}'")
                     numOfTests += 1
                     skippedTests += 1
                     break singleTest
                 elif file.path.dirExists():
-                    detail(testResultsFile, "Descending into '" & file.path & "'")
+                    detail(&"Descending into '" & file.path & "'")
                     var subTestResult = main(file.path, japlExec, testResultsFile)
                     numOfTests += subTestResult.numOfTests
                     successTests += subTestResult.successTests
                     failedTests += subTestResult.failedTests
                     skippedTests += subTestResult.skippedTests
                     break singleTest
-                detail(testResultsFile, &"Running test '{file.path}'")
-                if fileExists("testoutput.txt"):
-                    removeFile("testoutput.txt") # in case this crashed
-                let retCode = execShellCmd(&"{japlExec} {file.path} >> testoutput.txt")
+                detail(&"Running test '{file.path}'")
+                if fileExists(tempOutputFile):
+                    removeFile(tempOutputFile) # in case this crashed
+                let retCode = execShellCmd(&"{japlExec} {file.path} > {tempOutputFile} 2>&1")
                 numOfTests += 1
                 if retCode != 0:
                     failedTests += 1
-                    log(testResultsFile, &"Test '{file.path}' has crashed!")
+                    error(&"Test '{file.path}' has crashed!")
                 else:
                     let expectedOutput = compileExpectedOutput(file.path).replace(re"(\n*)$", "")
-                    let realOutputFile = open("testoutput.txt", fmRead)
+                    let realOutputFile = open(tempOutputFile, fmRead)
                     let realOutput = realOutputFile.readAll().replace(re"([\n\r]*)$", "")
                     realOutputFile.close()
-                    removeFile("testoutput.txt")
-                    let comparison = deepComp(expectedOutput, realOutput)
+                    removeFile(tempOutputFile)
+                    let comparison = deepComp(expectedOutput, realOutput, file.path)
                     if comparison.same:
                         successTests += 1
-                        log(testResultsFile, &"Test '{file.path}' was successful")
+                        log(&"Test '{file.path}' was successful")
                     else:
                         failedTests += 1
-                        detail(testResultsFile, &"Expected output:\n{expectedOutput}\n")
-                        detail(testResultsFile, &"Received output:\n{realOutput}\n")
-                        detail(testResultsFile, &"Mismatch at pos {comparison.place}")
+                        detail(&"Expected output:\n{expectedOutput}\n")
+                        detail(&"Received output:\n{realOutput}\n")
+                        detail(&"Mismatch at pos {comparison.place}")
                         if comparison.place > expectedOutput.high() or comparison.place > realOutput.high():
-                            detail(testResultsFile, &"Length mismatch")
+                            detail(&"Length mismatch")
                         else:
-                            detail(testResultsFile, &"Expected is '{expectedOutput[comparison.place]}' while received '{realOutput[comparison.place]}'")
-                        log(testResultsFile, &"Test '{file.path}' failed")
+                            detail(&"Expected is '{expectedOutput[comparison.place]}' while received '{realOutput[comparison.place]}'")
+                        error(&"Test '{file.path}' failed")
         result = (numOfTests: numOfTests, successTests: successTests, failedTests: failedTests, skippedTests: skippedTests)
     except IOError:
         stderr.write(&"Fatal IO error encountered while running tests -> {getCurrentExceptionMsg()}")
 
 
 when isMainModule:
-    let testResultsFile = open("testresults.txt", fmWrite)
-    log(testResultsFile, "Running Nim tests")
+    let testResultsFile = open(testResultsPath, fmWrite)
+    template log (msg: string) =
+        logWithLevel(LogLevel.Info, testResultsFile, msg)
+    log("Running Nim tests")
     # Nim tests
-    detail(testResultsFile, "Running testMultiByte")
+    logWithLevel(LogLevel.Debug, testResultsFile, "Running testMultiByte")
     testMultiByte()
     # JAPL tests
-    log(testResultsFile, "Running JAPL tests")
+    log("Running JAPL tests")
     var testsDir = "tests" / "japl"
     var japlExec = "src" / "japl"
     var currentDir = getCurrentDir()
@@ -134,16 +166,16 @@ when isMainModule:
     if currentDir.lastPathPart() == "tests":
         testsDir = "japl"
         japlExec = ".." / japlExec
-    log(testResultsFile, &"Looking for JAPL tests in {testsDir}")
-    log(testResultsFile, &"Looking for JAPL executable at {japlExec}")
+    log(&"Looking for JAPL tests in {testsDir}")
+    log(&"Looking for JAPL executable at {japlExec}")
     if not fileExists(japlExec):
-        log(testResultsFile, "JAPL executable not found")
+        log("JAPL executable not found")
         quit(1)
     if not dirExists(testsDir):
-        log(testResultsFile, "Tests dir not found")
+        log("Tests dir not found")
         quit(1)
     let testResult = main(testsDir, japlExec, testResultsFile)
-    log(testResultsFile, &"Found {testResult.numOfTests} tests: {testResult.successTests} were successful, {testResult.failedTests} failed and {testResult.skippedTests} were skipped.")
-    log(testResultsFile, "Check 'testresults.txt' for details", toFile=false)   
+    log(&"Found {testResult.numOfTests} tests: {testResult.successTests} were successful, {testResult.failedTests} failed and {testResult.skippedTests} were skipped.")
+    logWithLevel(LogLevel.Stdout, testResultsFile, "Check 'testresults.txt' for details")
     testResultsfile.close()
 
