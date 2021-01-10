@@ -46,7 +46,7 @@ import strformat
 
 const MAP_LOAD_FACTOR* = {map_load_factor}  # Load factor for builtin hashmaps (TODO)
 const ARRAY_GROW_FACTOR* = {array_grow_factor}   # How much extra memory to allocate for dynamic arrays (TODO)
-const FRAMES_MAX* = {frames_max}  # TODO: Inspect why the VM crashes if this exceeds this value
+const FRAMES_MAX* = {frames_max}  # The maximum recursion limit
 const JAPL_VERSION* = "0.3.0"
 const JAPL_RELEASE* = "alpha"
 const DEBUG_TRACE_VM* = {debug_vm} # Traces VM execution
@@ -72,6 +72,7 @@ Command-line options
 
 -h, --help  -> Show this help text and exit
 -v, --version -> Print the JAPL version number and exit
+-c -> Executes the passed string
 """'''
 
 
@@ -97,7 +98,7 @@ def build(path: str, flags: Dict[str, str] = {}, options: Dict[str, bool] = {}, 
 
     config_path = os.path.join(path, "config.nim")
     main_path = os.path.join(path, "japl.nim")
-    logging.info("Just Another Build Tool, version 0.2")
+    logging.info("Just Another Build Tool, version 0.3.1")
     if not os.path.exists(path):
         logging.error(f"Input path '{path}' does not exist")
         return
@@ -168,7 +169,7 @@ if __name__ == "__main__":
     parser.add_argument("--options", help="Set compile-time options and constants, pass a comma-separated list of name:value (without spaces). "
     "Note that if a config.nim file exists in the destination directory, that will override any setting defined here unless --override-config is used")
     parser.add_argument("--override-config", help="Overrides the setting of an already existing config.nim file in the destination directory", action="store_true")
-    parser.add_argument("--skip-tests", help="Skips running the JAPL test suite", action="store_true")
+    parser.add_argument("--skip-tests", help="Skips running the JAPL test suite, useful for debug builds", action="store_true")
     args = parser.parse_args()
     flags = {
             "gc": "markAndSweep",
