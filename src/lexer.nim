@@ -204,6 +204,8 @@ proc scanToken(self: var Lexer) =
         return
     elif single == '\n':
         self.line += 1
+        if self.tokens[^1].kind != TokenType.SEMICOLON:
+            self.tokens.add(self.createToken(TOKENS[';']))
     elif single in ['"', '\'']:
         self.parseString(single)
     elif single.isDigit():
@@ -243,6 +245,8 @@ proc lex*(self: var Lexer): seq[Token] =
     while not self.done():
         self.start = self.current
         self.scanToken()
+    if self.tokens[^1].kind != TokenType.SEMICOLON:
+        self.tokens.add(self.createToken(TOKENS[';']))
     self.tokens.add(Token(kind: TokenType.EOF, lexeme: "EOF", line: self.line))
     return self.tokens
 
