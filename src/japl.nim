@@ -52,50 +52,51 @@ proc repl() =
             echo &"[Nim {NimVersion} on {hostOs} ({hostCPU})]"
             continue
         elif source != "":
-            var result = bytecodeVM.interpret(source, true, "stdin")
             when DEBUG_TRACE_VM:
+                let result = bytecodeVM.interpret(source, true, "stdin")
                 echo &"Result: {result}"
+            when not DEBUG_TRACE_VM:
+                discard bytecodeVM.interpret(source, true, "stdin")
     when DEBUG_TRACE_VM:
         echo "==== Debugger exits ===="
 
 
-proc main(file: string = "") =
+proc main(file: var string = "", fromString: bool = false) =
+    var source: string
     if file == "":
         repl()
-    else:
+    elif not fromString:
         var sourceFile: File
         try:
             sourceFile = open(filename=file)
         except IOError:
             echo &"Error: '{file}' could not be opened, probably the file doesn't exist or you don't have permission to read it"
             return
-        var source: string
         try:
             source = readAll(sourceFile)
         except IOError:
             echo &"Error: '{file}' could not be read, probably you don't have the permission to read it"
-        var bytecodeVM = initVM()
-        bytecodeVM.stdlibInit()
-        when DEBUG_TRACE_VM:
-            echo "Debugger enabled, expect verbose output\n"
-            echo "==== VM Constants ====\n"
-            echo &"- FRAMES_MAX -> {FRAMES_MAX}"
-            echo "==== Code starts ====\n"
-        var result = bytecodeVM.interpret(source, false, file)
-        bytecodeVM.freeVM()
-        when DEBUG_TRACE_VM:
-            echo &"Result: {result}"
-        when DEBUG_TRACE_VM:
-            echo "==== Code ends ===="
+    else:
+        source = file
+        file = "<string>"
+    var bytecodeVM = initVM()
+    bytecodeVM.stdlibInit()
+    when DEBUG_TRACE_VM:
+        echo "Debugger enabled, expect verbose output\n"
+        echo "==== VM Constants ====\n"
+        echo &"- FRAMES_MAX -> {FRAMES_MAX}"
+        echo "==== Code starts ====\n"
+        let result = bytecodeVM.interpret(source, false, file)
+        echo &"Result: {result}"
+    when not DEBUG_TRACE_VM:
+        discard bytecodeVM.interpret(source, false, file)
+    bytecodeVM.freeVM()
 
 
 when isMainModule:
     var optParser = initOptParser(commandLineParams())
     var file: string = ""
-    if paramCount() > 0:
-        if paramCount() notin 1..<2:
-            echo "usage: japl [filename]"
-            quit()
+    var fromString: bool = false
     for kind, key, value in optParser.getopt():
         case kind:
             of cmdArgument:
@@ -119,11 +120,14 @@ when isMainModule:
                     of "v":
                         echo JAPL_VERSION_STRING
                         quit()
+                    of "c":
+                        file = key
+                        fromString = true
                     else:
                         echo &"error: unkown option '{key}'"
-                        quit()   
+                        quit()
             else:
                 echo "usage: japl [filename]"
                 quit()
-    main(file)
+    main(file, fromString)
 
