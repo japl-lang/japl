@@ -19,7 +19,7 @@
 # - Assumes "japl" binary in ../src/japl built with all debugging off
 # - Goes through all tests in (/tests/)
 # - Runs all tests in (/tests/)japl/ and checks their output (marked by `//output:{output}`)
-# 
+
 
 # Imports nim tests as well
 import multibyte, os, strformat, times, re
@@ -73,13 +73,12 @@ proc main(testsDir: string, japlExec: string, testResultsFile: File): tuple[numO
     try:
         for file in walkDir(testsDir):
             block singleTest:
-                for exc in exceptions:
-                    if exc == file.path.extractFilename:
-                        detail(testResultsFile, &"Skipping '{file.path}'")
-                        numOfTests += 1
-                        skippedTests += 1
-                        break singleTest
-                if file.path.dirExists():
+                if file.path.extractFilename in exceptions:
+                    detail(testResultsFile, &"Skipping '{file.path}'")
+                    numOfTests += 1
+                    skippedTests += 1
+                    break singleTest
+                elif file.path.dirExists():
                     detail(testResultsFile, "Descending into '" & file.path & "'")
                     var subTestResult = main(file.path, japlExec, testResultsFile)
                     numOfTests += subTestResult.numOfTests
@@ -96,7 +95,6 @@ proc main(testsDir: string, japlExec: string, testResultsFile: File): tuple[numO
                     failedTests += 1
                     log(testResultsFile, &"Test '{file.path}' has crashed!")
                 else:
-                    successTests += 1
                     let expectedOutput = compileExpectedOutput(file.path).replace(re"(\n*)$", "")
                     let realOutputFile = open("testoutput.txt", fmRead)
                     let realOutput = realOutputFile.readAll().replace(re"([\n\r]*)$", "")
@@ -104,13 +102,14 @@ proc main(testsDir: string, japlExec: string, testResultsFile: File): tuple[numO
                     removeFile("testoutput.txt")
                     let comparison = deepComp(expectedOutput, realOutput)
                     if comparison.same:
+                        successTests += 1
                         log(testResultsFile, &"Test '{file.path}' was successful")
                     else:
+                        failedTests += 1
                         detail(testResultsFile, &"Expected output:\n{expectedOutput}\n")
                         detail(testResultsFile, &"Received output:\n{realOutput}\n")
                         detail(testResultsFile, &"Mismatch at pos {comparison.place}")
-                        if comparison.place > expectedOutput.high() or 
-                            comparison.place > realOutput.high():
+                        if comparison.place > expectedOutput.high() or comparison.place > realOutput.high():
                             detail(testResultsFile, &"Length mismatch")
                         else:
                             detail(testResultsFile, &"Expected is '{expectedOutput[comparison.place]}' while received '{realOutput[comparison.place]}'")

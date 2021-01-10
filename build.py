@@ -150,16 +150,13 @@ def build(path: str, flags: Dict[str, str] = {}, options: Dict[str, bool] = {}, 
                 start = time()
                 try:
                     # TODO: Find a better way of running the test suite
-                    process = run(f"{tests_path}", stdout=PIPE, stderr=PIPE, shell=True)
+                    process = run(f"{tests_path}", shell=True, stderr=PIPE)
                     stderr = process.stderr.decode()
                     assert process.returncode == 0, f"Command '{command}' exited with non-0 exit code {process.returncode}, output below:\n{stderr}"
                 except Exception as fatal:
                     logging.error(f"A fatal unhandled exception occurred -> {type(fatal).__name__}: {fatal}")
                 else:
                     logging.debug(f"Test suite ran in {time() - start:.2f} seconds")
-                    # This way it *looks* like we're running it now when it
-                    # actually already happened
-                    print(process.stdout.decode().rstrip("\n"))
                     logging.info("Test suite completed!")
 
 
