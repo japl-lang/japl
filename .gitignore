@@ -18,8 +18,9 @@ src/lexer
 src/vm
 tests/runtests
 testresults.txt
-testoutput.txt
+.testoutput.txt
 .tempcode.jpl
+.tempcode_drEHdZuwNYLqsQaMDMqeNRtmqoqXBXfnCfeqEcmcUYJToBVQkF.jpl
 .tempoutput.txt
 
 # MacOS

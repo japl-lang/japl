@@ -20,7 +20,7 @@
 # Imports nim tests as well
 import multibyte, os, strformat, times, re, terminal, strutils
 
-const tempCodeFile = ".tempcode.jpl"
+const tempCodeFile = ".tempcode_drEHdZuwNYLqsQaMDMqeNRtmqoqXBXfnCfeqEcmcUYJToBVQkF.jpl"
 const tempOutputFile = ".tempoutput.txt"
 
 proc autoremove(path: string) =
@@ -45,41 +45,47 @@ when isMainModule:
     echo "Please enter the JAPL code or specify a file containing it with file:<path>"
 
     let response = stdin.readLine()
-    var codepath: string
     if response =~ re"^file:(.*)$":
-        codepath = matches[0]
+        let codepath = matches[0]
+        writeFile(tempCodeFile, readFile(codepath))
     else:
         writeFile(tempCodeFile, response)
-        codepath = tempCodeFile
 
-    let japlCode = readFile(codepath)
-    discard execShellCmd(&"{japlExec} {codepath} > testoutput.txt")
-    let output = readFile(tempOutputFile)
+    let japlCode = readFile(tempCodeFile)
+    discard execShellCmd(&"{japlExec} {tempCodeFile} > {tempOutputFile} 2>&1")
+    var output: string
+    if fileExists(tempOutputFile):
+        output = readFile(tempOutputFile)
+    else:
+        echo "Temporary output file not detected, aborting"
+        quit(1)
     autoremove(tempCodeFile) 
     autoremove(tempOutputFile)
         
     echo "Got the following output:"
     echo output                
     echo "Do you want to keep it as a test? [y/N]"
-    let keep = ($stdin.readChar()).toLower() == "y"
+    let keepResponse = ($stdin.readLine()).toLower()
+    let keep = keepResponse[0] == 'y'
     if keep:
         block saving:
             while true:
-                echo "Please name the test"
+                echo "Please name the test (without the .jpl extension)"
                 let testname = stdin.readLine()
                 if testname == "":
                     echo "aborted"
                     break saving # I like to be explicit
                 let testpath = testsDir / testname & ".jpl"
+                echo &"Generating test at {testpath}"
                 var testContent = japlCode
-                for line in output.lines:
-                    testContent = testContent & "\n" & "//output:" & line & "\n"
+                for line in output.split('\n'):
+                    var mline = line
+                    mline = mline.replace(tempCodeFile, "")
+                    testContent = testContent & "\n" & "//output:" & mline & "\n"
                 if fileExists(testpath):
                     echo "Test already exists"
                 else:
                     writeFile(testpath, testContent)
-                    echo &"Test generated at {testpath}"
-
-
-
-
+                    break saving
+    else:
+        echo "Aborting"

@@ -22,7 +22,10 @@
 
 
 # Imports nim tests as well
-import multibyte, os, strformat, times, re, terminal
+import multibyte, os, strformat, times, re, terminal, strutils
+
+const tempOutputFile = ".testoutput.txt"
+const testResultsPath = "testresults.txt"
 
 
 # Exceptions for tests that represent not-yet implemented behaviour
@@ -47,17 +50,25 @@ proc compileExpectedOutput(path: string): string =
             result &= matches[0] & "\n"
 
 
-proc deepComp(left, right: string): tuple[same: bool, place: int] =
+proc deepComp(left, right: string, path: string): tuple[same: bool, place: int] =
+    var mleft, mright: string
     result.same = true
     if left.high() != right.high():
-        result.same = false
-    for i in countup(0, left.high()):
+        if left.replace(path, "").high() == right.replace(path, "").high():
+            mleft = left.replace(path, "")
+            mright = right.replace(path, "")
+        else:
+            result.same = false
+    else:
+        mleft = left
+        mright = right
+    for i in countup(0, mleft.high()):
         result.place = i
-        if i > right.high():
+        if i > mright.high():
             # already false because of the len check at the beginning
             # already correct place because it's updated every i
             return
-        if left[i] != right[i]:
+        if mleft[i] != mright[i]:
             result.same = false
             return
 
@@ -106,20 +117,20 @@ proc main(testsDir: string, japlExec: string, testResultsFile: File): tuple[numO
                     skippedTests += subTestResult.skippedTests
                     break singleTest
                 detail(&"Running test '{file.path}'")
-                if fileExists("testoutput.txt"):
-                    removeFile("testoutput.txt") # in case this crashed
-                let retCode = execShellCmd(&"{japlExec} {file.path} >> testoutput.txt")
+                if fileExists(tempOutputFile):
+                    removeFile(tempOutputFile) # in case this crashed
+                let retCode = execShellCmd(&"{japlExec} {file.path} > {tempOutputFile} 2>&1")
                 numOfTests += 1
                 if retCode != 0:
                     failedTests += 1
                     error(&"Test '{file.path}' has crashed!")
                 else:
                     let expectedOutput = compileExpectedOutput(file.path).replace(re"(\n*)$", "")
-                    let realOutputFile = open("testoutput.txt", fmRead)
+                    let realOutputFile = open(tempOutputFile, fmRead)
                     let realOutput = realOutputFile.readAll().replace(re"([\n\r]*)$", "")
                     realOutputFile.close()
-                    removeFile("testoutput.txt")
-                    let comparison = deepComp(expectedOutput, realOutput)
+                    removeFile(tempOutputFile)
+                    let comparison = deepComp(expectedOutput, realOutput, file.path)
                     if comparison.same:
                         successTests += 1
                         log(&"Test '{file.path}' was successful")
@@ -139,7 +150,7 @@ proc main(testsDir: string, japlExec: string, testResultsFile: File): tuple[numO
 
 
 when isMainModule:
-    let testResultsFile = open("testresults.txt", fmWrite)
+    let testResultsFile = open(testResultsPath, fmWrite)
     template log (msg: string) =
         logWithLevel(LogLevel.Info, testResultsFile, msg)
     log("Running Nim tests")
