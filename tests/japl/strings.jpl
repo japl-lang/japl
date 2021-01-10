@@ -1,0 +1,12 @@
+var left = "left";
+var right = "right";
+var directions = left + " " + right;
+print(directions);//output:left right
+
+var longstring = directions * 5;
+print(longstring);//output:left rightleft rightleft rightleft rightleft right
+
+left = left + " side";
+print(left);//output:left side
+right = "side: " + right;
+print(right);//output:side: right
