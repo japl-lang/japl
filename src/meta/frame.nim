@@ -22,7 +22,7 @@ import ../types/baseObject
 
 
 type
-    CallFrame* = ref object    # FIXME: Call frames are broken (end indexes are likely wrong)
+    CallFrame* = ref object
         function*: ptr Function
         ip*: int
         slot*: int
@@ -49,12 +49,8 @@ proc `[]`*(self: CallFrame, idx: int): ptr Obj =
 
 
 proc `[]=`*(self: CallFrame, idx: int, val: ptr Obj) =
-    if idx < self.slot:
-        raise newException(IndexDefect, "CallFrame index out of range")
     self.stack[idx + self.slot] = val
 
 
 proc delete*(self: CallFrame, idx: int) =
-    if idx < self.slot:
-        raise newException(IndexDefect, "CallFrame index out of range")
     self.stack.delete(idx + self.slot)
