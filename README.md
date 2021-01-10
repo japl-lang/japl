@@ -109,7 +109,7 @@ git clone https://github.com/japl-lang/japl
 ## Running the build script
 
 As a next step, you need to run the build script. This will generate the required configuration files,
-compile the JAPL runtime and run tests. There are some options that
+compile the JAPL runtime and run tests (unless `--skip-tests` is passed). There are some options that
 can be tweaked with command-line options, for more information, run `python3 build.py --help`.
 
 
@@ -141,10 +141,13 @@ There are also some compile-time constants (such as the heap grow factor for the
 - `debug_vm` -> Debugs the runtime, instruction by instruction, showing the effects of the bytecode on the VM's stack and scopes in real time (beware of bugs!)
 - `debug_gc` -> Debugs the garbage collector (once we have one)
 - `debug_alloc` -> Debugs memory allocation/deallocation
-- `debug_compiler` -> Debugs the compiler, showing each bytes that is spit into the bytecode
+- `debug_compiler` -> Debugs the compiler, showing each byte that is spit into the bytecode
 
 
 Each of these options is independent of the others and can be enabled/disabled at will. To enable an option, pass `option_name:true` to `--options` while to disable it, replace `true` with `false`.
 
 Note that the build tool will generate a file named `config.nim` inside the `src` directory and will use that for subsequent builds, so if you want to override it you'll have to pass `--override-config` as a command-line options. Passing it without any option will fallback to (somewhat) sensible defaults
 
+**P.S.**: The test suite assumes that all debugging options are turned off, so
+for development/debug builds we recommend skipping the test suite by passing
+`--skip-tests` to the build script
