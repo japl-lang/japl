@@ -170,6 +170,7 @@ if __name__ == "__main__":
     "Note that if a config.nim file exists in the destination directory, that will override any setting defined here unless --override-config is used")
     parser.add_argument("--override-config", help="Overrides the setting of an already existing config.nim file in the destination directory", action="store_true")
     parser.add_argument("--skip-tests", help="Skips running the JAPL test suite, useful for debug builds", action="store_true")
+    parser.add_argument("--keep-results-file", help="Instructs the build tool to not delete the testresults.txt file from the test suite, useful for debugging", action="store_true")
     args = parser.parse_args()
     flags = {
             "gc": "markAndSweep",
@@ -208,4 +209,9 @@ if __name__ == "__main__":
             logging.error("Invalid parameter for --options")
             exit()
     build(args.path, flags, options, args.override_config, args.skip_tests)
+    if not args.keep_results_file:
+        try:
+            os.remove("testresults.txt")
+        except Exception as error:
+            logging.warning(f"Could not remove test results file due to a {type(error).__name__}: {error}")
     logging.debug("Build tool exited")
