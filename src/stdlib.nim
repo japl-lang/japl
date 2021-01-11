@@ -17,7 +17,6 @@
 import vm
 import types/native
 import types/baseObject
-import types/japlNil
 import types/numbers
 import types/methods
 import types/japlString

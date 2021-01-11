@@ -509,7 +509,7 @@ proc run(self: VM, repl: bool): InterpretResult =
                 # reasons and works on any pair of objects
                 var right = self.pop()
                 var left = self.pop()
-                self.push(self.getBoolean(addr(left) == addr(right)))
+                self.push(self.getBoolean(left == right))
             of OpCode.GetItem:
                 # TODO: More generic method
                 if not self.slice():

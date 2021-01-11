@@ -27,7 +27,6 @@ import types/baseObject
 import types/function
 import types/numbers
 import types/japlString
-import types/methods
 import tables
 import config
 import memory
@@ -88,7 +87,7 @@ proc makeRule(prefix, infix: ParseFn, precedence: Precedence): ParseRule =
     result = ParseRule(prefix: prefix, infix: infix, precedence: precedence)
 
 
-proc advance(self: var Parser): Token =
+proc advance(self: Parser): Token =
     ## Steps forward by one in the tokens' list and
     ## increments the current token index
     result = self.tokens[self.current]
@@ -111,7 +110,7 @@ proc check(self: Parser, kind: TokenType): bool =
     return self.peek().kind == kind
 
 
-proc match(self: var Parser, kind: TokenType): bool =
+proc match(self: Parser, kind: TokenType): bool =
     ## Calls self.check() and consumes a token if the expected
     ## token type is encountered, in which case true
     ## is returned. False is returned otherwise
@@ -120,7 +119,39 @@ proc match(self: var Parser, kind: TokenType): bool =
     return true
 
 
-proc parseError(self: var Parser, token: Token, message: string) =
+proc synchronize(self: Parser) =
+    ## Synchronizes the parser's state. This is useful when
+    ## dealing with parsing errors. When an error occurs, we
+    ## note it with our nice panicMode and hadError fields, but
+    ## that in itself doesn't allow the parser to go forward
+    ## in the code and report other possible errors. On the
+    ## other hand, attempting to start parsing the source
+    ## right after an error has occurred could lead to a
+    ## cascade of unhelpful error messages that complicate
+    ## debugging issues. So, when an error occurs, we try
+    ## to get back into a state that at least allows us to keep
+    ## parsing and pretend the error never happened (the code
+    ## would not be compiled anyway so we might as well tell the
+    ## user if anything else is wrong with their code). The parser
+    ## will skip to the next valid token for a statement, like an
+    ## if or a for loop or a class declaration, and then keep
+    ## parsing from there. Note that hadError is never reset, but
+    ## panicMode is
+    self.panicMode = false
+    while self.peek().kind != TokenType.EOF:   # Infinite loops are bad, so we must take EOF into account
+        if self.previous().kind == TokenType.SEMICOLON:
+            return
+        case self.peek().kind:
+            of TokenType.CLASS, TokenType.FUN, TokenType.VAR,
+                TokenType.FOR, TokenType.IF, TokenType.WHILE, 
+                TokenType.RETURN:   # We found a statement boundary, so the parser bails out
+                return
+            else:
+                discard
+        discard self.advance()
+
+
+proc parseError(self: Parser, token: Token, message: string) =
     ## Notifies the user about parsing errors, writing them to
     ## the standard error file. This parser is designed to report
     ## all syntatical errors inside a file in one go, rather than
@@ -132,9 +163,10 @@ proc parseError(self: var Parser, token: Token, message: string) =
     self.panicMode = true
     self.hadError = true
     stderr.write(&"A fatal error occurred while parsing '{self.file}', line {token.line}, at '{token.lexeme}' -> {message}\n")
+    self.synchronize()
 
 
-proc consume(self: var Parser, expected: TokenType, message: string) =
+proc consume(self: Parser, expected: TokenType, message: string) =
     ## Attempts to consume a token if it is of the expected type
     ## or raises a parsing error with the given message otherwise
     if self.check(expected):
@@ -212,7 +244,11 @@ proc initCompiler*(context: FunctionType, enclosing: Compiler = nil, parser: Par
 
 proc parsePrecedence(self: Compiler, precedence: Precedence) =
     ## Parses expressions using pratt's elegant algorithm to precedence parsing
-    discard self.parser.advance()
+    if self.parser.peek().kind == TokenType.EOF:
+        self.parser.parseError(self.parser.peek(), "Expecting expression")
+        return
+    else:
+        discard self.parser.advance()
     var prefixRule = getRule(self.parser.previous.kind).prefix
     if prefixRule == nil:   # If there is no prefix rule than an expression is expected
         self.parser.parseError(self.parser.previous, "Expecting expression")
@@ -419,38 +455,6 @@ proc grouping(self: Compiler, canAssign: bool) =
     else:
         self.expression()
         self.parser.consume(TokenType.RP, "Expecting ')' after parentheszed expression")
-
-
-proc synchronize(self: Compiler) =
-    ## Synchronizes the parser's state. This is useful when
-    ## dealing with parsing errors. When an error occurs, we
-    ## note it with our nice panicMode and hadError fields, but
-    ## that in itself doesn't allow the parser to go forward
-    ## in the code and report other possible errors. On the
-    ## other hand, attempting to start parsing the source
-    ## right after an error has occurred could lead to a
-    ## cascade of unhelpful error messages that complicate
-    ## debugging issues. So, when an error occurs, we try
-    ## to get back into a state that at least allows us to keep
-    ## parsing and pretend the error never happened (the code
-    ## would not be compiled anyway so we might as well tell the
-    ## user if anything else is wrong with their code). The parser
-    ## will skip to the next valid token for a statement, like an
-    ## if or a for loop or a class declaration, and then keep
-    ## parsing from there. Note that hadError is never reset, but
-    ## panicMode is
-    self.parser.panicMode = false
-    while self.parser.peek().kind != TokenType.EOF:   # Infinite loops are bad, so we must take EOF into account
-        if self.parser.previous().kind == TokenType.SEMICOLON:
-            return
-        case self.parser.peek().kind:
-            of TokenType.CLASS, TokenType.FUN, TokenType.VAR,
-                TokenType.FOR, TokenType.IF, TokenType.WHILE, 
-                TokenType.RETURN:   # We found a statement boundary, so the parser bails out
-                return
-            else:
-                discard
-        discard self.parser.advance()
 
 
 proc identifierConstant(self: Compiler, tok: Token): uint8 =
@@ -682,9 +686,7 @@ proc endScope(self: Compiler) =
     ## Ends a scope, popping off any local that
     ## was created inside it along the way
     self.scopeDepth = self.scopeDepth - 1
-
     var start: Natural = self.localCount
-
     while self.localCount > 0 and self.locals[self.localCount - 1].depth > self.scopeDepth:
         self.emitByte(OpCode.Pop)
         self.localCount = self.localCount - 1
@@ -1039,8 +1041,6 @@ proc declaration(self: Compiler) =
         self.varDeclaration()
     else:
         self.statement()
-    if self.parser.panicMode:
-        self.synchronize()
 
 
 proc freeObject(self: Compiler, obj: ptr Obj) =
