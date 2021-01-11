@@ -525,57 +525,47 @@ proc run(self: VM, repl: bool): InterpretResult =
                 if not self.sliceRange():
                     return RuntimeError
             of OpCode.DefineGlobal:
+                var name: string
                 if frame.function.chunk.consts.len > 255:
-                    self.globals[frame.readLongConstant().toStr()] = self.peek(0)
+                    name = frame.readLongConstant().toStr()
                 else:
-                    self.globals[frame.readConstant().toStr()] = self.peek(0)
+                    name = frame.readConstant().toStr()
+                self.globals[name] = self.peek(0)
                 discard self.pop()
             of OpCode.GetGlobal:
+                var constant: string
                 if frame.function.chunk.consts.len > 255:
-                    var constant = frame.readLongConstant().toStr()
-                    if constant notin self.globals:
-                        self.error(newReferenceError(&"undefined name '{constant}'"))
-                        return RuntimeError
-                    else:
-                        self.push(self.globals[constant])
+                    constant = frame.readLongConstant().toStr()
                 else:
-                    var constant = frame.readConstant().toStr()
-                    if constant notin self.globals:
-                        self.error(newReferenceError(&"undefined name '{constant}'"))
-                        return RuntimeError
-                    else:
-                        self.push(self.globals[constant])
+                    constant = frame.readConstant().toStr()
+                if constant notin self.globals:
+                    self.error(newReferenceError(&"undefined name '{constant}'"))
+                    return RuntimeError
+                else:
+                    self.push(self.globals[constant])
             of OpCode.SetGlobal:
+                var constant: string
                 if frame.function.chunk.consts.len > 255:
-                    var constant = frame.readLongConstant().toStr()
-                    if constant notin self.globals:
-                        self.error(newReferenceError(&"assignment to undeclared name '{constant}'"))
-                        return RuntimeError
-                    else:
-                        self.globals[constant] = self.peek(0)
+                    constant = frame.readLongConstant().toStr()
                 else:
-                    var constant = frame.readConstant().toStr()
-                    if constant notin self.globals:
-                        self.error(newReferenceError(&"assignment to undeclared name '{constant}'"))
-                        return RuntimeError
-                    else:
-                        self.globals[constant] = self.peek(0)
+                    constant = frame.readConstant().toStr()
+                if constant notin self.globals:
+                    self.error(newReferenceError(&"assignment to undeclared name '{constant}'"))
+                    return RuntimeError
+                else:
+                    self.globals[constant] = self.peek(0)
             of OpCode.DeleteGlobal:
                 # TODO: Inspect potential issues with the GC
+                var constant: string
                 if frame.function.chunk.consts.len > 255:
-                    var constant = frame.readLongConstant().toStr()
-                    if constant notin self.globals:
-                        self.error(newReferenceError(&"undefined name '{constant}'"))
-                        return RuntimeError
-                    else:
-                        self.globals.del(constant)
+                    constant = frame.readLongConstant().toStr()
                 else:
-                    var constant = frame.readConstant().toStr()
-                    if constant notin self.globals:
-                        self.error(newReferenceError(&"undefined name '{constant}'"))
-                        return RuntimeError
-                    else:
-                        self.globals.del(constant)
+                    constant = frame.readConstant().toStr()
+                if constant notin self.globals:
+                    self.error(newReferenceError(&"undefined name '{constant}'"))
+                    return RuntimeError
+                else:
+                    self.globals.del(constant)
             of OpCode.GetLocal:
                 if frame.len > 255:
                     self.push(frame[frame.readBytes()])
@@ -588,12 +578,12 @@ proc run(self: VM, repl: bool): InterpretResult =
                     frame[int frame.readByte()] = self.peek(0)
             of OpCode.DeleteLocal:
                 # TODO: Inspect potential issues with the GC
+                var slot: int
                 if frame.len > 255:
-                    var slot = frame.readBytes()
-                    frame.delete(slot)
+                    slot = frame.readBytes()
                 else:
-                    var slot = frame.readByte()
-                    frame.delete(int slot)
+                    slot = int frame.readByte()
+                frame.delete(slot)
             of OpCode.Pop:
                 self.lastPop = self.pop()
             of OpCode.JumpIfFalse:
@@ -610,7 +600,7 @@ proc run(self: VM, repl: bool): InterpretResult =
                     return RuntimeError
                 frame = self.frames[self.frameCount - 1]
             of OpCode.Break:
-                discard
+                discard   # Unused (the compiler converts it to other stuff before it arrives here)
             of OpCode.Return:
                 var retResult = self.pop()
                 if repl and not self.lastPop.isNil() and self.frameCount == 1:
