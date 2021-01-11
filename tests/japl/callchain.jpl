@@ -1,0 +1,18 @@
+
+fun add2(x)
+{
+    return x + 2;
+}
+fun sub2(x)
+{
+    return x - 2;
+}
+fun mul2(x)
+{
+    return x * 2;
+}
+
+print(add2(sub2(mul2(sub2(5)))));
+//5-2=3
+//3*2=6
+//output:6

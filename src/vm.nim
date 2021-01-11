@@ -328,18 +328,18 @@ proc run(self: VM, repl: bool): InterpretResult =
         {.computedgoto.}   # See https://nim-lang.org/docs/manual.html#pragmas-computedgoto-pragma
         instruction = frame.readByte()
         opcode = OpCode(instruction)
-        ## This offset dictates how the call frame behaves when converting
-        ## relative frame indexes to absolute stack indexes, since the behavior
-        ## in function local vs. global/scope-local scope is different
         when DEBUG_TRACE_VM:    # Insight inside the VM
             stdout.write("Current VM stack status: [")
-            for v in self.stack:
+            for i, v in self.stack:
                 stdout.write(stringify(v))
-                stdout.write(", ")
+                if i < self.stack.high():
+                    stdout.write(", ")
             stdout.write("]\n")
             stdout.write("Current global scope status: {")
             for i, (k, v) in enumerate(self.globals.pairs()):
+                stdout.write("'")
                 stdout.write(k)
+                stdout.write("'")
                 stdout.write(": ")
                 stdout.write(stringify(v))
                 if i < self.globals.len() - 1:
@@ -352,6 +352,13 @@ proc run(self: VM, repl: bool): InterpretResult =
                 stdout.write(&"function, '{frame.function.name.stringify()}'\n")
             echo &"Current frame count: {self.frameCount}"
             echo &"Current frame length: {frame.len}"
+            stdout.write("Current frame constants table: ")
+            stdout.write("[")
+            for i, e in frame.function.chunk.consts:
+                stdout.write(stringify(e))
+                if i < frame.function.chunk.consts.high():
+                    stdout.write(", ")
+            stdout.write("]\n")
             stdout.write("Current frame stack status: ")
             stdout.write("[")
             for i, e in frame.getView():

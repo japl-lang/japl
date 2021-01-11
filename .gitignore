@@ -13,10 +13,15 @@ htmldocs/
 src/japl
 src/compiler
 tests/runtests
+tests/maketest
 src/lexer
 src/vm
 tests/runtests
 testresults.txt
+.testoutput.txt
+.tempcode.jpl
+.tempcode_drEHdZuwNYLqsQaMDMqeNRtmqoqXBXfnCfeqEcmcUYJToBVQkF.jpl
+.tempoutput.txt
 
 # MacOS
 
@@ -36,6 +41,3 @@ main
 
 config.nim
 
-# test results
-
-testresults.txt

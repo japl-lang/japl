@@ -1,0 +1,8 @@
+var a = 2 + "hey";
+//output:Traceback (most recent call last):
+
+//output:  File '', line 1, in '<module>':
+
+//output:TypeError: unsupported binary operator '+' for objects of type 'integer' and 'string'
+
+//output:

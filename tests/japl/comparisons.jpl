@@ -1,0 +1,42 @@
+var x = 4;
+var y = 5;
+var z = 6;
+if (x < y)
+    print("1");//output:1
+else
+    print("2");
+
+if (x == y)
+    print("3");//output:4
+else
+    print("4");
+
+if (x > y)
+    print("5");//output:6
+else if (x < y)
+    print("6");
+
+if (y >= 5)
+    print("7");//output:7
+else
+    print("8");
+
+if (z >= 5)
+    print("9");//output:9
+else
+    print("10");
+
+if (x <= 4)
+    print("11");//output:11
+else
+    print("12");
+
+if (2 <= y)
+    print("13");//output:13
+else
+    print("14");
+
+if (8 <= z)
+    print("15");
+else
+    print("16");//output:16
