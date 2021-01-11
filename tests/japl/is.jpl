@@ -1,7 +1,7 @@
 var x = 4;
 var y = x;
 
-print(x is y);//output:false
+print(x is y);//output:true
 print(x is x);//output:true
 print(x is 4);//output:false
 

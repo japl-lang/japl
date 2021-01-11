@@ -20,12 +20,10 @@ import parseopt
 import os
 import config
 import vm
-import stdlib
 
 
 proc repl() =
     var bytecodeVM = initVM()
-    bytecodeVM.stdlibInit()
     echo JAPL_VERSION_STRING
     echo &"[Nim {NimVersion} on {hostOs} ({hostCPU})]"
     when DEBUG_TRACE_VM:
@@ -65,6 +63,7 @@ proc main(file: var string = "", fromString: bool = false) =
     var source: string
     if file == "":
         repl()
+        return   # We exit after the REPL has ran
     elif not fromString:
         var sourceFile: File
         try:
@@ -80,7 +79,6 @@ proc main(file: var string = "", fromString: bool = false) =
         source = file
         file = "<string>"
     var bytecodeVM = initVM()
-    bytecodeVM.stdlibInit()
     when DEBUG_TRACE_VM:
         echo "Debugger enabled, expect verbose output\n"
         echo "==== VM Constants ====\n"

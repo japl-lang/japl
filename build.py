@@ -209,7 +209,7 @@ if __name__ == "__main__":
             logging.error("Invalid parameter for --options")
             exit()
     build(args.path, flags, options, args.override_config, args.skip_tests)
-    if not args.keep_results_file:
+    if not args.keep_results_file and not args.skip_tests:
         try:
             os.remove("testresults.txt")
         except Exception as error:

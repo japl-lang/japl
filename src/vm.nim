@@ -22,6 +22,7 @@ import strformat
 import tables
 import std/enumerate
 ## Our modules
+import stdlib
 import memory
 import config
 import compiler
@@ -59,7 +60,7 @@ type
         stackTop*: int
         objects*: seq[ptr Obj]
         globals*: Table[string, ptr Obj]
-        cached: array[5, ptr Obj]
+        cached: array[6, ptr Obj]
         file*: string
 
 
@@ -243,21 +244,27 @@ proc call(self: VM, native: ptr Native, argCount: int): bool =
     for i in countup(slot, self.stack.high()):
         args.add(self.stack[i])
     let nativeResult = native.nimproc(args)
-    if not nativeResult.ok:
-        self.error(cast[ptr JaplException](nativeResult.result))
-        return false
-        # assumes that all native procs behave well, and if not ok, they
-        # only return japl exceptions
     for i in countup(slot - 1, self.stack.high()):
         discard self.pop() # TODO once stack is a custom datatype,
         # just reduce its length
-    if nativeResult.result == nil:
-        # Since nil is a singleton, natives
-        # don't reallocate it and we need to
-        # reuse our cached object instead
-        self.push(self.cached[2])
-    else:
-        self.push(nativeResult.result)
+    case nativeResult.kind:
+        of retNative.True:
+            self.push(self.getBoolean(true))
+        of retNative.False:
+            self.push(self.getBoolean(false))
+        of retNative.Object:
+            self.push(nativeResult.result)
+        of retNative.Nil:
+            self.push(self.cached[2])
+        of retNative.Inf:
+            self.push(self.cached[3])
+        of retNative.nInf:
+            self.push(self.cached[4])
+        of retNative.NotANumber:
+            self.push(self.cached[5])
+        of retNative.Exception:
+            self.error(cast[ptr JaplException](nativeResult.result))
+            return false
     return true
 
 
@@ -322,30 +329,25 @@ proc run(self: VM, repl: bool): InterpretResult =
     ## them one at a time: this is the runtime's
     ## main loop
     var frame = self.frames[self.frameCount - 1]
-    var instruction: uint8
     var opcode: OpCode
+    when DEBUG_TRACE_VM:
+        var iteration: int = 0
     while true:
         {.computedgoto.}   # See https://nim-lang.org/docs/manual.html#pragmas-computedgoto-pragma
-        instruction = frame.readByte()
-        opcode = OpCode(instruction)
+        opcode = OpCode(frame.readByte())
         when DEBUG_TRACE_VM:    # Insight inside the VM
-            stdout.write("Current VM stack status: [")
+            iteration += 1
+            stdout.write(&"Iteration N. {iteration}\nCurrent VM stack status: [")
             for i, v in self.stack:
                 stdout.write(stringify(v))
                 if i < self.stack.high():
                     stdout.write(", ")
-            stdout.write("]\n")
-            stdout.write("Current global scope status: {")
+            stdout.write("]\nCurrent global scope status: {")
             for i, (k, v) in enumerate(self.globals.pairs()):
-                stdout.write("'")
-                stdout.write(k)
-                stdout.write("'")
-                stdout.write(": ")
-                stdout.write(stringify(v))
+                stdout.write(&"'{k}': {stringify(v)}")
                 if i < self.globals.len() - 1:
                     stdout.write(", ")
-            stdout.write("}\n")
-            stdout.write("Current frame type: ")
+            stdout.write("}\nCurrent frame type: ")
             if frame.function.name == nil:
                 stdout.write("main\n")
             else:
@@ -358,8 +360,7 @@ proc run(self: VM, repl: bool): InterpretResult =
                 stdout.write(stringify(e))
                 if i < frame.function.chunk.consts.high():
                     stdout.write(", ")
-            stdout.write("]\n")
-            stdout.write("Current frame stack status: ")
+            stdout.write("]\nCurrent frame stack status: ")
             stdout.write("[")
             for i, e in frame.getView():
                 stdout.write(stringify(e))
@@ -704,8 +705,27 @@ proc initCache(self: VM) =
             false.asBool().asObj(),
             asNil().asObj(),
             asInf().asObj(),
+            nil,
             asNan().asObj()
             ]
+    # We cache -inf as well
+    let nInf = asInf()
+    nInf.isNegative = true
+    self.cached[4] = nInf.asObj()
+
+
+proc stdlibInit*(vm: VM) =
+    ## Initializes the VM's standard library by defining builtin
+    ## functions that do not require imports. An arity of -1
+    ## means that the function is variadic (or that it can
+    ## take a different number of arguments according to
+    ## how it's called) and should be handled by the nim
+    ## procedure accordingly
+    vm.defineGlobal("print", newNative("print", natPrint, -1))
+    vm.defineGlobal("clock", newNative("clock", natClock, 0))
+    vm.defineGlobal("round", newNative("round", natRound, -1))
+    vm.defineGlobal("toInt", newNative("toInt", natToInt, 1))
+    vm.defineGlobal("type", newNative("type", natType, 1))
 
 
 proc initVM*(): VM =
@@ -714,6 +734,7 @@ proc initVM*(): VM =
     var globals: Table[string, ptr Obj] = initTable[string, ptr Obj]()
     result = VM(lastPop: asNil(), objects: @[], globals: globals, source: "", file: "")
     result.initCache()
+    result.stdlibInit()
 
 
 proc interpret*(self: VM, source: string, repl: bool = false, file: string): InterpretResult =

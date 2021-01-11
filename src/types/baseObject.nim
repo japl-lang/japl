@@ -59,5 +59,4 @@ proc newObj*(): ptr Obj =
 proc asObj*(self: ptr Obj): ptr Obj = 
     ## Casts a specific JAPL object into a generic
     ## pointer to Obj
-    
     result = cast[ptr Obj](self)

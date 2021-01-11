@@ -205,9 +205,6 @@ proc scanToken(self: Lexer) =
         return
     elif single == '\n':
         self.line += 1
-         # TODO: Fix this to only emit semicolons where needed
-#        if self.tokens[^1].kind != TokenType.SEMICOLON:
- #           self.tokens.add(self.createToken(TOKENS[';']))
     elif single in ['"', '\'']:
         self.parseString(single)
     elif single.isDigit():
@@ -247,8 +244,6 @@ proc lex*(self: Lexer): seq[Token] =
     while not self.done():
         self.start = self.current
         self.scanToken()
-#    if self.tokens[^1].kind != TokenType.SEMICOLON:
- #       self.tokens.add(self.createToken(TOKENS[';']))
     self.tokens.add(Token(kind: TokenType.EOF, lexeme: "EOF", line: self.line))
     return self.tokens
 
