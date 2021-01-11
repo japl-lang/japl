@@ -41,7 +41,8 @@ const TOKENS = to_table({
               '/': TokenType.SLASH, '%': TokenType.MOD,
               '[': TokenType.LS, ']': TokenType.RS,
               ':': TokenType.COLON, '^': TokenType.CARET,
-              '&': TokenType.BAND, '|': TokenType.BOR,})
+              '&': TokenType.BAND, '|': TokenType.BOR,
+              '!': TokenType.NEG})
 
 # Constant table storing all the reserved keywords for JAPL
 const RESERVED = to_table({
@@ -79,7 +80,7 @@ proc done(self: Lexer): bool =
     result = self.current >= self.source.len
 
 
-proc step(self: var Lexer): char =
+proc step(self: Lexer): char =
     ## Steps one character forward in the
     ## source file. A null terminator is returned
     ## if the lexer is at EOF
@@ -100,7 +101,7 @@ proc peek(self: Lexer): char =
         result = self.source[self.current]
 
 
-proc match(self: var Lexer, what: char): bool =
+proc match(self: Lexer, what: char): bool =
     ## Returns true if the next character matches
     ## the given character, and consumes it.
     ## Otherwise, false is returned
@@ -124,7 +125,7 @@ proc peekNext(self: Lexer): char =
         result = self.source[self.current + 1]
 
 
-proc createToken(self: var Lexer, tokenType: TokenType): Token =
+proc createToken(self: Lexer, tokenType: TokenType): Token =
     ## Creates a token object for later use in the parser
     result = Token(kind: tokenType,
                    lexeme: self.source[self.start..<self.current],
@@ -132,7 +133,7 @@ proc createToken(self: var Lexer, tokenType: TokenType): Token =
                    )
 
 
-proc parseString(self: var Lexer, delimiter: char) =
+proc parseString(self: Lexer, delimiter: char) =
     ## Parses string literals
     while self.peek() != delimiter and not self.done():
         if self.peek() == '\n':
@@ -146,7 +147,7 @@ proc parseString(self: var Lexer, delimiter: char) =
     self.tokens.add(token)
 
 
-proc parseNumber(self: var Lexer) =
+proc parseNumber(self: Lexer) =
     ## Parses numeric literals
     while isDigit(self.peek()):
         discard self.step()
@@ -157,7 +158,7 @@ proc parseNumber(self: var Lexer) =
     self.tokens.add(self.createToken(TokenType.NUMBER))
 
 
-proc parseIdentifier(self: var Lexer) =
+proc parseIdentifier(self: Lexer) =
     ## Parses identifiers, note that
     ## multi-character tokens such as
     ## UTF runes are not supported
@@ -170,7 +171,7 @@ proc parseIdentifier(self: var Lexer) =
         self.tokens.add(self.createToken(TokenType.ID))
 
 
-proc parseComment(self: var Lexer) =
+proc parseComment(self: Lexer) =
     ## Parses multi-line comments. They start
     ## with /* and end with */, and can be nested.
     ## A missing comment terminator will raise an
@@ -195,7 +196,7 @@ proc parseComment(self: var Lexer) =
         stderr.write(&"A fatal error occurred while parsing '{self.file}', line {self.line} at '{self.peek()}' -> Unexpected EOF\n")
 
 
-proc scanToken(self: var Lexer) =
+proc scanToken(self: Lexer) =
     ## Scans a single token. This method is
     ## called iteratively until the source
     ## file reaches EOF
@@ -240,7 +241,7 @@ proc scanToken(self: var Lexer) =
         stderr.write(&"A fatal error occurred while parsing '{self.file}', line {self.line} at '{self.peek()}' -> Unexpected token '{single}'\n")
 
 
-proc lex*(self: var Lexer): seq[Token] =
+proc lex*(self: Lexer): seq[Token] =
     ## Lexes a source file, converting a stream
     ## of characters into a series of tokens
     while not self.done():
