@@ -567,15 +567,19 @@ proc run(self: VM, repl: bool): InterpretResult =
                 else:
                     self.globals.del(constant)
             of OpCode.GetLocal:
+                var slot: int
                 if frame.len > 255:
-                    self.push(frame[frame.readBytes()])
+                    slot = frame.readBytes()
                 else:
-                    self.push(frame[int frame.readByte()])
+                    slot = int frame.readByte()
+                self.push(frame[slot])
             of OpCode.SetLocal:
+                var slot: int
                 if frame.len > 255:
-                    frame[frame.readBytes()] = self.peek(0)
+                    slot = frame.readBytes()
                 else:
-                    frame[int frame.readByte()] = self.peek(0)
+                    slot = int frame.readByte()
+                frame[slot] = self.peek(0)
             of OpCode.DeleteLocal:
                 # TODO: Inspect potential issues with the GC
                 var slot: int
