@@ -37,12 +37,11 @@ const TOKENS = to_table({
               '-': TokenType.MINUS, '+': TokenType.PLUS,
               ';': TokenType.SEMICOLON, '*': TokenType.STAR,
               '>': TokenType.GT, '<': TokenType.LT,
-              '=': TokenType.EQ, '!': TokenType.NEG,
+              '=': TokenType.EQ, '~': TokenType.TILDE,
               '/': TokenType.SLASH, '%': TokenType.MOD,
               '[': TokenType.LS, ']': TokenType.RS,
               ':': TokenType.COLON, '^': TokenType.CARET,
-              '&': TokenType.BAND, '|': TokenType.BOR,
-              '~': TokenType.TILDE})
+              '&': TokenType.BAND, '|': TokenType.BOR,})
 
 # Constant table storing all the reserved keywords for JAPL
 const RESERVED = to_table({
@@ -57,7 +56,8 @@ const RESERVED = to_table({
                 "del": TokenType.DEL, "break": TokenType.BREAK,
                 "continue": TokenType.CONTINUE, "inf": TokenType.INF,
                 "nan": TokenType.NAN,
-                "is": TokenType.IS})
+                "is": TokenType.IS,
+                "not": TokenType.NEG})
 type
     Lexer* = ref object
         source*: string
