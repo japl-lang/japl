@@ -24,7 +24,8 @@
 
 import segfaults
 import config
-import strformat
+when DEBUG_TRACE_ALLOCATION:
+    import strformat
 
 
 proc reallocate*(pointr: pointer, oldSize: int, newSize: int): pointer =
@@ -41,7 +42,7 @@ proc reallocate*(pointr: pointer, oldSize: int, newSize: int): pointer =
             else:
                 echo &"DEBUG - Memory manager: Resizing {oldSize} bytes of memory to {newSize} bytes"
         result = realloc(pointr, newSize)
-    except NilAccessError:
+    except NilAccessDefect:
         stderr.write("A fatal error occurred -> could not manage memory, segmentation fault\n")
         quit(71)   # For now, there's not much we can do if we can't get the memory we need
 
