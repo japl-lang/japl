@@ -21,42 +21,39 @@ In no particular order, here's a list that is constantly updated and that helps 
 of what's done in JAPL:
 
 - [x] Parsing/Lexing
-- [x] Object oriented type system
+- [x] Type system (string, integer, float)
+- [ ] Builtin collections (arraylist, mapping, tuple, set)
+- [x] Builtin functions (`print`, etc)
+- [ ] An import system
 - [x] Control flow (if/else)
 - [x] Loops (for/while)
-- [x] Basic comparisons operators (`>`, `<`, `>=`, `<=`, `!=`, `==`)
-- [x] Logical operators (`!`, `or`, `and`)
-- [x] Multi-line comments `/* like this */` (can be nested)
-- [x] `inf` and `nan` types
-- [x] Basic arithmetic (`+`, `-`, `/`, `*`)
+- [x] Comparisons operators (`>`, `<`, `>=`, `<=`, `!=`, `==`)
+- [ ] Casting with the `as` operator
 - [x] Modulo division (`%`) and exponentiation (`**`)
 - [x] Bitwise operators (AND, OR, XOR, NOT)
-- [x] Global and local variables
-- [x] Explicit scopes using bracket
-- [x] Simple optimizations (constant string interning, singletons caching
-- [ ] Garbage collector
-- [x] String slicing, with start:end syntax as well
-- [x] Operations on strings (addition, multiplication)
+- [x] Simple optimizations (constant string interning, singletons caching)
+- [ ] Garbage collector (Mark & Sweep)
+- [x] Operations on strings (addition, multiplication -> TODO both sides)
 - [ ] Functions and Closures
 - [ ] Functions default and keyword arguments
 - [ ] An OOP system (class-based)
-- [ ] Builtins as classes (types) 
-- [ ] A proper import system 
+- [x] Global and local variables
+- [x] Explicit scopes using bracket
 - [ ] Native asynchronous (`await`/`async fun`) support 
 - [ ] Bytecode optimizations such as constant folding and stack caching 
-- [ ] Arbitrary-precision arithmetic 
+- [ ] Arbitrary-precision arithmetic
+- [x] Multi-line comments `/* like this */` (can be nested)
 - [ ] Generators 
-- [ ] A standard library with collections, I/O utilities, scientific modules, etc
+- [ ] A standard library
+- [x] String slicing, with start:end syntax as well
 - [ ] Multithreading and multiprocessing support with a global VM Lock like CPython
 - [ ] Exceptions 
+- [x] Logical operators (`not`, `or`, `and`, `is`)
+- [x] Basic arithmetic (`+`, `-`, `/`, `*`)
 - [ ] Optional JIT Compilation 
+- [ ] Static type checker (compiler module)
+- [ ] Runtime Type Checking
 
-### Classifiers
-
-- __WIP__: Work In Progress, being implemented right now
-- __Coming Soon__: Not yet implemented/designed but scheduled
-- __Rework Needed__: The feature works, but can (and must) be optimized/reimplemented properly
-- [x] : The feature works as intended
 
 ## Contributing
 
