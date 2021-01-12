@@ -63,15 +63,16 @@ type
 
     Precedence {.pure.} = enum
         None,
-        Assignment,
+        Assign,
         Or,
         And,
-        Equality,
-        Comparison,
+        Is,
+        Eq,
+        Comp,
         Term,
         Factor,
         Unary,
-        Exponentiation,
+        Exp,
         Call,
         Primary
 
@@ -253,7 +254,7 @@ proc parsePrecedence(self: Compiler, precedence: Precedence) =
     if prefixRule == nil:   # If there is no prefix rule than an expression is expected
         self.parser.parseError(self.parser.previous, "Expecting expression")
         return
-    var canAssign = precedence <= Precedence.Assignment   # This is used to detect invalid assignment targets
+    var canAssign = precedence <= Precedence.Assign   # This is used to detect invalid assignment targets
     # such as "hello" = 3;
     self.prefixRule(canAssign)   # otherwise call the prefix rule (e.g. for binary negation)
     if self.parser.previous.kind == EOF:
@@ -267,13 +268,13 @@ proc parsePrecedence(self: Compiler, precedence: Precedence) =
             self.infixRule(canAssign)
         else:
             self.parser.parseError(self.parser.previous, "Expecting expression, got EOF")
-    if canAssign and self.parser.match(EQ):
+    if canAssign and self.parser.match(TokenType.EQ):
         self.parser.parseError(self.parser.peek, "Invalid assignment target")
 
 
 proc expression(self: Compiler) =
     ## Parses expressions
-    self.parsePrecedence(Precedence.Assignment)  # The highest-level expression is assignment
+    self.parsePrecedence(Precedence.Assign)  # The highest-level expression is assignment
 
 
 proc binary(self: Compiler, canAssign: bool) =
@@ -338,6 +339,8 @@ proc unary(self: Compiler, canAssign: bool) =
             self.emitByte(OpCode.Not)
         of TILDE:
             self.emitByte(OpCode.Bnot)
+        of PLUS:
+            discard   # Unary + does nothing anyway
         else:
             return
 
@@ -569,7 +572,7 @@ proc namedVariable(self: Compiler, tok: Token, canAssign: bool) =
         get = OpCode.GetGlobal
         set = OpCode.SetGlobal
         arg = int self.identifierConstant(tok)
-    if self.parser.match(EQ) and canAssign:
+    if self.parser.match(TokenType.EQ) and canAssign:
         self.expression()
         self.emitBytes(set, uint8 arg)
     else:
@@ -593,7 +596,7 @@ proc namedLongVariable(self: Compiler, tok: Token, canAssign: bool) =
         get = OpCode.GetGlobal
         set = OpCode.SetGlobal
         casted = self.identifierLongConstant(tok)
-    if self.parser.match(EQ) and canAssign:
+    if self.parser.match(TokenType.EQ) and canAssign:
         self.expression()
         self.emitByte(set)
         self.emitBytes(casted)
@@ -624,7 +627,7 @@ proc varDeclaration(self: Compiler) =
     else:
         useShort = false
         longName = self.parseLongVariable("Expecting variable name")
-    if self.parser.match(EQ):
+    if self.parser.match(TokenType.EQ):
         self.expression()
     else:
         self.emitByte(OpCode.Nil)
@@ -938,7 +941,7 @@ proc parseFunction(self: Compiler, funType: FunctionType) =
                 return
             paramNames.add(self.parser.previous.lexeme)
             self.defineVariable(paramIdx)
-            if self.parser.match(EQ):
+            if self.parser.match(TokenType.EQ):
                 if self.parser.peek.kind == EOF:
                     self.compileError("Unexpected EOF")
                     return
@@ -1086,22 +1089,26 @@ proc freeCompiler*(self: Compiler) =
         echo &"DEBUG - Compiler: Freed {objFreed} objects out of {objCount} compile-time objects"
 
 
-# The array of all parse rules
+# The array of all parse rules.
+# This array instructs our Pratt parser on how
+# to parse expressions and statements.
+# makeRule defines rules for unary and binary
+# operators as well as the token's precedence
 var rules: array[TokenType, ParseRule] = [
     makeRule(nil, binary, Precedence.Term), # PLUS
     makeRule(unary, binary, Precedence.Term), # MINUS
     makeRule(nil, binary, Precedence.Factor), # SLASH
     makeRule(nil, binary, Precedence.Factor), # STAR
     makeRule(unary, nil, Precedence.None), # NEG
-    makeRule(nil, binary, Precedence.Equality), # NE
+    makeRule(nil, binary, Precedence.Eq), # NE
     makeRule(nil, nil, Precedence.None), # EQ
-    makeRule(nil, binary, Precedence.Comparison), # DEQ
-    makeRule(nil, binary, Precedence.Comparison), # LT
-    makeRule(nil, binary, Precedence.Comparison), # GE
-    makeRule(nil, binary, Precedence.Comparison), # LE
+    makeRule(nil, binary, Precedence.Comp), # DEQ
+    makeRule(nil, binary, Precedence.Comp), # LT
+    makeRule(nil, binary, Precedence.Comp), # GE
+    makeRule(nil, binary, Precedence.Comp), # LE
     makeRule(nil, binary, Precedence.Factor), # MOD
-    makeRule(nil, binary, Precedence.Exponentiation), # POW
-    makeRule(nil, binary, Precedence.Comparison), # GT
+    makeRule(nil, binary, Precedence.Exp), # POW
+    makeRule(nil, binary, Precedence.Comp), # GT
     makeRule(grouping, call, Precedence.Call), # LP
     makeRule(nil, nil, Precedence.None), # RP
     makeRule(nil, bracket, Precedence.Call), # LS
@@ -1113,7 +1120,7 @@ var rules: array[TokenType, ParseRule] = [
     makeRule(nil, nil, Precedence.None), # RS
     makeRule(number, nil, Precedence.None), # NUMBER
     makeRule(strVal, nil, Precedence.None), # STR
-    makeRule(nil, nil, Precedence.None), # SEMI
+    makeRule(nil, nil, Precedence.None), # SEMICOLON
     makeRule(nil, parseAnd, Precedence.And), # AND
     makeRule(nil, nil, Precedence.None), # CLASS
     makeRule(nil, nil, Precedence.None), # ELSE
@@ -1142,7 +1149,7 @@ var rules: array[TokenType, ParseRule] = [
     makeRule(nil, binary, Precedence.Term), # BAND
     makeRule(nil, binary, Precedence.Term), # BOR
     makeRule(unary, nil, Precedence.None), # TILDE
-    makeRule(nil, binary, Precedence.Term)   # IS
+    makeRule(nil, binary, Precedence.Is)   # IS
 ]
 
 
@@ -1183,11 +1190,25 @@ proc compile*(self: Compiler, source: string): ptr Function =
 
 
 proc initParser*(tokens: seq[Token], file: string): Parser =
-    result = Parser(current: 0, tokens: tokens, hadError: false, panicMode: false, file: file)
+    ## Initializes a new Parser obvject and returns a reference
+    ## to it
+    # TODO -> Make the parser independent of the compiler. As
+    # of now, the compiler is what drives the parser and while
+    # that might be easier for us it is not an ideal design.
+    # We'll have to devise a standard interface for other people
+    # to try and hook their parsers into JAPL with ease (pretty
+    # much like our lexer now has the sole requirement of
+    # having a lex() procedure that returns a list of tokens)
+    result = new(Parser)
+    result.current = 0
+    result.tokens = tokens
+    result.hadError = false
+    result.panicMode = false
+    result.file = file
 
 
 proc initCompiler*(context: FunctionType, enclosing: Compiler = nil, parser: Parser = initParser(@[], ""), file: string): Compiler =
-    ## Initializes a new compiler object and returns a reference
+    ## Initializes a new Compiler object and returns a reference
     ## to it
     result = new(Compiler)
     result.parser = parser

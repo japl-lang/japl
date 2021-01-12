@@ -37,8 +37,11 @@ import types/boolean
 import types/methods
 import types/function
 import types/native
-when DEBUG_TRACE_VM:
-    import util/debug
+# We always import it to
+# avoid the compiler complaining
+# about functions not existing
+# in production builds
+import util/debug
 
 
 type
@@ -323,6 +326,41 @@ proc readLongConstant(self: CallFrame): ptr Obj =
     copyMem(idx.addr, unsafeAddr(arr), sizeof(arr))
     result = self.function.chunk.consts[idx]
 
+proc showRuntime*(self: VM, frame: CallFrame, iteration: uint64) = 
+    ## Shows debug information about the current
+    ## state of the virtual machine
+    stdout.write(&"Iteration N. {iteration}\nCurrent VM stack status: [")
+    for i, v in self.stack:
+        stdout.write(stringify(v))
+        if i < self.stack.high():
+            stdout.write(", ")
+    stdout.write("]\nCurrent global scope status: {")
+    for i, (k, v) in enumerate(self.globals.pairs()):
+        stdout.write(&"'{k}': {stringify(v)}")
+        if i < self.globals.len() - 1:
+            stdout.write(", ")
+    stdout.write("}\nCurrent frame type: ")
+    if frame.function.name == nil:
+        stdout.write("main\n")
+    else:
+        stdout.write(&"function, '{frame.function.name.stringify()}'\n")
+    echo &"Current frame count: {self.frameCount}"
+    echo &"Current frame length: {frame.len}"
+    stdout.write("Current frame constants table: ")
+    stdout.write("[")
+    for i, e in frame.function.chunk.consts:
+        stdout.write(stringify(e))
+        if i < frame.function.chunk.consts.high():
+            stdout.write(", ")
+    stdout.write("]\nCurrent frame stack status: ")
+    stdout.write("[")
+    for i, e in frame.getView():
+        stdout.write(stringify(e))
+        if i < len(frame) - 1:
+            stdout.write(", ")
+    stdout.write("]\n")
+    discard disassembleInstruction(frame.function.chunk, frame.ip - 1)
+
 
 proc run(self: VM, repl: bool): InterpretResult =
     ## Chews trough bytecode instructions executing
@@ -331,43 +369,13 @@ proc run(self: VM, repl: bool): InterpretResult =
     var frame = self.frames[self.frameCount - 1]
     var opcode: OpCode
     when DEBUG_TRACE_VM:
-        var iteration: int = 0
+        var iteration: uint64 = 0
     while true:
         {.computedgoto.}   # See https://nim-lang.org/docs/manual.html#pragmas-computedgoto-pragma
         opcode = OpCode(frame.readByte())
         when DEBUG_TRACE_VM:    # Insight inside the VM
             iteration += 1
-            stdout.write(&"Iteration N. {iteration}\nCurrent VM stack status: [")
-            for i, v in self.stack:
-                stdout.write(stringify(v))
-                if i < self.stack.high():
-                    stdout.write(", ")
-            stdout.write("]\nCurrent global scope status: {")
-            for i, (k, v) in enumerate(self.globals.pairs()):
-                stdout.write(&"'{k}': {stringify(v)}")
-                if i < self.globals.len() - 1:
-                    stdout.write(", ")
-            stdout.write("}\nCurrent frame type: ")
-            if frame.function.name == nil:
-                stdout.write("main\n")
-            else:
-                stdout.write(&"function, '{frame.function.name.stringify()}'\n")
-            echo &"Current frame count: {self.frameCount}"
-            echo &"Current frame length: {frame.len}"
-            stdout.write("Current frame constants table: ")
-            stdout.write("[")
-            for i, e in frame.function.chunk.consts:
-                stdout.write(stringify(e))
-                if i < frame.function.chunk.consts.high():
-                    stdout.write(", ")
-            stdout.write("]\nCurrent frame stack status: ")
-            stdout.write("[")
-            for i, e in frame.getView():
-                stdout.write(stringify(e))
-                if i < len(frame) - 1:
-                    stdout.write(", ")
-            stdout.write("]\n")
-            discard disassembleInstruction(frame.function.chunk, frame.ip - 1)
+            self.showRuntime(frame, iteration)
         case opcode:   # Main OpCodes dispatcher
             of OpCode.Constant:
                 self.push(frame.readConstant())
@@ -489,7 +497,7 @@ proc run(self: VM, repl: bool): InterpretResult =
             of OpCode.Inf:
                 self.push(cast[ptr Infinity](self.cached[3]))
             of OpCode.Not:
-                self.push(self.pop().isFalsey().asBool())
+                self.push(self.getBoolean(self.pop().isFalsey()))
             of OpCode.Equal:
                 # Here order doesn't matter, because if a == b
                 # then b == a (at least in *most* languages, sigh)

@@ -88,4 +88,3 @@ proc disassembleChunk*(chunk: Chunk, name: string) =
     while index < chunk.code.len:
         index = disassembleInstruction(chunk, index)
     echo &"==== Debug session ended - Chunk '{name}' ===="
-
