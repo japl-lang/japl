@@ -66,9 +66,10 @@ type
         Assign,
         Or,
         And,
-        Is,
         Eq,
         Comp,
+        As,
+        Is,
         Term,
         Factor,
         Unary,
@@ -319,6 +320,8 @@ proc binary(self: Compiler, canAssign: bool) =
             self.emitByte(OpCode.Band)
         of TokenType.IS:
             self.emitByte(OpCode.Is)
+        of TokenType.AS:
+            self.emitByte(OpCode.As)
         else:
             discard # Unreachable
 
@@ -1149,7 +1152,9 @@ var rules: array[TokenType, ParseRule] = [
     makeRule(nil, binary, Precedence.Term), # BAND
     makeRule(nil, binary, Precedence.Term), # BOR
     makeRule(unary, nil, Precedence.None), # TILDE
-    makeRule(nil, binary, Precedence.Is)   # IS
+    makeRule(nil, binary, Precedence.Is),   # IS
+    makeRule(nil, binary, Precedence.As)   # AS
+
 ]
 
 

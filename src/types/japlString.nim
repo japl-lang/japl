@@ -19,6 +19,7 @@ import baseObject
 import numbers
 import ../memory
 import strutils
+import strformat
 
 
 type
@@ -62,8 +63,10 @@ proc isFalsey*(self: ptr String): bool =
 
 
 proc stringify*(self: ptr String): string =
-    result = self.toStr()
-
+    if self.len == 0:
+        result = "''"
+    else:
+        result = self.toStr()
 
 proc typeName*(self: ptr String): string =
     return "string"

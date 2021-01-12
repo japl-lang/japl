@@ -24,6 +24,8 @@ import japlNil
 import numbers
 import native
 
+import parseutils
+
 
 proc typeName*(self: ptr Obj): string =
     ## Returns the name of the object's type
@@ -402,6 +404,46 @@ proc gt*(self: ptr Obj, other: ptr Obj): bool =
         else:
             raise newException(NotImplementedError, "")
 
+
+proc objAs*(self: ptr Obj, other: ObjectType): ptr Obj = 
+    ## Returns the result of self as other
+    ## (casts self to other's type)
+    
+    # TODO -> This is in beta!
+    case other:
+        of ObjectType.String:
+            result = stringify(self).asStr()
+        of ObjectType.Integer:
+            case self.kind:
+                of ObjectType.String:
+                    var intVal: int
+                    discard parseInt(cast[ptr String](self).toStr(), intVal)
+                    result = intVal.asInt()
+                of ObjectType.Float:
+                    var floatVal: float64
+                    discard (parseFloat(cast[ptr Float](self).stringify(), floatVal))
+                    result = int(floatVal).asInt()
+                of ObjectType.Integer:
+                    result = self
+                else:
+                    raise newException(NotImplementedError, "")
+        of ObjectType.Float:
+            case self.kind:
+                of ObjectType.String:
+                    var floatVal: float64
+                    discard parseFloat(cast[ptr String](self).toStr(), floatVal)
+                    result = floatVal.asFloat()
+                of ObjectType.Integer:
+                    var intVal: int
+                    discard parseInt(cast[ptr Integer](self).stringify(), intVal)
+                    result = float(intVal).asFloat()
+                of ObjectType.Float:
+                    result = self
+                else:
+                    raise newException(NotImplementedError, "")
+                    
+        else:
+            raise newException(NotImplementedError, "")
 
 
 ## Utilities to inspect JAPL objects

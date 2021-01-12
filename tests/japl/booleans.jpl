@@ -9,7 +9,7 @@ print(true and 2);//output:2
 print(false or 5);//output:5
 print(0 or 4);//output:4
 print(0 and true);//output:0
-print("" and true);//output:
+print("" and true);//output:''
 print("" or true);//output:true
 print(1 or 2 or 3 or 4);//output:1
 print(1 and 2 and 3 and 4);//output:4

@@ -326,6 +326,7 @@ proc readLongConstant(self: CallFrame): ptr Obj =
     copyMem(idx.addr, unsafeAddr(arr), sizeof(arr))
     result = self.function.chunk.consts[idx]
 
+
 proc showRuntime*(self: VM, frame: CallFrame, iteration: uint64) = 
     ## Shows debug information about the current
     ## state of the virtual machine
@@ -526,6 +527,14 @@ proc run(self: VM, repl: bool): InterpretResult =
                 var right = self.pop()
                 var left = self.pop()
                 self.push(self.getBoolean(left == right))
+            of OpCode.As:
+                var right = self.pop()
+                var left = self.pop()
+                try:
+                    self.push(objAs(left, right.kind))
+                except NotImplementedError:
+                    self.error(newTypeError(&"unsupported binary operator 'as' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
+                    return RuntimeError
             of OpCode.GetItem:
                 # TODO: More generic method
                 if not self.slice():
@@ -617,6 +626,7 @@ proc run(self: VM, repl: bool): InterpretResult =
             of OpCode.Return:
                 var retResult = self.pop()
                 if repl and not self.lastPop.isNil() and self.frameCount == 1:
+                    # TODO -> Make this more efficient (move into japl.nim?)
                     # Prints the last expression to stdout as long as we're
                     # in REPL mode, the expression isn't nil and we're at the
                     # top-level code
