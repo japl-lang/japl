@@ -128,4 +128,3 @@ when isMainModule:
                 echo "usage: japl [filename]"
                 quit()
     main(file, fromString)
-

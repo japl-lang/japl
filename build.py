@@ -17,7 +17,9 @@
 # A minimalistic build script for JAPL
 
 import os
+import stat
 import shlex
+import shutil
 import logging
 import argparse
 from time import time
@@ -76,10 +78,30 @@ Command-line options
 """'''
 
 
-def build(path: str, flags: Dict[str, str] = {}, options: Dict[str, bool] = {}, override: bool = False, skip_tests: bool = False):
+def run_command(command: str, mode: str = "Popen", **kwargs):
+    """
+    Runs a command with subprocess and returns the process'
+    return code, stderr and stdout
+    """
+
+    if mode == "Popen":
+        process = Popen(shlex.split(command, posix=os.name != "nt"), **kwargs)
+    else:
+        process = run(command, **kwargs)
+    if mode == "Popen":
+        stdout, stderr = process.communicate()
+    else:
+        stdout, stderr = None, None
+    return stdout, stderr, process.returncode
+
+
+def build(path: str, flags: Dict[str, str] = {}, options: Dict[str, bool] = {}, override: bool = False, skip_tests: bool = False, install: bool = False,
+          ignore_binary: bool = False):
     """
     Compiles the JAPL runtime, generating the appropriate
-    configuration needed for compilation to succeed.
+    configuration needed for compilation to succeed,
+    running tests and performing installation
+    when possible.
     Nim 1.2 or above is required to build JAPL
 
     :param path: The path to JAPL's main source directory
@@ -98,7 +120,7 @@ def build(path: str, flags: Dict[str, str] = {}, options: Dict[str, bool] = {}, 
 
     config_path = os.path.join(path, "config.nim")
     main_path = os.path.join(path, "japl.nim")
-    logging.info("Just Another Build Tool, version 0.3.1")
+    logging.info("Just Another Build Tool, version 0.3.2")
     if not os.path.exists(path):
         logging.error(f"Input path '{path}' does not exist")
         return
@@ -121,13 +143,9 @@ def build(path: str, flags: Dict[str, str] = {}, options: Dict[str, bool] = {}, 
     logging.debug(f"Running '{command}'")
     logging.info("Compiling JAPL")
     start = time()
-    try:
-        process = Popen(shlex.split(command, posix=os.name != "nt"), stdout=DEVNULL, stderr=PIPE)
-        _, stderr = process.communicate()
-        stderr = stderr.decode()
-        assert process.returncode == 0, f"Command '{command}' exited with non-0 exit code {process.returncode}, output below:\n{stderr}"
-    except Exception as fatal:
-        logging.error(f"A fatal unhandled exception occurred -> {type(fatal).__name__}: {fatal}")
+    _, stderr, status = run_command(command, stdout=DEVNULL, stderr=PIPE)
+    if status != 0:
+        logging.error(f"Command '{command}' exited with non-0 exit code {status}, output below:\n{stderr.decode()}")
     else:
         logging.debug(f"Compilation completed in {time() - start:.2f} seconds")
         logging.info("Build completed")
@@ -138,42 +156,65 @@ def build(path: str, flags: Dict[str, str] = {}, options: Dict[str, bool] = {}, 
             logging.debug("Compiling test suite")
             start = time()
             tests_path = "./tests/runtests" if os.name != "nt" else ".\tests\runtests"
-            try:
-                process = Popen(shlex.split(f"nim compile {tests_path}", posix=os.name != "nt"), stdout=DEVNULL, stderr=PIPE)
-                _, stderr = process.communicate()
-                stderr = stderr.decode()
-                assert process.returncode == 0, f"Command '{command}' exited with non-0 exit code {process.returncode}, output below:\n{stderr}"
-            except Exception as fatal:
-                logging.error(f"A fatal unhandled exception occurred -> {type(fatal).__name__}: {fatal}")
+            _, stderr, status = run_command(f"nim compile {tests_path}", stdout=DEVNULL, stderr=PIPE)
+            if status != 0:
+                logging.error(f"Command '{command}' exited with non-0 exit code {status}, output below:\n{stderr.decode()}")
             else:
                 logging.debug(f"Test suite compilation completed in {time() - start:.2f} seconds")
                 logging.debug("Running tests")
                 start = time()
-                try:
-                    # TODO: Find a better way of running the test suite
-                    process = run(f"{tests_path}", shell=True, stderr=PIPE)
-                    stderr = process.stderr.decode()
-                    assert process.returncode == 0, f"Command '{command}' exited with non-0 exit code {process.returncode}, output below:\n{stderr}"
-                except Exception as fatal:
-                    logging.error(f"A fatal unhandled exception occurred -> {type(fatal).__name__}: {fatal}")
+                # TODO: Find a better way of running the test suite
+                process = run_command(f"{tests_path}", mode="run", shell=True, stderr=PIPE)
+                if status != 0:
+                    logging.error(f"Command '{command}' exited with non-0 exit code {status}, output below:\n{stderr.decode()}")
                 else:
                     logging.debug(f"Test suite ran in {time() - start:.2f} seconds")
                     logging.info("Test suite completed!")
+                    if args.install:
+                        if os.name == "nt":
+                            logging.warning("Sorry, but automatically installing JAPL is not yet supported on windows")
+                        else:
+                            # TODO -> Is PATH defined on all linux distros?
+                            logging.info(f"Installing JAPL at PATH")
+                            if any(os.path.exists(os.path.join(path, "jpl")) for path in os.getenv("PATH").split(":")) and not ignore_binary:
+                                logging.error("Could not install JAPL because a binary already exists in PATH")
+                                return
+                            install_path = os.path.join(os.getenv("PATH").split(":")[0], "jpl")
+                            for path in os.getenv("PATH").split(":"):
+                                install_path = os.path.join(path, "jpl")
+                                logging.debug(f"Attempting to install JAPL at '{install_path}'")
+                                try:
+                                    shutil.move(main_path.strip(".nim"), install_path)
+                                except PermissionError:
+                                    logging.debug(f"Path '{path}' is not writable, attempting next entry in PATH")
+                                except Exception as fatal:
+                                    logging.error(f"A fatal unhandled exception occurred -> {type(fatal).__name__}: {fatal}")
+                                else:
+                                    logging.debug(f"JAPL installed at '{path}', setting executable permissions")
+                                    # TODO: Use external oschmod library once we support windows!
+                                    try:
+                                        perms = os.stat(install_path)
+                                        os.chmod(install_path, perms.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+                                    except Exception as fatal:
+                                        logging.error(f"A fatal unhandled exception occurred -> {type(fatal).__name__}: {fatal}")
+                                    break
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("path", help="The path to JAPL's source directory")
-    parser.add_argument("--verbose", help="Prints debug information to stdout", action="store_true")
-    parser.add_argument("--flags", help="Optional flags to be passed to the nim compiler. Must be a comma-separated list of name:value (without spaces)")
-    parser.add_argument("--options", help="Set compile-time options and constants, pass a comma-separated list of name:value (without spaces). "
-    "Note that if a config.nim file exists in the destination directory, that will override any setting defined here unless --override-config is used")
-    parser.add_argument("--override-config", help="Overrides the setting of an already existing config.nim file in the destination directory", action="store_true")
-    parser.add_argument("--skip-tests", help="Skips running the JAPL test suite, useful for debug builds", action="store_true")
-    parser.add_argument("--keep-results-file", help="Instructs the build tool to not delete the testresults.txt file from the test suite, useful for debugging", action="store_true")
+    parser.add_argument("--verbose", help="Prints debug information to stdout", action="store_true", default=os.environ.get("JAPL_VERBOSE"))
+    parser.add_argument("--flags", help="Optional flags to be passed to the nim compiler. Must be a comma-separated list of name:value (without spaces)", default=os.environ.get("JAPL_FLAGS"))
+    parser.add_argument("--options", help="Set compile-time options and constants, pass a comma-separated list of name:value (without spaces)."
+    "Note that if a config.nim file exists in the destination directory, that will override any setting defined here unless --override-config is used", default=os.environ.get("JAPL_OPTIONS"))
+    parser.add_argument("--override-config", help="Overrides the setting of an already existing config.nim file in the destination directory", action="store_true", default=os.environ.get("JAPL_OVERRIDE_CONFIG"))
+    parser.add_argument("--skip-tests", help="Skips running the JAPL test suite, useful for debug builds", action="store_true", default=os.environ.get("JAPL_SKIP_TESTS"))
+    parser.add_argument("--keep-results", help="Instructs the build tool not to delete the testresults.txt file from the test suite, useful for debugging", action="store_true", default=os.environ.get("JAPL_KEEP_RESULTS"))
+    parser.add_argument("--install", help="Tries to move the compiled binary to PATH (this is always disabled on windows)", action="store_true", default=os.environ.get("JAPL_INSTALL"))
+    parser.add_argument("--ignore-binary", help="Ignores an already existing 'jpl' binary in any installation directory and overwrites it, use (with care!) with --install", action="store_true", default=os.environ.get("JAPL_IGNORE_BINARY"))
     args = parser.parse_args()
     flags = {
-            "gc": "markAndSweep",
+            "gc": "markAndSweep",  # Because refc is broken ¯\_(ツ)_/¯
             }
     options = {
         "debug_vm": "false",
@@ -184,10 +225,13 @@ if __name__ == "__main__":
         "array_grow_factor": "2",
         "frames_max": "800",
     }
-    level = logging.DEBUG if args.verbose else logging.INFO
+    # We support environment variables!
+    for key, value in options.items():
+        if var := os.getenv(f"JAPL_{key.upper()}"):
+            options[key] = var
     logging.basicConfig(format="[%(levelname)s - %(asctime)s] %(message)s",
                         datefmt="%T",
-                        level=level
+                        level=logging.DEBUG if args.verbose else logging.INFO
                         )
     if args.flags:
         try:
@@ -202,16 +246,17 @@ if __name__ == "__main__":
             for value in args.options.split(","):
                 k, v = value.split(":", maxsplit=2)
                 if k not in options:
-                    logging.error("Invalid compile-time option")
+                    logging.error("Invalid compile-time option '{key}'")
                     exit()
                 options[k] = v
         except Exception:
             logging.error("Invalid parameter for --options")
             exit()
-    build(args.path, flags, options, args.override_config, args.skip_tests)
-    if not args.keep_results_file and not args.skip_tests:
-        try:
-            os.remove("testresults.txt")
-        except Exception as error:
-            logging.warning(f"Could not remove test results file due to a {type(error).__name__}: {error}")
+    build(args.path, flags, options, args.override_config, args.skip_tests, args.install, args.ignore_binary)
+    if not args.keep_results and not args.skip_tests:
+        if os.path.isfile("testresults.txt"):
+            try:
+                os.remove("testresults.txt")
+            except Exception as error:
+                logging.warning(f"Could not remove test results file due to a {type(error).__name__}: {error}")
     logging.debug("Build tool exited")

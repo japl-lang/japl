@@ -57,7 +57,8 @@ const RESERVED = to_table({
                 "del": TokenType.DEL, "break": TokenType.BREAK,
                 "continue": TokenType.CONTINUE, "inf": TokenType.INF,
                 "nan": TokenType.NAN, "is": TokenType.IS,
-                "not": TokenType.NEG, "as": TokenType.AS})
+                "not": TokenType.NEG, "as": TokenType.AS,
+                "lambda": TokenType.LAMBDA})
 type
     Lexer* = ref object
         source*: string
@@ -218,8 +219,6 @@ proc scanToken(self: Lexer) =
             self.parseComment()
         elif single == '=' and self.match('='):
             self.tokens.add(self.createToken(TokenType.DEQ))
-        elif single == '=' and self.match('>'):
-            self.tokens.add(self.createToken(TokenType.LAMBDA))
         elif single == '>' and self.match('='):
             self.tokens.add(self.createToken(TokenType.GE))
         elif single == '>' and self.match('>'):
