@@ -1,0 +1,18 @@
+
+var add2 = lambda(x)
+{
+    return x + 2;
+};
+var sub2 = lambda(x)
+{
+    return x - 2;
+};
+var mul2 = lambda(x)
+{
+    return x * 2;
+};
+
+print(add2(sub2(mul2(sub2(5)))));
+//5-2=3
+//3*2=6
+//output:6
