@@ -170,48 +170,48 @@ def build(path: str, flags: Dict[str, str] = {}, options: Dict[str, bool] = {}, 
                 else:
                     logging.debug(f"Test suite ran in {time() - start:.2f} seconds")
                     logging.info("Test suite completed!")
-                    if args.install:
-                        if os.name == "nt":
-                            logging.warning("Sorry, but automatically installing JAPL is not yet supported on windows")
-                        else:
-                            # TODO -> Is PATH defined on all linux distros?
-                            logging.info(f"Installing JAPL at PATH")
-                            if any(os.path.exists(os.path.join(path, "jpl")) for path in os.getenv("PATH").split(":")) and not ignore_binary:
-                                logging.error("Could not install JAPL because a binary already exists in PATH")
-                                return
-                            install_path = os.path.join(os.getenv("PATH").split(":")[0], "jpl")
-                            for path in os.getenv("PATH").split(":"):
-                                install_path = os.path.join(path, "jpl")
-                                logging.debug(f"Attempting to install JAPL at '{install_path}'")
-                                try:
-                                    shutil.move(main_path.strip(".nim"), install_path)
-                                except PermissionError:
-                                    logging.debug(f"Path '{path}' is not writable, attempting next entry in PATH")
-                                except Exception as fatal:
-                                    logging.error(f"A fatal unhandled exception occurred -> {type(fatal).__name__}: {fatal}")
-                                else:
-                                    logging.debug(f"JAPL installed at '{path}', setting executable permissions")
-                                    # TODO: Use external oschmod library once we support windows!
-                                    try:
-                                        perms = os.stat(install_path)
-                                        os.chmod(install_path, perms.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-                                    except Exception as fatal:
-                                        logging.error(f"A fatal unhandled exception occurred -> {type(fatal).__name__}: {fatal}")
-                                    break
+        if args.install:
+            if os.name == "nt":
+                logging.warning("Sorry, but automatically installing JAPL is not yet supported on windows")
+            else:
+                # TODO -> Is PATH defined on all linux distros?
+                logging.info(f"Installing JAPL at PATH")
+                if any(os.path.exists(os.path.join(path, "jpl")) for path in os.getenv("PATH").split(":")) and not ignore_binary:
+                    logging.error("Could not install JAPL because a binary already exists in PATH")
+                    return
+                install_path = os.path.join(os.getenv("PATH").split(":")[0], "jpl")
+                for path in os.getenv("PATH").split(":"):
+                    install_path = os.path.join(path, "jpl")
+                    logging.debug(f"Attempting to install JAPL at '{install_path}'")
+                    try:
+                        shutil.move(main_path.strip(".nim"), install_path)
+                    except PermissionError:
+                        logging.debug(f"Path '{path}' is not writable, attempting next entry in PATH")
+                    except Exception as fatal:
+                        logging.error(f"A fatal unhandled exception occurred -> {type(fatal).__name__}: {fatal}")
+                    else:
+                        logging.debug(f"JAPL installed at '{path}', setting executable permissions")
+                        # TODO: Use external oschmod library once we support windows!
+                        try:
+                            perms = os.stat(install_path)
+                            os.chmod(install_path, perms.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+                        except Exception as fatal:
+                            logging.error(f"A fatal unhandled exception occurred -> {type(fatal).__name__}: {fatal}")
+                        break
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("path", help="The path to JAPL's source directory")
-    parser.add_argument("--verbose", help="Prints debug information to stdout", action="store_true", default=os.environ.get("JAPL_VERBOSE"))
-    parser.add_argument("--flags", help="Optional flags to be passed to the nim compiler. Must be a comma-separated list of name:value (without spaces)", default=os.environ.get("JAPL_FLAGS"))
+    parser.add_argument("--verbose", help="Prints debug information to stdout", action="store_true", default=os.getenv("JAPL_VERBOSE"))
+    parser.add_argument("--flags", help="Optional flags to be passed to the nim compiler. Must be a comma-separated list of name:value (without spaces)", default=os.getenv("JAPL_FLAGS"))
     parser.add_argument("--options", help="Set compile-time options and constants, pass a comma-separated list of name:value (without spaces)."
-    "Note that if a config.nim file exists in the destination directory, that will override any setting defined here unless --override-config is used", default=os.environ.get("JAPL_OPTIONS"))
-    parser.add_argument("--override-config", help="Overrides the setting of an already existing config.nim file in the destination directory", action="store_true", default=os.environ.get("JAPL_OVERRIDE_CONFIG"))
-    parser.add_argument("--skip-tests", help="Skips running the JAPL test suite, useful for debug builds", action="store_true", default=os.environ.get("JAPL_SKIP_TESTS"))
-    parser.add_argument("--keep-results", help="Instructs the build tool not to delete the testresults.txt file from the test suite, useful for debugging", action="store_true", default=os.environ.get("JAPL_KEEP_RESULTS"))
+    "Note that if a config.nim file exists in the destination directory, that will override any setting defined here unless --override-config is used", default=os.getenv("JAPL_OPTIONS"))
+    parser.add_argument("--override-config", help="Overrides the setting of an already existing config.nim file in the destination directory", action="store_true", default=os.getenv("JAPL_OVERRIDE_CONFIG"))
+    parser.add_argument("--skip-tests", help="Skips running the JAPL test suite, useful for debug builds", action="store_true", default=os.getenv("JAPL_SKIP_TESTS"))
+    parser.add_argument("--keep-results", help="Instructs the build tool not to delete the testresults.txt file from the test suite, useful for debugging", action="store_true", default=os.getenv("JAPL_KEEP_RESULTS"))
     parser.add_argument("--install", help="Tries to move the compiled binary to PATH (this is always disabled on windows)", action="store_true", default=os.environ.get("JAPL_INSTALL"))
-    parser.add_argument("--ignore-binary", help="Ignores an already existing 'jpl' binary in any installation directory and overwrites it, use (with care!) with --install", action="store_true", default=os.environ.get("JAPL_IGNORE_BINARY"))
+    parser.add_argument("--ignore-binary", help="Ignores an already existing 'jpl' binary in any installation directory and overwrites it, use (with care!) with --install", action="store_true", default=os.getenv("JAPL_IGNORE_BINARY"))
     args = parser.parse_args()
     flags = {
             "gc": "markAndSweep",  # Because refc is broken ¯\_(ツ)_/¯

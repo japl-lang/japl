@@ -29,7 +29,7 @@ const testResultsPath = "testresults.txt"
 
 
 # Exceptions for tests that represent not-yet implemented behaviour
-const exceptions = ["all.jpl", "for_with_function.jpl"]
+const exceptions = ["all.jpl", "for_with_function.jpl", "runtime_interning.jpl"]
 # for_with_function.jpl probably contains an algorithmic error too
 # TODO: fix that test
 
@@ -40,8 +40,8 @@ type LogLevel {.pure.} = enum
     Stdout, # always printed to stdout only (for cli experience)
 
 
-const echoedLogs = { LogLevel.Info, LogLevel.Error, LogLevel.Stdout }
-const savedLogs = { LogLevel.Debug, LogLevel.Info, LogLevel.Error }
+const echoedLogs = {LogLevel.Info, LogLevel.Error, LogLevel.Stdout}
+const savedLogs = {LogLevel.Debug, LogLevel.Info, LogLevel.Error}
 
 
 proc compileExpectedOutput(path: string): string =
@@ -75,7 +75,6 @@ proc deepComp(left, right: string, path: string): tuple[same: bool, place: int] 
 
 proc logWithLevel(level: LogLevel, file: File, msg: string) =
     let msg = &"[{$level} - {$getTime()}] {msg}" 
-
     if level in savedLogs:
         file.writeLine(msg)
     if level in echoedLogs:
@@ -86,8 +85,6 @@ proc logWithLevel(level: LogLevel, file: File, msg: string) =
             setForegroundColor(fgDefault)
 
 
-
-
 proc main(testsDir: string, japlExec: string, testResultsFile: File): tuple[numOfTests: int, successTests: int, failedTests: int, skippedTests: int] =
     template detail(msg: string) =
         logWithLevel(LogLevel.Debug, testResultsFile, msg)
@@ -95,7 +92,6 @@ proc main(testsDir: string, japlExec: string, testResultsFile: File): tuple[numO
         logWithLevel(LogLevel.Info, testResultsFile, msg)
     template error(msg: string) =
         logWithLevel(LogLevel.Error, testResultsFile, msg)
-
     var numOfTests = 0
     var successTests = 0
     var failedTests = 0

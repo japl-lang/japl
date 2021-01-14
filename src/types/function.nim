@@ -57,10 +57,11 @@ proc typeName*(self: ptr Function): string =
 
 
 proc stringify*(self: ptr Function): string =
-    if self.name != nil and self.name.toStr() != "<lambda function>":
-        result = "<function '" & self.name.toStr() & "'>"
-    elif self.name.toStr() == "<lambda function>":
-        return self.name.toStr()
+    if self.name != nil:
+        if self.name.toStr() == "<lambda function>":
+            result = self.name.toStr()
+        else:
+            result = "<function '" & self.name.toStr() & "'>"
     else:
         result = "<code object>"
 

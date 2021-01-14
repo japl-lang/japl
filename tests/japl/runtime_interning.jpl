@@ -1,0 +1,15 @@
+//runtime interning
+
+var f = "leafy";
+var g = "ishere";
+var h = f + g;
+var j = "leafyishere";
+print(h is j);//output:true
+
+//different strings
+
+var x = "ex";
+var y = "ey";
+print(x is y);//output:false
+
+

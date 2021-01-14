@@ -103,4 +103,6 @@ proc natType*(args: seq[ptr Obj]): tuple[kind: retNative, result: ptr Obj] =
     result = (kind: retNative.Object, result: args[0].typeName().asStr())
 
 
-
+proc natToString*(args: seq[ptr Obj]): tuple[kind: retNative, result: ptr Obj] = 
+    ## Returns the string representation of an object
+    result = (kind: retNative.Object, result: args[0].stringify().asStr())

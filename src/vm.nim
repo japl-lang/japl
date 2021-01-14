@@ -379,17 +379,23 @@ proc run(self: VM, repl: bool): InterpretResult =
             self.showRuntime(frame, iteration)
         case opcode:   # Main OpCodes dispatcher
             of OpCode.Constant:
+                # Loads a constant from the chunk's constant
+                # table
                 self.push(frame.readConstant())
             of OpCode.ConstantLong:
+                # Loads a constant from the chunk's constant
+                # table when its size exceeds 256
                 self.push(frame.readLongConstant())
             of OpCode.Negate:
+                # Performs unary negation
                 let operand = self.pop()
                 try:
                     self.push(operand.negate())
                 except NotImplementedError:
                     self.error(newTypeError(&"unsupported unary operator '-' for object of type '{operand.typeName()}'"))
                     return RuntimeError
-            of OpCode.Shl:   # Bitwise left-shift
+            of OpCode.Shl:
+                # Bitwise left-shift
                 var right = self.pop()
                 var left = self.pop()
                 try:
@@ -397,7 +403,8 @@ proc run(self: VM, repl: bool): InterpretResult =
                 except NotImplementedError:
                     self.error(newTypeError(&"unsupported binary operator '<<' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
-            of OpCode.Shr:   # Bitwise right-shift
+            of OpCode.Shr:
+                # Bitwise right-shift
                 var right = self.pop()
                 var left = self.pop()
                 try:
@@ -405,7 +412,8 @@ proc run(self: VM, repl: bool): InterpretResult =
                 except NotImplementedError:
                     self.error(newTypeError(&"unsupported binary operator '>>' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
-            of OpCode.Xor:   # Bitwise xor
+            of OpCode.Xor:
+                # Bitwise xor
                 var right = self.pop()
                 var left = self.pop()
                 try:
@@ -413,7 +421,8 @@ proc run(self: VM, repl: bool): InterpretResult =
                 except NotImplementedError:
                     self.error(newTypeError(&"unsupported binary operator '^' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
-            of OpCode.Bor:  # Bitwise or
+            of OpCode.Bor:
+                # Bitwise or
                 var right = self.pop()
                 var left = self.pop()
                 try:
@@ -421,14 +430,16 @@ proc run(self: VM, repl: bool): InterpretResult =
                 except NotImplementedError:
                     self.error(newTypeError(&"unsupported binary operator '&' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
-            of OpCode.Bnot:  # Bitwise not
+            of OpCode.Bnot:
+                # Bitwise not
                 var operand = self.pop()
                 try:
                     self.push(operand.binaryNot())
                 except NotImplementedError:
                     self.error(newTypeError(&"unsupported unary operator '~' for object of type '{operand.typeName()}'"))
                     return RuntimeError
-            of OpCode.Band:  # Bitwise and
+            of OpCode.Band:
+                # Bitwise and
                 var right = self.pop()
                 var left = self.pop()
                 try:
@@ -437,6 +448,7 @@ proc run(self: VM, repl: bool): InterpretResult =
                     self.error(newTypeError(&"unsupported binary operator '&' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
             of OpCode.Add:
+                # Binary +
                 var right = self.pop()
                 var left = self.pop()
                 try:
@@ -445,6 +457,7 @@ proc run(self: VM, repl: bool): InterpretResult =
                     self.error(newTypeError(&"unsupported binary operator '+' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
             of OpCode.Subtract:
+                # Binary -
                 var right = self.pop()
                 var left = self.pop()
                 try:
@@ -453,6 +466,7 @@ proc run(self: VM, repl: bool): InterpretResult =
                     self.error(newTypeError(&"unsupported binary operator '-' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
             of OpCode.Divide:
+                # Binary /
                 var right = self.pop()
                 var left = self.pop()
                 try:
@@ -461,6 +475,7 @@ proc run(self: VM, repl: bool): InterpretResult =
                     self.error(newTypeError(&"unsupported binary operator '/' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
             of OpCode.Multiply:
+                # Binary *
                 var right = self.pop()
                 var left = self.pop()
                 try:
@@ -469,6 +484,7 @@ proc run(self: VM, repl: bool): InterpretResult =
                     self.error(newTypeError(&"unsupported binary operator '*' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
             of OpCode.Mod:
+                # Binary % (modulo division)
                 var right = self.pop()
                 var left = self.pop()
                 try:
@@ -477,6 +493,7 @@ proc run(self: VM, repl: bool): InterpretResult =
                     self.error(newTypeError(&"unsupported binary operator '%' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
             of OpCode.Pow:
+                # Binary ** (exponentiation)
                 var right = self.pop()
                 var left = self.pop()
                 try:
@@ -500,12 +517,14 @@ proc run(self: VM, repl: bool): InterpretResult =
             of OpCode.Not:
                 self.push(self.getBoolean(self.pop().isFalsey()))
             of OpCode.Equal:
+                # Compares object equality
                 # Here order doesn't matter, because if a == b
                 # then b == a (at least in *most* languages, sigh)
                 self.push(self.getBoolean(self.pop().eq(self.pop())))
                 # Doesn't this chain of calls look beautifully
                 # intuitive?
             of OpCode.Less:
+                # Binary less (<)
                 var right = self.pop()
                 var left = self.pop()
                 try:
@@ -514,6 +533,7 @@ proc run(self: VM, repl: bool): InterpretResult =
                     self.error(newTypeError(&"unsupported binary operator '<' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
             of OpCode.Greater:
+                # Binary greater (>)
                 var right = self.pop()
                 var left = self.pop()
                 try:
@@ -522,12 +542,14 @@ proc run(self: VM, repl: bool): InterpretResult =
                     self.error(newTypeError(&"unsupported binary operator '>' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
             of OpCode.Is:
+                # Implements object identity (i.e. same pointer)
                 # This is implemented internally for obvious
                 # reasons and works on any pair of objects
                 var right = self.pop()
                 var left = self.pop()
                 self.push(self.getBoolean(left == right))
             of OpCode.As:
+                # Implements type casting (TODO: Only allow classes)
                 var right = self.pop()
                 var left = self.pop()
                 try:
@@ -536,13 +558,17 @@ proc run(self: VM, repl: bool): InterpretResult =
                     self.error(newTypeError(&"unsupported binary operator 'as' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
             of OpCode.GetItem:
+                # Implements expressions such as a[b]
                 # TODO: More generic method
                 if not self.slice():
                     return RuntimeError
             of OpCode.Slice:
+                # Implements expressions such as a[b:c]
+                # TODO: More generic method
                 if not self.sliceRange():
                     return RuntimeError
             of OpCode.DefineGlobal:
+                # Defines a global variable
                 var name: string
                 if frame.function.chunk.consts.len > 255:
                     name = frame.readLongConstant().toStr()
@@ -551,6 +577,7 @@ proc run(self: VM, repl: bool): InterpretResult =
                 self.globals[name] = self.peek(0)
                 discard self.pop()
             of OpCode.GetGlobal:
+                # Retrieves a global variable
                 var constant: string
                 if frame.function.chunk.consts.len > 255:
                     constant = frame.readLongConstant().toStr()
@@ -562,6 +589,7 @@ proc run(self: VM, repl: bool): InterpretResult =
                 else:
                     self.push(self.globals[constant])
             of OpCode.SetGlobal:
+                # Changes the value of an already defined global variable
                 var constant: string
                 if frame.function.chunk.consts.len > 255:
                     constant = frame.readLongConstant().toStr()
@@ -573,6 +601,7 @@ proc run(self: VM, repl: bool): InterpretResult =
                 else:
                     self.globals[constant] = self.peek(0)
             of OpCode.DeleteGlobal:
+                # Deletes a global variable
                 # TODO: Inspect potential issues with the GC
                 var constant: string
                 if frame.function.chunk.consts.len > 255:
@@ -585,6 +614,7 @@ proc run(self: VM, repl: bool): InterpretResult =
                 else:
                     self.globals.del(constant)
             of OpCode.GetLocal:
+                # Retrieves a local variable
                 var slot: int
                 if frame.len > 255:
                     slot = frame.readBytes()
@@ -592,6 +622,7 @@ proc run(self: VM, repl: bool): InterpretResult =
                     slot = int frame.readByte()
                 self.push(frame[slot])
             of OpCode.SetLocal:
+                # Changes the value of an already defined local variable
                 var slot: int
                 if frame.len > 255:
                     slot = frame.readBytes()
@@ -599,6 +630,7 @@ proc run(self: VM, repl: bool): InterpretResult =
                     slot = int frame.readByte()
                 frame[slot] = self.peek(0)
             of OpCode.DeleteLocal:
+                # Deletes a global variable
                 # TODO: Inspect potential issues with the GC
                 var slot: int
                 if frame.len > 255:
@@ -607,16 +639,26 @@ proc run(self: VM, repl: bool): InterpretResult =
                     slot = int frame.readByte()
                 frame.delete(slot)
             of OpCode.Pop:
+                # Pops an item off the stack
                 self.lastPop = self.pop()
             of OpCode.JumpIfFalse:
+                # Skips a certain amount of
+                # bytecode instructions
+                # if the object at the top of
+                # our stack is falsey
                 let jmpOffset = int frame.readShort()
                 if isFalsey(self.peek(0)):
                     frame.ip += int jmpOffset
             of OpCode.Jump:
+                # Jumps a certain amount of bytecode
+                # instructions, unconditionally
                 frame.ip += int frame.readShort()
             of OpCode.Loop:
+                # Loops back a certain amount of
+                # bytecode instructions, unconditionally
                 frame.ip -= int frame.readShort()
             of OpCode.Call:
+                # Implements functions call
                 var argCount = frame.readByte()
                 if not self.callObject(self.peek(int argCount), argCount):
                     return RuntimeError
@@ -624,6 +666,8 @@ proc run(self: VM, repl: bool): InterpretResult =
             of OpCode.Break:
                 discard   # Unused (the compiler converts it to other stuff before it arrives here)
             of OpCode.Return:
+                # Handles returning values from the callee to the caller
+                # and sets up the stack to proceed with execution
                 var retResult = self.pop()
                 if repl and not self.lastPop.isNil() and self.frameCount == 1:
                     # TODO -> Make this more efficient (move into japl.nim?)
@@ -743,16 +787,24 @@ proc stdlibInit*(vm: VM) =
     vm.defineGlobal("clock", newNative("clock", natClock, 0))
     vm.defineGlobal("round", newNative("round", natRound, -1))
     vm.defineGlobal("toInt", newNative("toInt", natToInt, 1))
+    vm.defineGlobal("toString", newNative("toString", natToString, 1))
     vm.defineGlobal("type", newNative("type", natType, 1))
 
 
 proc initVM*(): VM =
-    ## Initializes the VM
-    setControlCHook(handleInterrupt)
-    var globals: Table[string, ptr Obj] = initTable[string, ptr Obj]()
-    result = VM(lastPop: asNil(), objects: @[], globals: globals, source: "", file: "")
+    ## Initializes the Virtual Machine by
+    ## creating the cache, setting signal
+    ## handlers, loading the standard
+    ## library and preparing the stack
+    ## and internal data structures
+    result = VM(objects: @[], globals: initTable[string, ptr Obj](), source: "", file: "")
     result.initCache()
     result.stdlibInit()
+    result.resetStack()
+    setControlCHook(handleInterrupt)
+    result.lastPop = cast[ptr Nil](result.cached[2])
+
+
 
 
 proc interpret*(self: VM, source: string, repl: bool = false, file: string): InterpretResult =
@@ -763,13 +815,13 @@ proc interpret*(self: VM, source: string, repl: bool = false, file: string): Int
     var compiler = initCompiler(SCRIPT, file=file)
     var compiled = compiler.compile(source)
     # Here we take into account that self.interpret() might
-    # get called multiple times and we don't wanna loose
-    # what we allocated before, so we merge everything we
-    # allocated + everything the compiler allocated at compile time
-    self.objects = self.objects & compiler.objects # TODO:
-    # revisit the best way to transfer marked objects from the compiler
-    # to the vm
+    # get called multiple times (like in the REPL) and we don't wanna loose
+    # what we allocated before, so we merge everything we already
+    # allocated and everything the compiler allocated at compile time
+    self.objects = self.objects & compiler.objects
+    # TODO: revisit the best way to transfer marked objects from the compiler to the vm
     if compiled == nil:
+        # Compile-time error
         compiler.freeCompiler()
         return CompileError
     # Since in JAPL all code runs in some
@@ -782,7 +834,7 @@ proc interpret*(self: VM, source: string, repl: bool = false, file: string): Int
         echo "==== VM debugger starts ====\n"
     try:
         result = self.run(repl)
-    except KeyboardInterrupt:
+    except KeyboardInterrupt:   # TODO: Better handling
         self.error(newInterruptedError(""))
         return RuntimeError
     when DEBUG_TRACE_VM:
