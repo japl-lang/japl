@@ -8,7 +8,7 @@ htmldocs/
 
 .idea/
 
-# JAPL
+# JAPL 
 
 src/japl
 src/compiler
@@ -22,6 +22,7 @@ testresults.txt
 .tempcode.jpl
 .tempcode_drEHdZuwNYLqsQaMDMqeNRtmqoqXBXfnCfeqEcmcUYJToBVQkF.jpl
 .tempoutput.txt
+config.nim
 
 # MacOS
 
@@ -29,7 +30,7 @@ testresults.txt
 
 # Executables
 
-main
+
 *.exe
 
 # Dependency graphs
@@ -37,7 +38,6 @@ main
 *.deps
 *.dot
 
-# JAPL build config file
+# Development scripts
 
-config.nim
-
+setenv.sh
