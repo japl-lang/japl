@@ -925,7 +925,7 @@ proc parseFunction(self: Compiler, funType: FunctionType) =
     ## keyword ones as well
     var self = initCompiler(funType, self, self.parser, self.file)
     self.beginScope()
-    self.parser.consume(LP, "Expecting '(' after function name")
+    self.parser.consume(LP, "Expecting '('")
     if self.parser.hadError:
         return
     var paramNames: seq[string] = @[]
@@ -970,13 +970,22 @@ proc parseFunction(self: Compiler, funType: FunctionType) =
         self.emitBytes(self.makeLongConstant(fun))
 
 
-proc funDeclaration(self: Compiler) =
+
+proc parseLambda(self: Compiler, canAssign: bool) = 
+    ## Parses lambda expressions of the form => (params) {code}
+    self.parseFunction(FunctionType.LAMBDA)
+
+
+proc funDeclaration(self: Compiler, named: bool = true) =
     ## Parses function declarations and declares
     ## them in the current scope
-    var funName = self.parseVariable("expecting function name")
-    self.markInitialized()
-    self.parseFunction(FunctionType.FUNC)
-    self.defineVariable(funName)
+    if named:
+        var funName = self.parseVariable("expecting function name")
+        self.markInitialized()
+        self.parseFunction(FunctionType.FUNC)
+        self.defineVariable(funName)
+    else:
+        self.parseFunction(FunctionType.LAMBDA)
 
 
 proc argumentList(self: Compiler): uint8 =
@@ -1153,7 +1162,8 @@ var rules: array[TokenType, ParseRule] = [
     makeRule(nil, binary, Precedence.Term), # BOR
     makeRule(unary, nil, Precedence.None), # TILDE
     makeRule(nil, binary, Precedence.Is),   # IS
-    makeRule(nil, binary, Precedence.As)   # AS
+    makeRule(nil, binary, Precedence.As),   # AS
+    makeRule(parseLambda, nil, Precedence.None)  # LAMBDA
 
 ]
 
@@ -1229,9 +1239,15 @@ proc initCompiler*(context: FunctionType, enclosing: Compiler = nil, parser: Par
     result.parser.file = file
     result.locals.add(Local(depth: 0, name: Token(kind: EOF, lexeme: "")))
     inc(result.localCount)
-    result.function = result.markObject(newFunction(chunk=newChunk()))
-    if context != SCRIPT:   # If we're compiling a function, we give it its name
-        result.function.name = asStr(enclosing.parser.previous().lexeme)
+    case context:
+        of FunctionType.Func:
+            result.function = result.markObject(newFunction(enclosing.parser.previous().lexeme, newChunk()))
+        of FunctionType.Lambda:
+            result.function = result.markObject(newLambda(newChunk()))
+        else:  # Script
+            result.function = result.markObject(newFunction("", newChunk()))
+            result.function.name = nil
+
 
 # This way the compiler can be executed on its own
 # without the VM

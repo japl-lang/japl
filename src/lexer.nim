@@ -218,6 +218,8 @@ proc scanToken(self: Lexer) =
             self.parseComment()
         elif single == '=' and self.match('='):
             self.tokens.add(self.createToken(TokenType.DEQ))
+        elif single == '=' and self.match('>'):
+            self.tokens.add(self.createToken(TokenType.LAMBDA))
         elif single == '>' and self.match('='):
             self.tokens.add(self.createToken(TokenType.GE))
         elif single == '>' and self.match('>'):

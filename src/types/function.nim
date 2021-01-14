@@ -12,7 +12,7 @@ type
         ## the top-level code, this tiny
         ## enum is used to tell the two
         ## contexts apart when compiling
-        Func, Script
+        Func, Script, Lambda
 
     Function* = object of Obj
         ## A function object
@@ -40,13 +40,27 @@ proc newFunction*(name: string = "", chunk: Chunk, arity: int = 0): ptr Function
     result.isHashable = false
 
 
+proc newLambda*(chunk: Chunk, arity: int = 0): ptr Function =
+    ## Allocates a new lambda object (anonymous function) with the given
+    ## bytecode chunk and arity
+    # TODO: Add lambdas
+    # TODO: Add support for optional parameters
+    result = allocateObj(Function, ObjectType.Function)
+    result.name = "<lambda function>".asStr()
+    result.arity = arity
+    result.chunk = chunk
+    result.isHashable = false
+
+
 proc typeName*(self: ptr Function): string =
     result = "function"
 
 
 proc stringify*(self: ptr Function): string =
-    if self.name != nil:
+    if self.name != nil and self.name.toStr() != "<lambda function>":
         result = "<function '" & self.name.toStr() & "'>"
+    elif self.name.toStr() == "<lambda function>":
+        return self.name.toStr()
     else:
         result = "<code object>"
 
