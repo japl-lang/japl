@@ -35,7 +35,7 @@ type
 proc toStr*(obj: ptr Obj): string =
     ## Converts a JAPL string into a nim string
     var strObj = cast[ptr String](obj)
-    for i in 0..strObj.str.len - 1:
+    for i in 0..strObj.len - 1:
         result.add(strObj.str[i])
 
 
@@ -43,7 +43,7 @@ proc hash*(self: ptr String): uint64 =
     ## Implements the FNV-1a hashing algorithm
     ## for strings
     result = 2166136261u
-    for i in countup(0, self.len):
+    for i in countup(0, self.len-1):
         result = result xor uint64(self.str[i])
         result *= 16777619
 
