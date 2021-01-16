@@ -31,7 +31,6 @@ proc repl() =
     echo JAPL_VERSION_STRING
     echo &"[Nim {NimVersion} on {hostOs} ({hostCPU})]"
     when DEBUG_TRACE_VM:
-        echo "Debugger enabled, expect verbose output\n"
         echo "==== Runtime Constants ====\n"
         echo &"- FRAMES_MAX -> {FRAMES_MAX}"
         echo "==== Debugger started ====\n"
@@ -54,14 +53,10 @@ proc repl() =
             echo &"[Nim {NimVersion} on {hostOs} ({hostCPU})]"
             continue
         elif source != "":
-            let result = bytecodeVM.interpret(source, "stdin")
+            discard bytecodeVM.interpret(source, "stdin")
             if not bytecodeVM.lastPop.isNil():
                 echo stringify(bytecodeVM.lastPop)
                 bytecodeVM.lastPop = cast[ptr Nil](bytecodeVM.cached[2])
-            when DEBUG_TRACE_VM:
-                echo &"Result: {result}"
-    when DEBUG_TRACE_VM:
-        echo "==== Debugger exits ===="
 
 
 proc main(file: var string = "", fromString: bool = false) =
@@ -84,15 +79,7 @@ proc main(file: var string = "", fromString: bool = false) =
         source = file
         file = "<string>"
     var bytecodeVM = initVM()
-    when DEBUG_TRACE_VM:
-        echo "Debugger enabled, expect verbose output\n"
-        echo "==== VM Constants ====\n"
-        echo &"- FRAMES_MAX -> {FRAMES_MAX}"
-        echo "==== Code starts ====\n"
-        let result = bytecodeVM.interpret(source, file)
-        echo &"Result: {result}"
-    when not DEBUG_TRACE_VM:
-        discard bytecodeVM.interpret(source, file)
+    discard bytecodeVM.interpret(source, file)
     bytecodeVM.freeVM()
 
 

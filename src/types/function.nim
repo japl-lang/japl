@@ -19,7 +19,7 @@ type
         name*: ptr String
         arity*: int    # The number of required parameters
         optionals*: int   # The number of optional parameters
-        defaults*: seq[ptr Obj]   # List of default arguments, in order
+        defaults*: seq[string]
         chunk*: Chunk   # The function's body
 
 

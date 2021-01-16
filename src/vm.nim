@@ -77,6 +77,8 @@ func handleInterrupt() {.noconv.} =
 
 proc resetStack*(self: VM) =
     ## Resets the VM stack to a blank state
+    when DEBUG_TRACE_VM:
+        echo "DEBUG - VM: Resetting the stack"
     self.stack = new(seq[ptr Obj])
     self.frames = @[]
     self.frameCount = 0
@@ -179,8 +181,14 @@ proc peek*(self: VM, distance: int): ptr Obj =
 proc call(self: VM, function: ptr Function, argCount: int): bool =
     ## Sets up the call frame and performs error checking
     ## when calling callables
-    if argCount != function.arity:
-        self.error(newTypeError(&"function '{stringify(function.name)}' takes {function.arity} argument(s), got {argCount}"))
+    if argCount < function.arity:
+        var arg: string
+        if function.arity > 1:
+            arg = "s"
+        self.error(newTypeError(&"function '{stringify(function.name)}' takes at least {function.arity} argument{arg}, got {argCount}"))
+        return false
+    elif argCount > function.arity and (argCount - function.arity) - function.optionals != 0:
+        self.error(newTypeError(&"function '{stringify(function.name)}' takes at least {function.arity} arguments and at most {function.arity + function.optionals}, got {argCount}"))
         return false
     if self.frameCount == FRAMES_MAX:
         self.error(newRecursionError("max recursion depth exceeded"))
@@ -250,8 +258,8 @@ proc defineGlobal*(self: VM, name: string, value: ptr Obj) =
 proc readByte(self: CallFrame): uint8 =
     ## Reads a single byte from the given
     ## frame's chunk of bytecode
-    result = self.function.chunk.code[self.ip]
     inc(self.ip)
+    result = self.function.chunk.code[self.ip - 1]
 
 
 proc readBytes(self: CallFrame): int =
@@ -281,36 +289,39 @@ proc readConstant(self: CallFrame): ptr Obj =
 proc showRuntime*(self: VM, frame: CallFrame, iteration: uint64) = 
     ## Shows debug information about the current
     ## state of the virtual machine
-    stdout.write(&"Iteration N. {iteration}\nCurrent VM stack status: [")
+    stdout.write("DEBUG - VM: General information\n")
+    stdout.write(&"DEBUG - VM:\tIteration -> {iteration}\nDEBUG - VM:\tStack -> [")
     for i, v in self.stack:
         stdout.write(stringify(v))
         if i < self.stack.high():
             stdout.write(", ")
-    stdout.write("]\nCurrent global scope status: {")
+    stdout.write("]\nDEBUG - VM: \tGlobals -> {")
     for i, (k, v) in enumerate(self.globals.pairs()):
         stdout.write(&"'{k}': {stringify(v)}")
         if i < self.globals.len() - 1:
             stdout.write(", ")
-    stdout.write("}\nCurrent frame type: ")
+    stdout.write("}\nDEBUG - VM: Frame information\n")
+    stdout.write("DEBUG - VM:\tType -> ")
     if frame.function.name == nil:
         stdout.write("main\n")
     else:
         stdout.write(&"function, '{frame.function.name.stringify()}'\n")
-    echo &"Current frame count: {self.frameCount}"
-    echo &"Current frame length: {frame.len}"
-    stdout.write("Current frame constants table: ")
+    echo &"DEBUG - VM:\tCount -> {self.frameCount}"
+    echo &"DEBUG - VM:\tLength -> {frame.len}"
+    stdout.write("DEBUG - VM:\tTable -> ")
     stdout.write("[")
     for i, e in frame.function.chunk.consts:
         stdout.write(stringify(e))
         if i < frame.function.chunk.consts.high():
             stdout.write(", ")
-    stdout.write("]\nCurrent frame stack status: ")
+    stdout.write("]\nDEBUG - VM:\tStack view -> ")
     stdout.write("[")
     for i, e in frame.getView():
         stdout.write(stringify(e))
         if i < len(frame) - 1:
             stdout.write(", ")
     stdout.write("]\n")
+    echo "DEBUG - VM: Current instruction"
     discard disassembleInstruction(frame.function.chunk, frame.ip - 1)
 
 
@@ -319,14 +330,16 @@ proc run(self: VM): InterpretResult =
     ## them one at a time: this is the runtime's
     ## main loop
     var frame = self.frames[self.frameCount - 1]
+    var instruction: OpCode
     when DEBUG_TRACE_VM:
         var iteration: uint64 = 0
     while true:
+        instruction =  OpCode(frame.readByte())
         {.computedgoto.}   # See https://nim-lang.org/docs/manual.html#pragmas-computedgoto-pragma
         when DEBUG_TRACE_VM:    # Insight inside the VM
             iteration += 1
             self.showRuntime(frame, iteration)
-        case OpCode(frame.readByte()):   # Main OpCodes dispatcher
+        case instruction:   # Main OpCodes dispatcher
             of OpCode.Constant:
                 # Loads a constant from the chunk's constant
                 # table
@@ -635,7 +648,7 @@ proc freeObject(self: VM, obj: ptr Obj) =
            ObjectType.Infinity, ObjectType.Nil, ObjectType.Native:
                when DEBUG_TRACE_ALLOCATION:
                     if obj notin self.cached:
-                        echo &"DEBUG- VM: Freeing {obj.typeName()} object with value '{stringify(obj)}'"
+                        echo &"DEBUG - VM: Freeing {obj.typeName()} object with value '{stringify(obj)}'"
                     else:
                         echo &"DEBUG - VM: Freeing cached {obj.typeName()} object with value '{stringify(obj)}'"
                discard free(obj.kind, obj)
@@ -682,6 +695,7 @@ proc freeVM*(self: VM) =
     when DEBUG_TRACE_ALLOCATION:
         if self.objects.len > 0:
             echo &"DEBUG - VM: Warning, {self.objects.len} objects were not freed"
+        echo "DEBUG - VM: The virtual machine has shut down"
 
 
 proc initCache(self: VM) = 
@@ -694,6 +708,8 @@ proc initCache(self: VM) =
     # implement proper object identity
     # in a quicker way than it is done
     # for equality
+    when DEBUG_TRACE_VM:
+        echo "DEBUG - VM: Initializing singletons cache"
     self.cached = 
             [
             true.asBool().asObj(),
@@ -716,12 +732,17 @@ proc stdlibInit*(vm: VM) =
     ## take a different number of arguments according to
     ## how it's called) and should be handled by the nim
     ## procedure accordingly
-    vm.defineGlobal("print", newNative("print", natPrint, -1))
-    vm.defineGlobal("clock", newNative("clock", natClock, 0))
-    vm.defineGlobal("round", newNative("round", natRound, -1))
-    vm.defineGlobal("toInt", newNative("toInt", natToInt, 1))
-    vm.defineGlobal("toString", newNative("toString", natToString, 1))
-    vm.defineGlobal("type", newNative("type", natType, 1))
+    when DEBUG_TRACE_VM and not SKIP_STDLIB_INIT or not DEBUG_TRACE_VM:
+        when DEBUG_TRACE_VM:
+            echo "DEBUG - VM: Initializing stdlib"
+        vm.defineGlobal("print", newNative("print", natPrint, -1))
+        vm.defineGlobal("clock", newNative("clock", natClock, 0))
+        vm.defineGlobal("round", newNative("round", natRound, -1))
+        vm.defineGlobal("toInt", newNative("toInt", natToInt, 1))
+        vm.defineGlobal("toString", newNative("toString", natToString, 1))
+        vm.defineGlobal("type", newNative("type", natType, 1))
+    when DEBUG_TRACE_VM and SKIP_STDLIB_INIT:
+        echo "DEBUG - VM: Skipping stdlib initialization"
 
 
 proc initVM*(): VM =
@@ -730,21 +751,28 @@ proc initVM*(): VM =
     ## handlers, loading the standard
     ## library and preparing the stack
     ## and internal data structures
+    when DEBUG_TRACE_VM:
+        echo &"DEBUG - VM: Initializing the virtual machine, {JAPL_VERSION_STRING}"
     result = VM(objects: @[], globals: initTable[string, ptr Obj](), source: "", file: "")
     result.initCache()
     result.stdlibInit()
     result.resetStack()
     setControlCHook(handleInterrupt)
     result.lastPop = cast[ptr Nil](result.cached[2])
-
+    when DEBUG_TRACE_VM:
+        echo &"DEBUG - VM: Initialization complete, compiled with the following constants: FRAMES_MAX={FRAMES_MAX}, ARRAY_GROW_FACTOR={ARRAY_GROW_FACTOR}, MAP_LOAD_FACTOR={MAP_LOAD_FACTOR}"
 
 
 
 proc interpret*(self: VM, source: string, file: string): InterpretResult =
     ## Interprets a source string containing JAPL code
+    when DEBUG_TRACE_VM:
+        echo &"DEBUG - VM: Preparing to run '{file}'"
     self.resetStack()
     self.source = source
     self.file = file
+    when DEBUG_TRACE_VM:
+        echo &"DEBUG - VM: Compiling '{file}'"
     var compiler = initCompiler(SCRIPT, file=file)
     var compiled = compiler.compile(source)
     # Here we take into account that self.interpret() might
@@ -756,19 +784,23 @@ proc interpret*(self: VM, source: string, file: string): InterpretResult =
     if compiled == nil:
         # Compile-time error
         compiler.freeCompiler()
+        when DEBUG_TRACE_VM:
+            echo "DEBUG - VM: Result -> CompileError"
         return CompileError
+    when DEBUG_TRACE_VM:
+        echo "DEBUG - VM: Compilation successful"
     # Since in JAPL all code runs in some
     # sort of function, we push our global
     # "code object" and call it like any
     # other function
     self.push(compiled)
     discard self.callObject(compiled, 0)
-    when DEBUG_TRACE_VM:
-        echo "==== VM debugger starts ====\n"
     try:
         result = self.run()
     except KeyboardInterrupt:   # TODO: Better handling
         self.error(newInterruptedError(""))
+        when DEBUG_TRACE_VM:
+            echo "DEBUG - VM: Result -> RuntimeError"
         return RuntimeError
     when DEBUG_TRACE_VM:
-        echo "==== VM debugger ends ====\n"
+        echo &"DEBUG - VM: Result -> {result}"

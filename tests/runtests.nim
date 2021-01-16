@@ -22,14 +22,16 @@
 
 
 # Imports nim tests as well
-import multibyte, os, strformat, times, re, terminal, strutils
+import multibyte
+
+import os, strformat, times, re, terminal, strutils
 
 const tempOutputFile = ".testoutput.txt"
 const testResultsPath = "testresults.txt"
 
 
 # Exceptions for tests that represent not-yet implemented behaviour
-const exceptions = ["all.jpl", "for_with_function.jpl", "runtime_interning.jpl"]
+const exceptions = ["all.jpl", "for_with_function.jpl", "runtime_interning.jpl", "problem4.jpl"]
 # for_with_function.jpl probably contains an algorithmic error too
 # TODO: fix that test
 

@@ -33,6 +33,8 @@ import memory
 import multibyte
 when isMainModule:
     import util/debug
+when DEBUG_TRACE_COMPILER:
+    import types/methods
 
 
 type
@@ -101,6 +103,14 @@ proc peek(self: Parser): Token =
     return self.tokens[self.current]
 
 
+proc peekNext(self: Parser): Token =
+    ## Returns the next token without consuming it
+    ## or an EOF token if we're at the end of the file
+    if self.current <= len(self.tokens) - 1:
+        return self.tokens[self.current + 1]
+    return Token(kind: EOF, lexeme: "")
+
+
 proc previous(self: Parser): Token =
     ## Returns the previously consumed token
     return self.tokens[self.current - 1]
@@ -110,6 +120,12 @@ proc check(self: Parser, kind: TokenType): bool =
     ## Checks if the current token is of the expected type
     ## without consuming it
     return self.peek().kind == kind
+
+
+proc checkNext(self: Parser, kind: TokenType): bool =
+    ## Checks if the next token is of the expected type
+    ## without consuming it
+    return self.peekNext().kind == kind
 
 
 proc match(self: Parser, kind: TokenType): bool =
@@ -194,7 +210,7 @@ proc emitByte(self: Compiler, byt: OpCode|uint8) =
     ## Emits a single bytecode instruction and writes it
     ## to the current chunk being compiled
     when DEBUG_TRACE_COMPILER:
-        echo "Compiler.emitByte byt:" & $byt & " (uint8 value of " & $(uint8 byt) & ")"
+        echo "DEBUG - Compiler: Emitting " & $byt & " (uint8 value of " & $(uint8 byt) & ")"
     self.currentChunk.writeChunk(uint8 byt, self.parser.previous.line)
 
 
@@ -878,7 +894,7 @@ proc parseFunction(self: Compiler, funType: FunctionType) =
                 self.function.arity -= 1
                 self.function.optionals += 1
                 self.expression()
-                # self.function.defaults.add(self.parser.previous.lexeme)  # TODO
+                self.function.defaults.add(self.parser.previous.lexeme)
                 defaultFollows = true
             elif defaultFollows:
                 self.compileError("non-default argument follows default argument")
@@ -911,25 +927,49 @@ proc funDeclaration(self: Compiler, named: bool = true) =
         self.parseFunction(FunctionType.LAMBDA)
 
 
-proc argumentList(self: Compiler): uint8 =
+proc argumentList(self: Compiler): tuple[pos: uint8, kw: uint8] =
     ## Parses arguments passed to function calls
-    result = 0
+    result.pos = 0
+    result.kw = 0
     if not self.parser.check(RP):
         while true:
-            self.expression()
-            if result == 255:
-                self.compileError("cannot pass more than 255 arguments")
-                return
-            result += 1
-            if not self.parser.match(COMMA):
-                break
+            if self.parser.check(ID) and self.parser.checkNext(TokenType.EQ):
+                discard self.parser.advance()
+                discard self.parser.advance()
+                if self.parser.check(EOF):
+                    self.parser.parseError(self.parser.previous, "Unexpected EOF")
+                    return
+                else:
+                    self.expression()
+                    if result.pos + result.kw == 255:
+                        self.compileError("cannot pass more than 255 arguments")
+                        return
+                    if not self.parser.match(COMMA):
+                        break
+                    result.kw += 1
+            else:
+                if self.parser.check(EOF):
+                    self.parser.parseError(self.parser.previous, "Unexpected EOF")
+                    return
+                if result.kw > 0:
+                    self.parser.parseError(self.parser.peek, "positional argument follows default argument")
+                    return
+                self.expression()
+                if result.pos == 255:
+                    self.compileError("cannot pass more than 255 arguments")
+                    return
+                result.pos += 1
+                if not self.parser.match(COMMA):
+                    break
     self.parser.consume(RP, "Expecting ')' after arguments")
 
 
 proc call(self: Compiler, canAssign: bool) =
     ## Emits appropriate bytecode to call
     ## a function with its arguments
-    self.emitBytes(OpCode.Call, self.argumentList())
+    # TODO -> Keyword arguments
+    let args = self.argumentList()
+    self.emitBytes(OpCode.Call, args.pos)
 
 
 proc returnStatement(self: Compiler) =
@@ -1098,9 +1138,6 @@ proc getRule(kind: TokenType): ParseRule =
 
 
 proc compile*(self: Compiler, source: string): ptr Function =
-    when DEBUG_TRACE_COMPILER:
-        echo "==== COMPILER debugger starts ===="
-        echo ""
     ## Compiles a source string into a function
     ## object. This wires up all the code
     ## inside the parser and the lexer
@@ -1111,19 +1148,17 @@ proc compile*(self: Compiler, source: string): ptr Function =
         while not self.parser.match(EOF):
             self.declaration()
         var function = self.endCompiler()
-        when DEBUG_TRACE_COMPILER:
-            echo "\n==== COMPILER debugger ends ===="
-            echo ""
         if not self.parser.hadError:
             when DEBUG_TRACE_COMPILER:
-                echo "Result: Ok"
+                echo "DEBUG - Compiler: Result -> Ok"
             return function
         else:
             when DEBUG_TRACE_COMPILER:
-                echo "Result: Fail"
-            # self.freeCompiler()
+                echo "DEBUG - Compiler: Result -> ParseError"
             return nil
     else:
+        when DEBUG_TRACE_COMPILER:
+            echo "DEBUG - Compiler: Result -> LexingError"
         return nil
 
 

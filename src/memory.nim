@@ -41,7 +41,8 @@ proc reallocate*(pointr: pointer, oldSize: int, newSize: int): pointer =
                 echo &"DEBUG - Memory manager: Allocating {newSize} bytes of memory"
             else:
                 echo &"DEBUG - Memory manager: Resizing {oldSize} bytes of memory to {newSize} bytes"
-        result = realloc(pointr, newSize)
+        if oldSize > 0 and pointr != nil or oldSize == 0:
+            result = realloc(pointr, newSize)
     except NilAccessDefect:
         stderr.write("A fatal error occurred -> could not manage memory, segmentation fault\n")
         quit(71)   # For now, there's not much we can do if we can't get the memory we need

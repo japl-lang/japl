@@ -24,7 +24,6 @@ import logging
 import argparse
 from time import time
 from typing import Dict
-from pprint import pformat
 from subprocess import Popen, PIPE, DEVNULL, run
 
 
@@ -52,6 +51,7 @@ const FRAMES_MAX* = {frames_max}  # The maximum recursion limit
 const JAPL_VERSION* = "0.3.0"
 const JAPL_RELEASE* = "alpha"
 const DEBUG_TRACE_VM* = {debug_vm} # Traces VM execution
+const SKIP_STDLIB_INIT* = {skip_stdlib_init} # Skips stdlib initialization in debug mode
 const DEBUG_TRACE_GC* = {debug_gc}    # Traces the garbage collector (TODO)
 const DEBUG_TRACE_ALLOCATION* = {debug_alloc}   # Traces memory allocation/deallocation (WIP)
 const DEBUG_TRACE_COMPILER* = {debug_compiler}  # Traces the compiler
@@ -120,7 +120,8 @@ def build(path: str, flags: Dict[str, str] = {}, options: Dict[str, bool] = {}, 
 
     config_path = os.path.join(path, "config.nim")
     main_path = os.path.join(path, "japl.nim")
-    logging.info("Just Another Build Tool, version 0.3.2")
+    logging.info("Just Another Build Tool, version 0.3.3")
+    listing = "\n- {} = {}"
     if not os.path.exists(path):
         logging.error(f"Input path '{path}' does not exist")
         return
@@ -136,7 +137,7 @@ def build(path: str, flags: Dict[str, str] = {}, options: Dict[str, bool] = {}, 
             logging.error(f"A fatal unhandled exception occurred -> {type(fatal).__name__}: {fatal}")
             return
         else:
-            logging.debug(f"Config file has been generated, compiling with options as follows: \n{pformat(options, indent=2)}")
+            logging.debug(f"Config file has been generated, compiling with options as follows: {''.join(listing.format(k, v) for k, v in options.items())}")
     logging.debug(f"Compiling '{main_path}'")
     nim_flags = " ".join(f"-{name}:{value}" if len(name) == 1 else f"--{name}:{value}" for name, value in flags.items())
     command = "nim {flags} compile {path}".format(flags=nim_flags, path=main_path)
@@ -176,10 +177,9 @@ def build(path: str, flags: Dict[str, str] = {}, options: Dict[str, bool] = {}, 
             else:
                 # TODO -> Is PATH defined on all linux distros?
                 logging.info(f"Installing JAPL at PATH")
-                if any(os.path.exists(os.path.join(path, "jpl")) for path in os.getenv("PATH").split(":")) and not ignore_binary:
+                if not ignore_binary and any(os.path.exists(os.path.join(path, "jpl")) for path in os.getenv("PATH").split(":")):
                     logging.error("Could not install JAPL because a binary already exists in PATH")
                     return
-                install_path = os.path.join(os.getenv("PATH").split(":")[0], "jpl")
                 for path in os.getenv("PATH").split(":"):
                     install_path = os.path.join(path, "jpl")
                     logging.debug(f"Attempting to install JAPL at '{install_path}'")
@@ -193,8 +193,7 @@ def build(path: str, flags: Dict[str, str] = {}, options: Dict[str, bool] = {}, 
                         logging.debug(f"JAPL installed at '{path}', setting executable permissions")
                         # TODO: Use external oschmod library once we support windows!
                         try:
-                            perms = os.stat(install_path)
-                            os.chmod(install_path, perms.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+                            os.chmod(install_path, os.stat(install_path).st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
                         except Exception as fatal:
                             logging.error(f"A fatal unhandled exception occurred -> {type(fatal).__name__}: {fatal}")
                         break
@@ -218,6 +217,7 @@ if __name__ == "__main__":
             }
     options = {
         "debug_vm": "false",
+        "skip_stdlib_init": "false",
         "debug_gc": "false",
         "debug_compiler": "false",
         "debug_alloc": "false",

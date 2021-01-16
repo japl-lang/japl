@@ -24,13 +24,13 @@ import strformat
 
 
 proc simpleInstruction(name: string, index: int): int =
-    echo &"\tInstruction at IP: {name}\n"
+    echo &"DEBUG - VM:\tInstruction -> {name}"
     return index + 1
 
 
 proc byteInstruction(name: string, chunk: Chunk, offset: int): int =
     var slot = chunk.code[offset + 1]
-    echo &"\tInstruction at IP: {name}, points to slot {slot}\n"
+    echo &"DEBUG - VM:\tInstruction -> {name}, points to slot {slot}"
     return offset + 2
 
 
@@ -38,24 +38,24 @@ proc constantInstruction(name: string, chunk: Chunk, offset: int): int =
     # Rebuild the index
     var constantArray: array[3, uint8] = [chunk.code[offset + 1], chunk.code[offset + 2], chunk.code[offset + 3]]
     var constant: int
-    copyMem(constant.addr, unsafeAddr(constantArray), sizeof(constantArray))
-    echo &"\tInstruction at IP: {name}, points to slot {constant}"
+    copyMem(constant.addr, constantArray.addr, sizeof(constantArray))
+    echo &"DEBUG - VM:\tInstruction -> {name}, points to slot {constant}"
     let obj = chunk.consts[constant]
-    echo &"\tOperand: {stringify(obj)}\n\tValue kind: {obj.kind}\n"
+    echo &"DEBUG - VM:\tOperand -> {stringify(obj)}\nDEBUG - VM:\tValue kind -> {obj.kind}"
     return offset + 4
 
 
 proc jumpInstruction(name: string, chunk: Chunk, offset: int): int =
     var jumpArray: array[2, uint8] = [chunk.code[offset + 1], chunk.code[offset + 2]]
     var jump: int
-    copyMem(jump.addr, unsafeAddr(jumpArray), sizeof(uint16))
-    echo &"\tInstruction at IP: {name}\n\tJump offset: {jump}\n"
+    copyMem(jump.addr, jumpArray.addr, sizeof(uint16))
+    echo &"DEBUG - VM:\tInstruction -> {name}\nDEBUG - VM:\tJump size -> {jump}"
     return offset + 3
 
 
 proc disassembleInstruction*(chunk: Chunk, offset: int): int =
     ## Takes one bytecode instruction and prints it
-    echo &"Current IP position: {offset}\nCurrent line: {chunk.lines[offset]}"
+    echo &"DEBUG - VM:\tOffset: {offset}\nDEBUG - VM:\tLine: {chunk.lines[offset]}"
     var opcode = OpCode(chunk.code[offset])
     case opcode:
         of simpleInstructions:
