@@ -162,7 +162,7 @@ proc parseIdentifier(self: Lexer) =
     ## Parses identifiers, note that
     ## multi-character tokens such as
     ## UTF runes are not supported
-    while self.peek().isAlphaNumeric():
+    while self.peek().isAlphaNumeric() or self.peek() in {'_', }:
         discard self.step()
     var text: string = self.source[self.start..<self.current]
     if text in RESERVED:
@@ -247,3 +247,19 @@ proc lex*(self: Lexer): seq[Token] =
     self.tokens.add(Token(kind: TokenType.EOF, lexeme: "EOF", line: self.line))
     return self.tokens
 
+
+when isMainModule:
+    echo("JAPL Lexer REPL")
+    while true:
+        try:
+            stdout.write(">> ")
+            var lexer = initLexer(readLine(stdin), "stdin")
+            stdout.write("Lexer output: [")
+            var lexed = lexer.lex()
+            for i, el in lexed:
+                stdout.write($el[])
+                if i < lexed.high():
+                    stdout.write(", ")
+            stdout.write("]\n")
+        except IOError:
+            break

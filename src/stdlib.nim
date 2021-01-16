@@ -17,6 +17,7 @@
 import types/baseObject
 import types/numbers
 import types/methods
+import types/typeutils
 import types/japlString
 import types/exception
 import types/native

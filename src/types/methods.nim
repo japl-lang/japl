@@ -23,6 +23,7 @@ import boolean
 import japlNil
 import numbers
 import native
+import typeutils
 
 import parseutils
 
@@ -195,7 +196,7 @@ proc eq*(self, other: ptr Obj): bool =
             discard
 
 
-proc negate*(self: ptr Obj): ptr Obj = 
+proc negate*(self: ptr Obj): returnType = 
     ## Returns the result of -self or
     ## raises an error if the operation
     ## is unsupported
@@ -210,7 +211,7 @@ proc negate*(self: ptr Obj): ptr Obj =
             raise newException(NotImplementedError, "")
 
 
-proc sum*(self, other: ptr Obj): ptr Obj =
+proc sum*(self, other: ptr Obj): returnType =
     ## Returns the result of self + other
     ## or raises NotImplementedError if the operation is unsupported
     case self.kind:
@@ -232,7 +233,7 @@ proc sum*(self, other: ptr Obj): ptr Obj =
             raise newException(NotImplementedError, "")
 
 
-proc sub*(self, other: ptr Obj): ptr Obj =
+proc sub*(self, other: ptr Obj): returnType =
     ## Returns the result of self - other
     ## or raises NotImplementedError if the operation is unsupported
     case self.kind:
@@ -248,7 +249,7 @@ proc sub*(self, other: ptr Obj): ptr Obj =
             raise newException(NotImplementedError, "")
 
 
-proc mul*(self, other: ptr Obj): ptr Obj =
+proc mul*(self, other: ptr Obj): returnType =
     ## Returns the result of self * other
     ## or raises NotImplementedError if the operation is unsupported
     case self.kind:
@@ -266,7 +267,7 @@ proc mul*(self, other: ptr Obj): ptr Obj =
             raise newException(NotImplementedError, "")
 
 
-proc trueDiv*(self, other: ptr Obj): ptr Obj =
+proc trueDiv*(self, other: ptr Obj): returnType =
     ## Returns the result of self / other
     ## or raises NotImplementedError if the operation is unsupported
     case self.kind:
@@ -282,7 +283,7 @@ proc trueDiv*(self, other: ptr Obj): ptr Obj =
             raise newException(NotImplementedError, "")
 
 
-proc pow*(self, other: ptr Obj): ptr Obj =
+proc pow*(self, other: ptr Obj): returnType =
     ## Returns the result of self ** other (exponentiation)
     ## or raises NotImplementedError if the operation is unsupported
     case self.kind:
@@ -298,7 +299,7 @@ proc pow*(self, other: ptr Obj): ptr Obj =
             raise newException(NotImplementedError, "")
 
 
-proc divMod*(self, other: ptr Obj): ptr Obj =
+proc divMod*(self, other: ptr Obj): returnType =
     ## Returns the result of self % other
     ## or raises NotImplementedError if the operation is unsupported
     case self.kind:
@@ -314,7 +315,7 @@ proc divMod*(self, other: ptr Obj): ptr Obj =
             raise newException(NotImplementedError, "")
 
 
-proc binaryAnd*(self, other: ptr Obj): ptr Obj =
+proc binaryAnd*(self, other: ptr Obj): returnType =
     ## Returns the result of self & other
     ## or raises NotImplementedError if the operation is unsupported
     case self.kind:
@@ -325,7 +326,7 @@ proc binaryAnd*(self, other: ptr Obj): ptr Obj =
 
 
 
-proc binaryOr*(self, other: ptr Obj): ptr Obj =
+proc binaryOr*(self, other: ptr Obj): returnType =
     ## Returns the result of self | other
     ## or raises NotImplementedError if the operation is unsupported
     case self.kind:
@@ -335,7 +336,7 @@ proc binaryOr*(self, other: ptr Obj): ptr Obj =
             raise newException(NotImplementedError, "")
 
 
-proc binaryXor*(self, other: ptr Obj): ptr Obj =
+proc binaryXor*(self, other: ptr Obj): returnType =
     ## Returns the result of self ^ other
     ## or raises NotImplementedError if the operation is unsupported
     case self.kind:
@@ -345,7 +346,7 @@ proc binaryXor*(self, other: ptr Obj): ptr Obj =
             raise newException(NotImplementedError, "")
 
 
-proc binaryShr*(self, other: ptr Obj): ptr Obj =
+proc binaryShr*(self, other: ptr Obj): returnType =
     ## Returns the result of self >> other
     ## or raises NotImplementedError if the operation is unsupported
     case self.kind:
@@ -355,7 +356,7 @@ proc binaryShr*(self, other: ptr Obj): ptr Obj =
             raise newException(NotImplementedError, "")
 
 
-proc binaryShl*(self, other: ptr Obj): ptr Obj =
+proc binaryShl*(self, other: ptr Obj): returnType =
     ## Returns the result of self << other
     ## or raises NotImplementedError if the operation is unsupported
     case self.kind:
@@ -365,7 +366,7 @@ proc binaryShl*(self, other: ptr Obj): ptr Obj =
             raise newException(NotImplementedError, "")
 
 
-proc binaryNot*(self: ptr Obj): ptr Obj =
+proc binaryNot*(self: ptr Obj): returnType =
     ## Returns the result of self ~other
     ## or raises NotImplementedError if the operation is unsupported
     case self.kind:
@@ -405,26 +406,27 @@ proc gt*(self: ptr Obj, other: ptr Obj): bool =
             raise newException(NotImplementedError, "")
 
 
-proc objAs*(self: ptr Obj, other: ObjectType): ptr Obj = 
+proc objAs*(self: ptr Obj, other: ObjectType): returnType = 
     ## Returns the result of self as other
     ## (casts self to other's type)
     
-    # TODO -> This is in beta!
+    # TODO -> This is in beta, move to specific types module!
+    result.kind = returnTypes.Object
     case other:
         of ObjectType.String:
-            result = stringify(self).asStr()
+            result.result = stringify(self).asStr()
         of ObjectType.Integer:
             case self.kind:
                 of ObjectType.String:
                     var intVal: int
                     discard parseInt(cast[ptr String](self).toStr(), intVal)
-                    result = intVal.asInt()
+                    result.result = intVal.asInt()
                 of ObjectType.Float:
                     var floatVal: float64
                     discard (parseFloat(cast[ptr Float](self).stringify(), floatVal))
-                    result = int(floatVal).asInt()
+                    result.result = int(floatVal).asInt()
                 of ObjectType.Integer:
-                    result = self
+                    result.result = self
                 else:
                     raise newException(NotImplementedError, "")
         of ObjectType.Float:
@@ -432,13 +434,13 @@ proc objAs*(self: ptr Obj, other: ObjectType): ptr Obj =
                 of ObjectType.String:
                     var floatVal: float64
                     discard parseFloat(cast[ptr String](self).toStr(), floatVal)
-                    result = floatVal.asFloat()
+                    result.result = floatVal.asFloat()
                 of ObjectType.Integer:
                     var intVal: int
                     discard parseInt(cast[ptr Integer](self).stringify(), intVal)
-                    result = float(intVal).asFloat()
+                    result.result = float(intVal).asFloat()
                 of ObjectType.Float:
-                    result = self
+                    result.result = self
                 else:
                     raise newException(NotImplementedError, "")
                     
@@ -446,68 +448,20 @@ proc objAs*(self: ptr Obj, other: ObjectType): ptr Obj =
             raise newException(NotImplementedError, "")
 
 
-## Utilities to inspect JAPL objects
+proc getItem*(self: ptr Obj, other: ptr Obj): returnType = 
+    ## Implements get expressions with square brackets
+    result.kind = returnTypes.Object
+    case self.kind:
+        of ObjectType.String:
+            result = cast[ptr String](self).getItem(other)
+        else:
+            raise newException(NotImplementedError, "")
 
 
-proc objType*(obj: ptr Obj): ObjectType =
-    ## Returns the type of the object
-    result = obj.kind
-
-
-proc isCallable*(obj: ptr Obj): bool =
-    ## Returns true if the given object
-    ## is callable, false otherwise
-    result = obj.kind in {ObjectType.Function, ObjectType.Class, ObjectType.Native}
-
-
-proc isNil*(obj: ptr Obj): bool =
-    ## Returns true if the given obj
-    ## is a JAPL nil object
-    result = obj.kind == ObjectType.Nil
-
-
-proc isBool*(obj: ptr Obj): bool =
-    ## Returns true if the given obj
-    ## is a JAPL bool
-    result = obj.kind == ObjectType.Bool
-
-
-proc isInt*(obj: ptr Obj): bool =
-    ## Returns true if the given obj
-    ## is a JAPL integer
-    result = obj.kind == ObjectType.Integer
-
-
-proc isFloat*(obj: ptr Obj): bool =
-    ## Returns true if the given obj
-    ## is a JAPL float
-    result = obj.kind == ObjectType.Float
-
-
-proc isInf*(obj: ptr Obj): bool =
-    ## Returns true if the given obj
-    ## is a JAPL inf object
-    result = obj.kind == ObjectType.Infinity
-
-
-proc isNan*(obj: ptr Obj): bool =
-    ## Returns true if the given obj
-    ## is a JAPL nan object
-    result = obj.kind == ObjectType.NotANumber
-
-
-proc isNum*(obj: ptr Obj): bool =
-    ## Returns true if the given obj is
-    ## either a JAPL number, infinity or nan.
-    ## Note to JavaScript developers: No, in JAPL
-    ## nan is not a number. Here we consider it like
-    ## a number because internally it's easier to
-    ## represent it like that for methods that perform
-    ## binary operations on numbers, since 2 * nan is 
-    ## valid JAPL code and will yield nan
-    result = isInt(obj) or isFloat(obj) or isInf(obj) or isNan(obj)
-
-
-proc isStr*(obj: ptr Obj): bool =
-    ## Returns true if the given object is a JAPL string
-    result = obj.kind == ObjectType.String
+proc Slice*(self: ptr Obj, a: ptr Obj, b: ptr Obj): returnType = 
+    ## Implements get expressions with square brackets
+    case self.kind:
+        of ObjectType.String:
+            result = cast[ptr String](self).Slice(a, b)
+        else:
+            raise newException(NotImplementedError, "")

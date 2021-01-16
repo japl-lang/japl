@@ -19,7 +19,7 @@ import ../types/baseObject
 
 
 type
-    Chunk* = ref object   # TODO: This shouldn't be here, but Function needs it. Consider refactoring
+    Chunk* = ref object
         ## A piece of bytecode.
         ## Consts represents the constants table the code is referring to
         ## Code is the compiled bytecode
@@ -30,7 +30,6 @@ type
     OpCode* {.pure.} = enum
         ## Enum of possible opcodes
         Constant = 0u8,
-        ConstantLong,
         Return,
         Negate,
         Add,
@@ -84,10 +83,8 @@ const simpleInstructions* = {OpCode.Return, OpCode.Add, OpCode.Multiply,
                              OpCode.Slice, OpCode.Pop, OpCode.Negate,
                              OpCode.Is, OpCode.As}
 const constantInstructions* = {OpCode.Constant, OpCode.DefineGlobal,
-                         OpCode.GetGlobal, OpCode.SetGlobal,
-                         OpCode.DeleteGlobal}
-
-const constantLongInstructions* = {OpCode.ConstantLong}
+                               OpCode.GetGlobal, OpCode.SetGlobal,
+                               OpCode.DeleteGlobal}
 const byteInstructions* = {OpCode.SetLocal, OpCode.GetLocal, OpCode.DeleteLocal,
                            OpCode.Call}
 const jumpInstructions* = {OpCode.JumpIfFalse, OpCode.Jump, OpCode.Loop}
@@ -117,15 +114,10 @@ proc freeChunk*(self: Chunk) =
     self.lines = @[]
 
 
-proc addConstant*(self: Chunk, constant: ptr Obj): int =
-    ## Adds a constant to a chunk. Returns its index. 
+proc addConstant*(self: Chunk, constant: ptr Obj): array[3, uint8] =
+    ## Writes a constant to a chunk. Returns its index casted to an array
     self.consts.add(constant)
-    return self.consts.high()  # The index of the constant
-
-
-proc writeConstant*(self: Chunk, constant: ptr Obj): array[3, uint8] =
-    ## Writes a constant to a chunk. Returns its index casted to an array.
-    ## TODO newdoc
-    let index = self.addConstant(constant)
+    let index = self.consts.high()
     result = cast[array[3, uint8]](index)
+
   

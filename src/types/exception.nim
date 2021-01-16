@@ -12,49 +12,52 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Implementation of JAPL exceptions (WIP)
 
 import baseObject
-import japlString
+
+import strformat
 
 
 type
     JAPLException* = object of Obj    # TODO: Create exceptions subclasses
         ## The base exception object
-        errName*: ptr String    # TODO: Ditch error name in favor of inheritance-based types
-        message*: ptr String
+        # TODO -> Use ptr String again once
+        # the recursive dependency is fixed
+        errName*: string    # TODO: Ditch error name in favor of inheritance-based builtin types
+        message*: string
 
 
 
 proc newIndexError*(message: string): ptr JAPLException =
     result = allocateObj(JAPLException, ObjectType.Exception)
-    result.errName = "IndexError".asStr()
-    result.message = message.asStr()
+    result.errName = "IndexError"
+    result.message = message
 
 
 proc newReferenceError*(message: string): ptr JAPLException =
     result = allocateObj(JAPLException, ObjectType.Exception)
-    result.errName = "ReferenceError".asStr()
-    result.message = message.asStr()
+    result.errName = "ReferenceError"
+    result.message = message
 
 
 proc newInterruptedError*(message: string): ptr JAPLException =
     result = allocateObj(JAPLException, ObjectType.Exception)
-    result.errName = "InterruptedError".asStr()
-    result.message = message.asStr()
+    result.errName = "InterruptedError"
+    result.message = message
 
 
 proc newRecursionError*(message: string): ptr JAPLException =
     result = allocateObj(JAPLException, ObjectType.Exception)
-    result.errName = "RecursionError".asStr()
-    result.message = message.asStr()
+    result.errName = "RecursionError"
+    result.message = message
 
 
 proc newTypeError*(message: string): ptr JAPLException =
     result = allocateObj(JAPLException, ObjectType.Exception)
-    result.errName = "TypeError".asStr()
-    result.message = message.asStr()
+    result.errName = "TypeError"
+    result.message = message
 
 
 proc stringify*(self: ptr JAPLException): string =
-    result = self.errName.toStr() & ": " & self.message.toStr()
-
+    result = &"{self.errName}: {self.message}"

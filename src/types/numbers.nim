@@ -12,10 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Implementation of numerical types
+
 import baseObject
+import typeutils
+
 import bitops
 import math
-
 
 # Custom operators for exponentiation
 proc `**`(a, b: int): int = pow(a.float, b.float).int
@@ -95,7 +98,7 @@ proc eq*(self, other: ptr NotANumber): bool =
     result = false   # As per IEEE 754 spec, nan != nan
 
 
-proc sum*(self: ptr NotANumber, other: ptr Obj): ptr NotANumber =
+proc sum*(self: ptr NotANumber, other: ptr Obj): returnType =
     raise newException(NotImplementedError, "")
 
 
@@ -118,12 +121,12 @@ proc hash*(self: ptr Infinity): uint64 =
         result = 0u
 
 
-proc negate*(self: ptr Infinity): ptr Infinity =
-    result = self
+proc negate*(self: ptr Infinity): returnType =
+    result.result = nil
     if self.isNegative:
-        result.isNegative = false
+        result.kind = returnTypes.Inf
     else:
-        result.isNegative = true
+        result.kind = returnTypes.nInf
 
 
 proc eq*(self, other: ptr Infinity): bool =
@@ -178,26 +181,30 @@ proc gt*(self: ptr Infinity, other: ptr Obj): bool =
             raise newException(NotImplementedError, "")
 
 
-proc sum*(self: ptr Infinity, other: ptr Obj): ptr Infinity =
-    result = asInf()
+proc sum*(self: ptr Infinity, other: ptr Obj): returnType =
+    result.result = nil
+    result.kind = returnTypes.Inf
     case other.kind:
         of ObjectType.Infinity:
             var other = cast[ptr Infinity](other)
             if self.isNegative or other.isNegative:
-                result.isNegative = true
+                result.kind = returnTypes.nInf
         of ObjectType.Integer, ObjectType.Float:
             discard
         else:
             raise newException(NotImplementedError, "")
 
 
-proc sub*(self: ptr Infinity, other: ptr Obj): ptr Infinity =
-    result = asInf()
+proc sub*(self: ptr Infinity, other: ptr Obj): returnType =
+    result.result = nil
+    result.kind = returnTypes.Inf
     case other.kind:
         of ObjectType.Infinity:
             var other = cast[ptr Infinity](other)
             if self.isNegative or other.isNegative:
-                result.isNegative = true
+                result.kind = returnTypes.nInf
+            elif not self.isNegative and not other.isNegative:
+                result.kind = returnTypes.NotANumber
         of ObjectType.Integer, ObjectType.Float:
             discard
         else:
@@ -221,8 +228,9 @@ proc eq*(self, other: ptr Float): bool =
     result = self.floatValue == other.floatValue
 
 
-proc negate*(self: ptr Float): ptr Float =
-    result = (-self.toFloat()).asFloat()
+proc negate*(self: ptr Float): returnType =
+    result.kind = returnTypes.Object
+    result.result = (-self.toFloat()).asFloat()
 
 
 
@@ -242,8 +250,9 @@ proc eq*(self, other: ptr Integer): bool =
     result = self.intValue == other.intValue
 
 
-proc negate*(self: ptr Integer): ptr Integer =
-    result = (-self.toInt()).asInt()
+proc negate*(self: ptr Integer): returnType =
+    result.kind = returnTypes.Object
+    result.result = (-self.toInt()).asInt()
 
 
 proc hash*(self: ptr Integer): uint64 = 
@@ -314,343 +323,391 @@ proc gt*(self: ptr Float, other: ptr Obj): bool =
             raise newException(NotImplementedError, "")
 
 
-proc sum*(self: ptr Integer, other: ptr Obj): ptr Obj =  # This can yield a float!
+proc sum*(self: ptr Integer, other: ptr Obj): returnType =
     case other.kind:
         of ObjectType.Integer:
-            result = (self.toInt() + cast[ptr Integer](other).toInt()).asInt()
+            result.kind = returnTypes.Object
+            result.result = (self.toInt() + cast[ptr Integer](other).toInt()).asInt()
         of ObjectType.Float:
             let res = ((float self.toInt()) + cast[ptr Float](other).toFloat())
             if res == system.Inf:
-                result = asInf()
+                result.kind = returnTypes.Inf
+                result.result = nil
             elif res == -system.Inf:
-                let negInf = asInf()
-                negInf.isNegative = true
-                result = negInf
+                result.kind = returnTypes.nInf
+                result.result = nil
             else:
-                result = res.asFloat()
+                result.kind = returnTypes.Object
+                result.result = res.asFloat()
         of ObjectType.Infinity:
-            result = cast[ptr Infinity](other)
+            result.kind = returnTypes.Inf
+            result.result = nil
         else:
             raise newException(NotImplementedError, "")
 
 
-proc sum*(self: ptr Float, other: ptr Obj): ptr Obj =
+proc sum*(self: ptr Float, other: ptr Obj): returnType =
     case other.kind:
         of ObjectType.Integer:
-            result = (self.toFloat() + float cast[ptr Integer](other).toInt()).asFloat()
+            result.kind = returnTypes.Object
+            result.result = (self.toFloat() + float cast[ptr Integer](other).toInt()).asFloat()
         of ObjectType.Float:
             let res = (self.toFloat() + cast[ptr Float](other).toFloat())
             if res == system.Inf:
-                result = asInf()
+                result.kind = returnTypes.Inf
+                result.result = nil
             elif res == -system.Inf:
-                let negInf = asInf()
-                negInf.isNegative = true
-                result = negInf
+                result.kind = returnTypes.nInf
+                result.result = nil
             else:
-                result = res.asFloat()
+                result.kind = returnTypes.Object
+                result.result = res.asFloat()
         of ObjectType.Infinity:
-            result = cast[ptr Infinity](other)
+            result.kind = returnTypes.Inf
+            result.result = nil
         else:
             raise newException(NotImplementedError, "")
 
 
-proc sub*(self: ptr Integer, other: ptr Obj): ptr Obj =  # This can yield a float!
+proc sub*(self: ptr Integer, other: ptr Obj): returnType =
     case other.kind:
         of ObjectType.Integer:
-            result = (self.toInt() - cast[ptr Integer](other).toInt()).asInt()
+            result.kind = returnTypes.Object
+            result.result = (self.toInt() - cast[ptr Integer](other).toInt()).asInt()
         of ObjectType.Float:
             let res = ((float self.toInt()) - cast[ptr Float](other).toFloat())
             if res == system.Inf:
-                result = asInf()
+                result.kind = returnTypes.Inf
+                result.result = nil
             elif res == -system.Inf:
-                let negInf = asInf()
-                negInf.isNegative = true
-                result = negInf
+                result.kind = returnTypes.nInf
+                result.result = nil
             else:
-                result = res.asFloat()
+                result.kind = returnTypes.Object
+                result.result = res.asFloat()
         of ObjectType.Infinity:
-            result = cast[ptr Infinity](other)
+            result.kind = returnTypes.nInf
+            result.result = nil
         else:
             raise newException(NotImplementedError, "")
 
 
-proc sub*(self: ptr NotANumber, other: ptr Obj): ptr NotANumber =
+proc sub*(self: ptr NotANumber, other: ptr Obj): returnType =
     raise newException(NotImplementedError, "")
 
 
-proc sub*(self: ptr Float, other: ptr Obj): ptr Obj =
+proc sub*(self: ptr Float, other: ptr Obj): returnType =
     case other.kind:
         of ObjectType.Integer:
-            result = (self.toFloat() - float cast[ptr Integer](other).toInt()).asFloat()
+            result.kind = returnTypes.Object
+            result.result = (self.toFloat() - float cast[ptr Integer](other).toInt()).asFloat()
         of ObjectType.Float:
             let res = (self.toFloat() - cast[ptr Float](other).toFloat())
             if res == system.Inf:
-                result = asInf()
+                result.kind = returnTypes.Inf
+                result.result = nil
             elif res == -system.Inf:
-                let negInf = asInf()
-                negInf.isNegative = true
-                result = negInf
+                result.kind = returnTypes.nInf
+                result.result = nil
             else:
-                result = res.asFloat()
+                result.kind = returnTypes.Object
+                result.result = res.asFloat()
         of ObjectType.Infinity:
-            result = cast[ptr Infinity](other)
+            result.kind = returnTypes.nInf
+            result.result = nil
         else:
             raise newException(NotImplementedError, "")
 
 
-proc mul*(self: ptr Infinity, other: ptr Obj): ptr Infinity =
-    result = asInf()
+proc mul*(self: ptr Infinity, other: ptr Obj): returnType =
+    result.result = nil
+    result.kind = returnTypes.Inf
     case other.kind:
         of ObjectType.Infinity:
             var other = cast[ptr Infinity](other)
             if self.isNegative or other.isNegative:
-                result.isNegative = true
+                result.kind = returnTypes.nInf
         of ObjectType.Integer, ObjectType.Float:
             discard
         else:
             raise newException(NotImplementedError, "")
 
 
-proc mul*(self: ptr NotANumber, other: ptr Obj): ptr NotANumber =
+proc mul*(self: ptr NotANumber, other: ptr Obj): returnType =
     raise newException(NotImplementedError, "")
 
 
 
-proc mul*(self: ptr Integer, other: ptr Obj): ptr Obj =  # This can yield a float!
+proc mul*(self: ptr Integer, other: ptr Obj): returnType = 
     case other.kind:
         of ObjectType.Integer:
-            result = (self.toInt() * cast[ptr Integer](other).toInt()).asInt()
+            result.kind = returnTypes.Object
+            result.result = (self.toInt() * cast[ptr Integer](other).toInt()).asInt()
         of ObjectType.Float:
             let res = ((float self.toInt()) * cast[ptr Float](other).toFloat())
             if res == system.Inf:
-                result = asInf()
+                result.kind = returnTypes.Inf
+                result.result = nil
             elif res == -system.Inf:
-                let negInf = asInf()
-                negInf.isNegative = true
-                result = negInf
+                result.kind = returnTypes.nInf
+                result.result = nil
             else:
-                result = res.asFloat()
+                result.kind = returnTypes.Object
+                result.result = res.asFloat()
         of ObjectType.Infinity:
-            result = cast[ptr Infinity](other)
-
+            result.kind = returnTypes.nInf
+            result.result = nil
         else:
             raise newException(NotImplementedError, "")
 
 
-proc mul*(self: ptr Float, other: ptr Obj): ptr Obj =
+
+proc mul*(self: ptr Float, other: ptr Obj): returnType =
     case other.kind:
         of ObjectType.Integer:
-            result = (self.toFloat() * float cast[ptr Integer](other).toInt()).asFloat()
+            result.kind = returnTypes.Object
+            result.result = (self.toFloat() * float cast[ptr Integer](other).toInt()).asFloat()
         of ObjectType.Float:
             let res = (self.toFloat() * cast[ptr Float](other).toFloat())
             if res == system.Inf:
-                result = asInf()
+                result.kind = returnTypes.Inf
+                result.result = nil
             elif res == -system.Inf:
-                let negInf = asInf()
-                negInf.isNegative = true
-                result = negInf
+                result.kind = returnTypes.nInf
+                result.result = nil
             else:
-                result = res.asFloat()
+                result.kind = returnTypes.Object
+                result.result = res.asFloat()
         of ObjectType.Infinity:
-            result = cast[ptr Infinity](other)
+            result.kind = returnTypes.nInf
+            result.result = nil
         else:
             raise newException(NotImplementedError, "")
 
 
-proc trueDiv*(self: ptr Infinity, other: ptr Obj): ptr Infinity =
-    result = asInf()
+proc trueDiv*(self: ptr Infinity, other: ptr Obj): returnType =
+    result.result = nil
+    result.kind = returnTypes.Inf
     case other.kind:
         of ObjectType.Infinity:
             var other = cast[ptr Infinity](other)
             if self.isNegative or other.isNegative:
-                result.isNegative = true
+                result.kind = returnTypes.nInf
         of ObjectType.Integer, ObjectType.Float:
             discard
         else:
             raise newException(NotImplementedError, "")
 
 
-proc trueDiv*(self: ptr NotANumber, other: ptr Obj): ptr NotANumber =
+proc trueDiv*(self: ptr NotANumber, other: ptr Obj): returnType =
     raise newException(NotImplementedError, "")
 
 
 
-proc trueDiv*(self: ptr Integer, other: ptr Obj): ptr Obj =
+proc trueDiv*(self: ptr Integer, other: ptr Obj): returnType =
     case other.kind:
         of ObjectType.Integer:
-            result = ((float self.toInt()) / (float cast[ptr Integer](other).toInt())).asFloat()  # so that 4 / 2 == 2.0
+            result.kind = returnTypes.Object
+            result.result = (float(self.toInt()) / float(cast[ptr Integer](other).toInt())).asFloat()  # So that 4 / 2 == 2.0
         of ObjectType.Float:
             let res = ((float self.toInt()) / cast[ptr Float](other).toFloat())
             if res == system.Inf:
-                result = asInf()
+                result.kind = returnTypes.Inf
+                result.result = nil
             elif res == -system.Inf:
-                let negInf = asInf()
-                negInf.isNegative = true
-                result = negInf
+                result.kind = returnTypes.nInf
+                result.result = nil
             else:
-                result = res.asFloat()
+                result.kind = returnTypes.Object
+                result.result = res.asFloat()
         of ObjectType.Infinity:
-            result = cast[ptr Infinity](other)
+            result.kind = returnTypes.nInf
+            result.result = nil
         else:
             raise newException(NotImplementedError, "")
 
 
-proc trueDiv*(self: ptr Float, other: ptr Obj): ptr Obj =
+proc trueDiv*(self: ptr Float, other: ptr Obj): returnType =
     case other.kind:
         of ObjectType.Integer:
-            result = (self.toFloat() / float cast[ptr Integer](other).toInt()).asFloat()
+            result.kind = returnTypes.Object
+            result.result = (self.toFloat() / float cast[ptr Integer](other).toInt()).asFloat()
         of ObjectType.Float:
             let res = (self.toFloat() / cast[ptr Float](other).toFloat())
             if res == system.Inf:
-                result = asInf()
+                result.kind = returnTypes.Inf
+                result.result = nil
             elif res == -system.Inf:
-                let negInf = asInf()
-                negInf.isNegative = true
-                result = negInf
+                result.kind = returnTypes.nInf
+                result.result = nil
             else:
-                result = res.asFloat()
+                result.kind = returnTypes.Object
+                result.result = res.asFloat()
         of ObjectType.Infinity:
-            result = cast[ptr Infinity](other)
+            result.kind = returnTypes.nInf
+            result.result = nil
         else:
             raise newException(NotImplementedError, "")
 
 
-proc pow*(self: ptr Infinity, other: ptr Obj): ptr Infinity =
-    result = asInf()
+proc pow*(self: ptr Infinity, other: ptr Obj): returnType =
+    result.result = nil
+    result.kind = returnTypes.Inf
     case other.kind:
         of ObjectType.Infinity:
             var other = cast[ptr Infinity](other)
             if self.isNegative or other.isNegative:
-                result.isNegative = true
+                result.kind = returnTypes.nInf
         of ObjectType.Integer, ObjectType.Float:
             discard
         else:
             raise newException(NotImplementedError, "")
 
 
-proc pow*(self: ptr NotANumber, other: ptr Obj): ptr NotANumber =
+proc pow*(self: ptr NotANumber, other: ptr Obj): returnType =
     raise newException(NotImplementedError, "")
 
 
 
-proc pow*(self: ptr Integer, other: ptr Obj): ptr Obj =  # This can yield a float!
+proc pow*(self: ptr Integer, other: ptr Obj): returnType =
     case other.kind:
         of ObjectType.Integer:
-            result = (self.toInt() ** cast[ptr Integer](other).toInt()).asInt()
+            result.kind = returnTypes.Object
+            result.result = (self.toInt() ** cast[ptr Integer](other).toInt()).asInt()
         of ObjectType.Float:
             let res = ((float self.toInt()) ** cast[ptr Float](other).toFloat())
             if res == system.Inf:
-                result = asInf()
+                result.kind = returnTypes.Inf
+                result.result = nil
             elif res == -system.Inf:
-                let negInf = asInf()
-                negInf.isNegative = true
-                result = negInf
+                result.kind = returnTypes.nInf
+                result.result = nil
             else:
-                result = res.asFloat()
+                result.kind = returnTypes.Object
+                result.result = res.asFloat()
         of ObjectType.Infinity:
-            result = cast[ptr Infinity](other)
+            result.kind = returnTypes.nInf
+            result.result = nil
         else:
             raise newException(NotImplementedError, "")
 
 
-proc pow*(self: ptr Float, other: ptr Obj): ptr Obj =
+
+proc pow*(self: ptr Float, other: ptr Obj): returnType =
     case other.kind:
         of ObjectType.Integer:
-            result = (self.toFloat() ** float cast[ptr Integer](other).toInt()).asFloat()
+            result.kind = returnTypes.Object
+            result.result = (self.toFloat() ** float cast[ptr Integer](other).toInt()).asFloat()
         of ObjectType.Float:
             let res = (self.toFloat() ** cast[ptr Float](other).toFloat())
             if res == system.Inf:
-                result = asInf()
+                result.kind = returnTypes.Inf
+                result.result = nil
             elif res == -system.Inf:
-                let negInf = asInf()
-                negInf.isNegative = true
-                result = negInf
+                result.kind = returnTypes.nInf
+                result.result = nil
             else:
-                result = res.asFloat()
+                result.kind = returnTypes.Object
+                result.result = res.asFloat()
         of ObjectType.Infinity:
-            result = cast[ptr Infinity](other)
+            result.kind = returnTypes.nInf
+            result.result = nil
         else:
             raise newException(NotImplementedError, "")
 
 
-proc divMod*(self: ptr Infinity, other: ptr Obj): ptr Infinity =
-    result = asInf()
+
+proc divMod*(self: ptr Infinity, other: ptr Obj): returnType =
+    result.result = nil
+    result.kind = returnTypes.Inf
     case other.kind:
         of ObjectType.Infinity:
             var other = cast[ptr Infinity](other)
             if self.isNegative or other.isNegative:
-                result.isNegative = true
+                result.kind = returnTypes.nInf
         of ObjectType.Integer, ObjectType.Float:
             discard
         else:
             raise newException(NotImplementedError, "")
 
 
-proc divMod*(self: ptr NotANumber, other: ptr Obj): ptr NotANumber =
+proc divMod*(self: ptr NotANumber, other: ptr Obj): returnType =
     raise newException(NotImplementedError, "")
 
 
-proc divMod*(self: ptr Integer, other: ptr Obj): ptr Obj =  # This can yield a float!
+proc divMod*(self: ptr Integer, other: ptr Obj): returnType =
     case other.kind:
         of ObjectType.Integer:
-            result = (self.toInt() mod cast[ptr Integer](other).toInt()).asInt()
+            result.kind = returnTypes.Object
+            result.result = (self.toInt() mod cast[ptr Integer](other).toInt()).asInt()
         of ObjectType.Float:
             let res = ((float self.toInt()) mod cast[ptr Float](other).toFloat())
             if res == system.Inf:
-                result = asInf()
+                result.kind = returnTypes.Inf
+                result.result = nil
             elif res == -system.Inf:
-                let negInf = asInf()
-                negInf.isNegative = true
-                result = negInf
+                result.kind = returnTypes.nInf
+                result.result = nil
             else:
-                result = res.asFloat()
+                result.kind = returnTypes.Object
+                result.result = res.asFloat()
         of ObjectType.Infinity:
-            result = cast[ptr Infinity](other)
+            result.kind = returnTypes.nInf
+            result.result = nil
         else:
             raise newException(NotImplementedError, "")
 
 
-proc divMod*(self: ptr Float, other: ptr Obj): ptr Obj =
+proc divMod*(self: ptr Float, other: ptr Obj): returnType =
     case other.kind:
         of ObjectType.Integer:
-            result = (self.toFloat() mod float cast[ptr Integer](other).toInt()).asFloat()
+            result.kind = returnTypes.Object
+            result.result = (self.toFloat() mod float cast[ptr Integer](other).toInt()).asFloat()
         of ObjectType.Float:
             let res = (self.toFloat() mod cast[ptr Float](other).toFloat())
             if res == system.Inf:
-                result = asInf()
+                result.kind = returnTypes.Inf
+                result.result = nil
             elif res == -system.Inf:
-                let negInf = asInf()
-                negInf.isNegative = true
-                result = negInf
+                result.kind = returnTypes.nInf
+                result.result = nil
             else:
-                result = res.asFloat()
+                result.kind = returnTypes.Object
+                result.result = res.asFloat()
         of ObjectType.Infinity:
-            result = cast[ptr Infinity](other)
+            result.kind = returnTypes.nInf
+            result.result = nil
         else:
             raise newException(NotImplementedError, "")
 
 
-proc binaryAnd*(self, other: ptr Integer): ptr Integer =
-    result = bitand(self.toInt(), other.toInt()).asInt()
+proc binaryAnd*(self, other: ptr Integer): returnType =
+    result.kind = returnTypes.Object
+    result.result = bitand(self.toInt(), other.toInt()).asInt()
 
 
-proc binaryOr*(self, other: ptr Integer): ptr Integer =
-    result = bitor(self.toInt(), other.toInt()).asInt()
+proc binaryOr*(self, other: ptr Integer): returnType =
+    result.kind = returnTypes.Object
+    result.result = bitor(self.toInt(), other.toInt()).asInt()
 
 
-proc binaryNot*(self: ptr Integer): ptr Integer =
-    result = bitnot(self.toInt()).asInt()
+proc binaryNot*(self: ptr Integer): returnType =
+    result.kind = returnTypes.Object
+    result.result = bitnot(self.toInt()).asInt()
 
 
-proc binaryXor*(self, other: ptr Integer): ptr Integer =
-    result = bitxor(self.toInt(), other.toInt()).asInt()
-
-
-
-proc binaryShr*(self, other: ptr Integer): ptr Integer =
-    result = (self.toInt() shr other.toInt()).asInt()
+proc binaryXor*(self, other: ptr Integer): returnType =
+    result.kind = returnTypes.Object
+    result.result = bitxor(self.toInt(), other.toInt()).asInt()
 
 
 
-proc binaryShl*(self, other: ptr Integer): ptr Integer =
-    result = (self.toInt() shr other.toInt()).asInt()
+proc binaryShr*(self, other: ptr Integer): returnType =
+    result.kind = returnTypes.Object
+    result.result = (self.toInt() shr other.toInt()).asInt()
+
+
+
+proc binaryShl*(self, other: ptr Integer): returnType =
+    result.kind = returnTypes.Object
+    result.result = (self.toInt() shr other.toInt()).asInt()

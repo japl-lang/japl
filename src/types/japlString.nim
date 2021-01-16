@@ -18,7 +18,11 @@
 import baseObject
 import numbers
 import ../memory
+import typeutils
+import exception
+
 import strutils
+import strformat
 
 
 type
@@ -36,13 +40,12 @@ proc toStr*(obj: ptr Obj): string =
 
 
 proc hash*(self: ptr String): uint64 =
+    ## Implements the FNV-1a hashing algorithm
+    ## for strings
     result = 2166136261u
-    var i = 0
-    while i < self.len:
-        result = result xor uint64 self.str[i]
+    for i in countup(0, self.len):
+        result = result xor uint64(self.str[i])
         result *= 16777619
-        i += 1
-    return result
 
 
 proc asStr*(s: string): ptr String =
@@ -53,7 +56,10 @@ proc asStr*(s: string): ptr String =
     for i in 0..len(s) - 1:
         result.str[i] = s[i]
     result.len = len(s)
-    result.hashValue = result.hash()
+    if result.len > 0:
+        result.hashValue = result.hash()
+    else:
+        result.hashValue = 0u
     result.isHashable = true
 
 
@@ -82,19 +88,69 @@ proc eq*(self, other: ptr String): bool =
     result = true
 
 
-proc sum*(self: ptr String, other: ptr Obj): ptr String =
-    if other.kind == ObjectType.String:
+proc sum*(self: ptr String, other: ptr Obj): returnType =
+    result.kind = returnTypes.Object
+    if other.isStr():
         var other = cast[ptr String](other)
         var selfStr = self.toStr()
         var otherStr = other.toStr()
-        result = (selfStr & otherStr).asStr()
+        result.result = (selfStr & otherStr).asStr()
     else:
         raise newException(NotImplementedError, "")
 
 
-proc mul*(self: ptr String, other: ptr Obj): ptr Obj =
+proc mul*(self: ptr String, other: ptr Obj): returnType =
+    result.kind = returnTypes.Object
     case other.kind:
         of ObjectType.Integer:
-            result = self.toStr().repeat(cast[ptr Integer](other).toInt()).asStr()
+            result.result = self.toStr().repeat(cast[ptr Integer](other).toInt()).asStr()
         else:
             raise newException(NotImplementedError, "")
+
+
+proc getItem*(self: ptr String, other: ptr Obj): returnType =
+    result.kind = returnTypes.Object
+    ## Handles getItem expressions
+    var str = self.toStr()
+    if not other.isInt():
+        result.kind = returnTypes.Exception
+        result.result = newTypeError("string indeces must be integers")
+    else:
+        var index: int = other.toInt()
+        if index < 0:
+            index = len(str) + other.toInt()
+            if index < 0:    # If even now it is less than 0 then it is out of bounds
+                result.kind = returnTypes.Exception
+                result.result = newIndexError("string index out of bounds")
+        elif index - 1 > len(str) - 1:
+            result.kind = returnTypes.Exception
+            result.result = newIndexError("string index out of bounds")
+        else:
+            result.result = asStr(&"{str[index]}")
+
+
+proc Slice*(self: ptr String, a: ptr Obj, b: ptr Obj): returnType =
+    ## Handles slice expressions
+    var startIndex = b.toInt()
+    var endIndex = a.toInt()
+    result.kind = returnTypes.Object
+    if a.isNil():
+        endIndex = self.len
+    if b.isNil():
+        startIndex = 0
+    if not b.isInt() or not a.isInt():
+        result.kind = returnTypes.Exception
+        result.result = newTypeError("string indeces must be integers")
+    elif startIndex < 0:
+        startIndex = (self.len + startIndex)
+        if startIndex < 0:
+            startIndex = (self.len + endIndex)
+    elif startIndex > self.str.high():
+        result.result = asStr("")
+        return result
+    if endIndex > self.str.high():
+        endIndex = self.len
+    if startIndex > endIndex:
+        result.result = asStr("")
+        return result
+    result.result = self.toStr()[startIndex..<endIndex].asStr()

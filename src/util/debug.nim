@@ -34,7 +34,7 @@ proc byteInstruction(name: string, chunk: Chunk, offset: int): int =
     return offset + 2
 
 
-proc constantLongInstruction(name: string, chunk: Chunk, offset: int): int =
+proc constantInstruction(name: string, chunk: Chunk, offset: int): int =
     # Rebuild the index
     var constantArray: array[3, uint8] = [chunk.code[offset + 1], chunk.code[offset + 2], chunk.code[offset + 3]]
     var constant: int
@@ -43,14 +43,6 @@ proc constantLongInstruction(name: string, chunk: Chunk, offset: int): int =
     let obj = chunk.consts[constant]
     echo &"\tOperand: {stringify(obj)}\n\tValue kind: {obj.kind}\n"
     return offset + 4
-
-
-proc constantInstruction(name: string, chunk: Chunk, offset: int): int =
-    var constant = chunk.code[offset + 1]
-    echo &"\tInstruction at IP: {name}, points to index {constant}"
-    let obj = chunk.consts[constant]
-    echo &"\tOperand: {stringify(obj)}\n\tValue kind: {obj.kind}\n"
-    return offset + 2
 
 
 proc jumpInstruction(name: string, chunk: Chunk, offset: int): int =
@@ -70,8 +62,6 @@ proc disassembleInstruction*(chunk: Chunk, offset: int): int =
             result = simpleInstruction($opcode, offset)
         of constantInstructions:
             result = constantInstruction($opcode, chunk, offset)
-        of constantLongInstructions:
-            result = constantLongInstruction($opcode, chunk, offset)
         of byteInstructions:
             result = byteInstruction($opcode, chunk, offset)
         of jumpInstructions:

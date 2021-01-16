@@ -35,6 +35,7 @@ import types/exception
 import types/numbers
 import types/boolean
 import types/methods
+import types/typeutils
 import types/function
 import types/native
 # We always import it to
@@ -102,7 +103,7 @@ proc error*(self: VM, error: ptr JAPLException) =
 
     # Exceptions are objects too and they need to
     # be freed like any other entity in JAPL
-    self.objects.add(error)
+    self.objects.add(error)   # TODO -> Move this somewhere else to mark exceptions even before they are raised
     var previous = ""  # All this stuff seems overkill, but it makes the traceback look nicer
     var repCount = 0   # and if we are here we are far beyond a point where performance matters anyway
     var mainReached = false
@@ -145,79 +146,32 @@ proc push*(self: VM, obj: ptr Obj) =
     self.stackTop += 1
 
 
+proc push*(self: VM, ret: returnType) =
+    ## Pushes a return value from a builtin
+    ## method onto the stack and handles errors
+    case ret.kind:
+        of returnTypes.Object:
+            self.push(ret.result)
+        of returnTypes.Exception:
+            self.error(cast[ptr JAPLException](ret.result))
+        of returnTypes.True:
+            self.push(self.cached[0])
+        of returnTypes.False:
+            self.push(self.cached[1])
+        of returnTypes.Nil:
+            self.push(self.cached[2])
+        of returnTypes.Inf:
+            self.push(self.cached[3])
+        of returnTypes.nInf:
+            self.push(self.cached[4])
+        of returnTypes.NotANumber:
+            self.push(self.cached[5])
+
+
 proc peek*(self: VM, distance: int): ptr Obj =
     ## Peeks an object (at a given distance from the
     ## current index) from the stack
     return self.stack[self.stackTop - distance - 1]
-
-
-# TODO: Move this to types/
-proc slice(self: VM): bool =
-    ## Handles single-operator slice expressions
-    ## (consider moving this to an appropriate
-    ## slice method)
-    var idx = self.pop()
-    var peeked = self.pop()
-    case peeked.kind:
-        of ObjectType.String:
-            var str = peeked.toStr()
-            if not idx.isInt():
-                self.error(newTypeError("string indeces must be integers"))
-                return false
-            else:
-                var index: int = idx.toInt()
-                if index < 0:
-                    index = len(str) + idx.toInt()
-                    if index < 0:    # If even now it is less than 0 than it is out of bounds
-                        self.error(newIndexError("string index out of bounds"))
-                        return false
-                elif index - 1 > len(str) - 1:
-                    self.error(newIndexError("string index out of bounds"))
-                    return false
-                else:
-                    self.push(asStr(&"{str[index]}"))
-                    return true
-        else:
-            self.error(newTypeError(&"unsupported slicing for object of type '{peeked.typeName()}'"))
-            return false
-
-# TODO: Move this to types/
-proc sliceRange(self: VM): bool =
-    ## Handles slices when there's both a start
-    ## and an end index (even implicit ones)
-    var sliceEnd = self.pop()
-    var sliceStart = self.pop()
-    var popped = self.pop()
-    case popped.kind:
-        of ObjectType.String:
-            var str = popped.toStr()
-            if sliceEnd.isNil():
-                sliceEnd = len(str).asInt()
-            if sliceStart.isNil():
-                sliceStart = asInt(0)
-            elif not sliceStart.isInt() or not sliceEnd.isInt():
-                self.error(newTypeError("string indexes must be integers"))
-                return false
-            else:
-                var startIndex = sliceStart.toInt()
-                var endIndex = sliceEnd.toInt()
-                if startIndex < 0:
-                    sliceStart = (len(str) + sliceStart.toInt()).asInt()
-                    if startIndex < 0:
-                        sliceStart = (len(str) + sliceEnd.toInt()).asInt()
-                elif startIndex - 1 > len(str) - 1:
-                    self.push(asStr(""))
-                    return true
-                if endIndex - 1 > len(str) - 1:
-                    sliceEnd = len(str).asInt()
-                if startIndex > endIndex:
-                    self.push(asStr(""))
-                    return true
-                self.push(asStr(str[sliceStart.toInt()..<sliceEnd.toInt()]))
-                return true
-        else:
-            self.error(newTypeError(&"unsupported slicing for object of type '{popped.typeName()}'"))
-            return false
 
 
 proc call(self: VM, function: ptr Function, argCount: int): bool =
@@ -315,16 +269,11 @@ proc readShort(self: CallFrame): uint16 =
 proc readConstant(self: CallFrame): ptr Obj =
     ## Reads a constant from the given
     ## frame's constant table
-    result = self.function.chunk.consts[uint8 self.readByte()]
-
-
-proc readLongConstant(self: CallFrame): ptr Obj =
-    ## Reads a long constant from the
-    ## given frame's constant table
     var arr = [self.readByte(), self.readByte(), self.readByte()]
     var idx: int
-    copyMem(idx.addr, unsafeAddr(arr), sizeof(arr))
+    copyMem(idx.addr, arr.addr, sizeof(arr))
     result = self.function.chunk.consts[idx]
+
 
 
 proc showRuntime*(self: VM, frame: CallFrame, iteration: uint64) = 
@@ -368,24 +317,18 @@ proc run(self: VM, repl: bool): InterpretResult =
     ## them one at a time: this is the runtime's
     ## main loop
     var frame = self.frames[self.frameCount - 1]
-    var opcode: OpCode
     when DEBUG_TRACE_VM:
         var iteration: uint64 = 0
     while true:
         {.computedgoto.}   # See https://nim-lang.org/docs/manual.html#pragmas-computedgoto-pragma
-        opcode = OpCode(frame.readByte())
         when DEBUG_TRACE_VM:    # Insight inside the VM
             iteration += 1
             self.showRuntime(frame, iteration)
-        case opcode:   # Main OpCodes dispatcher
+        case OpCode(frame.readByte()):   # Main OpCodes dispatcher
             of OpCode.Constant:
                 # Loads a constant from the chunk's constant
                 # table
                 self.push(frame.readConstant())
-            of OpCode.ConstantLong:
-                # Loads a constant from the chunk's constant
-                # table when its size exceeds 256
-                self.push(frame.readLongConstant())
             of OpCode.Negate:
                 # Performs unary negation
                 let operand = self.pop()
@@ -560,29 +503,31 @@ proc run(self: VM, repl: bool): InterpretResult =
             of OpCode.GetItem:
                 # Implements expressions such as a[b]
                 # TODO: More generic method
-                if not self.slice():
+                var right = self.pop()
+                var left = self.pop()
+                try:
+                    self.push(left.getItem(right))
+                except NotImplementedError:
+                    self.error(newTypeError(&"object of type '{left.typeName()}' does not support getItem expressions"))
                     return RuntimeError
             of OpCode.Slice:
                 # Implements expressions such as a[b:c]
-                # TODO: More generic method
-                if not self.sliceRange():
+                var right = self.pop()
+                var left = self.pop()
+                var operand = self.pop()
+                try:
+                    self.push(operand.Slice(right, left))
+                except NotImplementedError:
+                    self.error(newTypeError(&"object of type '{operand.typeName()}' does not support slicing"))
                     return RuntimeError
             of OpCode.DefineGlobal:
                 # Defines a global variable
-                var name: string
-                if frame.function.chunk.consts.len > 255:
-                    name = frame.readLongConstant().toStr()
-                else:
-                    name = frame.readConstant().toStr()
+                var name = frame.readConstant().toStr()
                 self.globals[name] = self.peek(0)
                 discard self.pop()
             of OpCode.GetGlobal:
                 # Retrieves a global variable
-                var constant: string
-                if frame.function.chunk.consts.len > 255:
-                    constant = frame.readLongConstant().toStr()
-                else:
-                    constant = frame.readConstant().toStr()
+                var constant = frame.readConstant().toStr()
                 if constant notin self.globals:
                     self.error(newReferenceError(&"undefined name '{constant}'"))
                     return RuntimeError
@@ -590,11 +535,7 @@ proc run(self: VM, repl: bool): InterpretResult =
                     self.push(self.globals[constant])
             of OpCode.SetGlobal:
                 # Changes the value of an already defined global variable
-                var constant: string
-                if frame.function.chunk.consts.len > 255:
-                    constant = frame.readLongConstant().toStr()
-                else:
-                    constant = frame.readConstant().toStr()
+                var constant = frame.readConstant().toStr()
                 if constant notin self.globals:
                     self.error(newReferenceError(&"assignment to undeclared name '{constant}'"))
                     return RuntimeError
@@ -603,11 +544,7 @@ proc run(self: VM, repl: bool): InterpretResult =
             of OpCode.DeleteGlobal:
                 # Deletes a global variable
                 # TODO: Inspect potential issues with the GC
-                var constant: string
-                if frame.function.chunk.consts.len > 255:
-                    constant = frame.readLongConstant().toStr()
-                else:
-                    constant = frame.readConstant().toStr()
+                var constant = frame.readConstant().toStr()
                 if constant notin self.globals:
                     self.error(newReferenceError(&"undefined name '{constant}'"))
                     return RuntimeError
@@ -615,29 +552,14 @@ proc run(self: VM, repl: bool): InterpretResult =
                     self.globals.del(constant)
             of OpCode.GetLocal:
                 # Retrieves a local variable
-                var slot: int
-                if frame.len > 255:
-                    slot = frame.readBytes()
-                else:
-                    slot = int frame.readByte()
-                self.push(frame[slot])
+                self.push(frame[frame.readBytes()])
             of OpCode.SetLocal:
                 # Changes the value of an already defined local variable
-                var slot: int
-                if frame.len > 255:
-                    slot = frame.readBytes()
-                else:
-                    slot = int frame.readByte()
-                frame[slot] = self.peek(0)
+                frame[frame.readBytes()] = self.peek(0)
             of OpCode.DeleteLocal:
                 # Deletes a global variable
                 # TODO: Inspect potential issues with the GC
-                var slot: int
-                if frame.len > 255:
-                    slot = frame.readBytes()
-                else:
-                    slot = int frame.readByte()
-                frame.delete(slot)
+                frame.delete(frame.readBytes())
             of OpCode.Pop:
                 # Pops an item off the stack
                 self.lastPop = self.pop()

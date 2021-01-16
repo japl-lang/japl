@@ -214,27 +214,18 @@ proc emitBytes(self: Compiler, bytarr: array[3, uint8]) =
     self.emitByte(bytarr[2])
 
 
-proc makeConstant(self: Compiler, obj: ptr Obj): uint8 =
-    ## Adds a constant (literal) to the current chunk's
-    ## constants table
-    result = uint8 self.currentChunk.addConstant(obj)
-
-
-proc makeLongConstant(self: Compiler, val: ptr Obj): array[3, uint8] =
+proc makeConstant(self: Compiler, val: ptr Obj): array[3, uint8] =
     ## Does the same as makeConstant(), but encodes the index in the
     ## chunk's constant table as an array (which is later reconstructed
     ## into an integer at runtime) to store more than 256 constants in the table
-    result = self.currentChunk.writeConstant(val)
+    result = self.currentChunk.addConstant(val)
 
 
 proc emitConstant(self: Compiler, obj: ptr Obj) =
-    ## Emits a Constant or ConstantLong instruction along
+    ## Emits a Constant instruction along
     ## with its operand
-    if self.currentChunk().consts.len > 255:
-        self.emitByte(OpCode.ConstantLong)
-        self.emitBytes(self.makeLongConstant(obj))
-    else:
-        self.emitBytes(OpCode.Constant, self.makeConstant(obj))
+    self.emitByte(OpCode.Constant)
+    self.emitBytes(self.makeConstant(obj))
 
 
 proc initParser*(tokens: seq[Token], file: string): Parser
@@ -252,7 +243,7 @@ proc parsePrecedence(self: Compiler, precedence: Precedence) =
     else:
         discard self.parser.advance()
     var prefixRule = getRule(self.parser.previous.kind).prefix
-    if prefixRule == nil:   # If there is no prefix rule than an expression is expected
+    if prefixRule == nil:   # If there is no prefix rule then an expression is expected
         self.parser.parseError(self.parser.previous, "Expecting expression")
         return
     var canAssign = precedence <= Precedence.Assign   # This is used to detect invalid assignment targets
@@ -463,15 +454,9 @@ proc grouping(self: Compiler, canAssign: bool) =
         self.parser.consume(TokenType.RP, "Expecting ')' after parentheszed expression")
 
 
-proc identifierConstant(self: Compiler, tok: Token): uint8 =
+proc identifierConstant(self: Compiler, tok: Token): array[3, uint8] =
     ## Emits instructions for identifiers
     return self.makeConstant(self.markObject(asStr(tok.lexeme)))
-
-
-proc identifierLongConstant(self: Compiler, tok: Token): array[3, uint8] =
-    ## Same as identifierConstant, but this is used when the constant table is longer
-    ## than 255 elements
-    return self.makeLongConstant(self.markObject(asStr(tok.lexeme)))
 
 
 proc addLocal(self: Compiler, name: Token) =
@@ -499,24 +484,13 @@ proc declareVariable(self: Compiler) =
     self.addLocal(name)
 
 
-proc parseVariable(self: Compiler, message: string): uint8 =
+proc parseVariable(self: Compiler, message: string): array[3, uint8] =
     ## Parses variables and declares them
     self.parser.consume(TokenType.ID, message)
     self.declareVariable()
     if self.scopeDepth > 0:
-        return uint8 0
-    return self.identifierConstant(self.parser.previous())
-
-
-proc parseLongVariable(self: Compiler, message: string): array[3, uint8] =
-    ## Parses variables and declares them. This is used in place
-    ## of parseVariable when there's more than 255 constants
-    ## in the chunk table
-    self.parser.consume(TokenType.ID, message)
-    self.declareVariable()
-    if self.scopeDepth > 0:
         return [uint8 0, uint8 0, uint8 0]
-    return self.identifierLongConstant(self.parser.previous())
+    return self.identifierConstant(self.parser.previous())
 
 
 proc markInitialized(self: Compiler) =
@@ -525,17 +499,6 @@ proc markInitialized(self: Compiler) =
     if self.scopeDepth == 0:
         return
     self.locals[self.localCount - 1].depth = self.scopeDepth
-
-
-proc defineVariable(self: Compiler, idx: uint8) =
-    ## Defines a variable, emitting appropriate
-    ## instructions if we're in the local scope
-    ## or marking the last local as initialized
-    ## otherwise
-    if self.scopeDepth > 0:
-        self.markInitialized()
-        return
-    self.emitBytes(OpCode.DefineGlobal, idx)
 
 
 proc defineVariable(self: Compiler, idx: array[3, uint8]) =
@@ -563,30 +526,7 @@ proc resolveLocal(self: Compiler, name: Token): int =
 
 proc namedVariable(self: Compiler, tok: Token, canAssign: bool) =
     ## Handles local and global variables assignment, as well
-    ## as variable resolution.
-    var 
-        arg = self.resolveLocal(tok)
-        get: OpCode
-        set: OpCode
-    if arg != -1:
-        get = OpCode.GetLocal
-        set = OpCode.SetLocal
-    else:
-        get = OpCode.GetGlobal
-        set = OpCode.SetGlobal
-        arg = int self.identifierConstant(tok)
-    if self.parser.match(TokenType.EQ) and canAssign:
-        self.expression()
-        self.emitBytes(set, uint8 arg)
-    else:
-        self.emitBytes(get, uint8 arg)
-
-
-proc namedLongVariable(self: Compiler, tok: Token, canAssign: bool) =
-    ## Handles local and global variables assignment, as well
-    ## as variable resolution. This is only called when the constants
-    ## table's length exceeds 255
-    
+    ## as variable resolution
     var 
         arg = self.resolveLocal(tok)
         casted = cast[array[3, uint8]](arg)
@@ -598,7 +538,7 @@ proc namedLongVariable(self: Compiler, tok: Token, canAssign: bool) =
     else:
         get = OpCode.GetGlobal
         set = OpCode.SetGlobal
-        casted = self.identifierLongConstant(tok)
+        casted = self.identifierConstant(tok)
     if self.parser.match(TokenType.EQ) and canAssign:
         self.expression()
         self.emitByte(set)
@@ -608,37 +548,21 @@ proc namedLongVariable(self: Compiler, tok: Token, canAssign: bool) =
         self.emitBytes(casted)
 
 
-
 proc variable(self: Compiler, canAssign: bool) =
     ## Emits the code to declare a variable,
     ## both locally and globally
-    if self.locals.len < 255:
-        self.namedVariable(self.parser.previous(), canAssign)
-    else:
-        self.namedLongVariable(self.parser.previous(), canAssign)
+    self.namedVariable(self.parser.previous(), canAssign)
 
 
 proc varDeclaration(self: Compiler) =
-    ## Parses a variable declaration, taking into account
-    ## the possibility that the chunk table could already
-    ## be bigger than 255 elements
-    var shortName: uint8
-    var longName: array[3, uint8]
-    var useShort: bool = true
-    if self.currentChunk.consts.len < 255:
-        shortName = self.parseVariable("Expecting variable name")
-    else:
-        useShort = false
-        longName = self.parseLongVariable("Expecting variable name")
+    ## Parses a variable declaration
+    var name: array[3, uint8] = self.parseVariable("Expecting variable name")
     if self.parser.match(TokenType.EQ):
         self.expression()
     else:
         self.emitByte(OpCode.Nil)
     self.parser.consume(TokenType.SEMICOLON, "Missing semicolon after var declaration")
-    if useShort:
-        self.defineVariable(shortName)
-    else:
-        self.defineVariable(longName)
+    self.defineVariable(name)
 
 
 proc expressionStatement(self: Compiler) =
@@ -661,13 +585,9 @@ proc delStatement(self: Compiler) =
     else:
         code = OpCode.DeleteLocal
         self.localCount = self.localCount - 1
-    if self.currentChunk.consts.len < 255:
-        var name = self.identifierConstant(self.parser.previous())
-        self.emitBytes(code, name)
-    else:
-        var name = self.identifierLongConstant(self.parser.previous())
-        self.emitBytes(code, name[0])
-        self.emitBytes(name[1], name[2])
+    var name = self.identifierConstant(self.parser.previous())
+    self.emitBytes(code, name[0])
+    self.emitBytes(name[1], name[2])
     self.parser.consume(TokenType.SEMICOLON, "Missing semicolon after del statement")
 
 
@@ -696,7 +616,6 @@ proc endScope(self: Compiler) =
     while self.localCount > 0 and self.locals[self.localCount - 1].depth > self.scopeDepth:
         self.emitByte(OpCode.Pop)
         self.localCount = self.localCount - 1
-
     if start >= self.localCount:
         self.locals.delete(self.localCount, start)
 
@@ -915,7 +834,7 @@ proc endCompiler(self: Compiler): ptr Function =
     ## if no return statement is supplied
     self.emitByte(OpCode.Nil)
     self.emitByte(OpCode.Return)
-    return self.function   # TODO: self.markObject?
+    return self.function
 
 
 proc parseFunction(self: Compiler, funType: FunctionType) =
@@ -963,12 +882,8 @@ proc parseFunction(self: Compiler, funType: FunctionType) =
     self.parseBlock()
     var fun = self.endCompiler()
     self = self.enclosing
-    if self.currentChunk.consts.len < 255:
-        self.emitBytes(OpCode.Constant, self.makeConstant(fun))
-    else:
-        self.emitByte(OpCode.ConstantLong)
-        self.emitBytes(self.makeLongConstant(fun))
-
+    self.emitByte(OpCode.Constant)
+    self.emitBytes(self.makeConstant(fun))
 
 
 proc parseLambda(self: Compiler, canAssign: bool) = 

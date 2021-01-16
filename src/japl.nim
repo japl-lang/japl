@@ -22,6 +22,7 @@ import config
 import vm
 
 
+
 proc repl() =
     var bytecodeVM = initVM()
     echo JAPL_VERSION_STRING
@@ -31,11 +32,11 @@ proc repl() =
         echo "==== Runtime Constants ====\n"
         echo &"- FRAMES_MAX -> {FRAMES_MAX}"
         echo "==== Debugger started ====\n"
-    var source: string = ""
+    var source = ""
     while true:
         try:
             stdout.write("=> ")
-            source = readLine(stdin)
+            source = stdin.readLine()
         except IOError:
             echo ""
             bytecodeVM.freeVM()
