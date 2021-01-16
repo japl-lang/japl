@@ -64,7 +64,7 @@ type
         stackTop*: int
         objects*: seq[ptr Obj]
         globals*: Table[string, ptr Obj]
-        cached: array[6, ptr Obj]
+        cached*: array[6, ptr Obj]
         file*: string
 
 
@@ -108,14 +108,14 @@ proc error*(self: VM, error: ptr JAPLException) =
     var repCount = 0   # and if we are here we are far beyond a point where performance matters anyway
     var mainReached = false
     var output = ""
-    stderr.write("Traceback (most recent call last):\n")
+    stderr.write("An unhandled exception occurred, traceback below:\n")
     for frame in reversed(self.frames):
         if mainReached:
             break
         var function = frame.function
         var line = function.chunk.lines[frame.ip]
         if function.name == nil:
-            output = &"  File '{self.file}', line {line}, in '<module>':"
+            output = &"  File '{self.file}', line {line}, in <module>:"
             mainReached = true
         else:
             output = &"  File '{self.file}', line {line}, in {stringify(function.name)}():"
@@ -146,14 +146,16 @@ proc push*(self: VM, obj: ptr Obj) =
     self.stackTop += 1
 
 
-proc push*(self: VM, ret: returnType) =
+proc push*(self: VM, ret: returnType): bool =
     ## Pushes a return value from a builtin
     ## method onto the stack and handles errors
+    result = true
     case ret.kind:
         of returnTypes.Object:
             self.push(ret.result)
         of returnTypes.Exception:
             self.error(cast[ptr JAPLException](ret.result))
+            result = false
         of returnTypes.True:
             self.push(self.cached[0])
         of returnTypes.False:
@@ -248,8 +250,8 @@ proc defineGlobal*(self: VM, name: string, value: ptr Obj) =
 proc readByte(self: CallFrame): uint8 =
     ## Reads a single byte from the given
     ## frame's chunk of bytecode
+    result = self.function.chunk.code[self.ip]
     inc(self.ip)
-    result = self.function.chunk.code[self.ip - 1]
 
 
 proc readBytes(self: CallFrame): int =
@@ -312,7 +314,7 @@ proc showRuntime*(self: VM, frame: CallFrame, iteration: uint64) =
     discard disassembleInstruction(frame.function.chunk, frame.ip - 1)
 
 
-proc run(self: VM, repl: bool): InterpretResult =
+proc run(self: VM): InterpretResult =
     ## Chews trough bytecode instructions executing
     ## them one at a time: this is the runtime's
     ## main loop
@@ -333,7 +335,8 @@ proc run(self: VM, repl: bool): InterpretResult =
                 # Performs unary negation
                 let operand = self.pop()
                 try:
-                    self.push(operand.negate())
+                    if not self.push(operand.negate()):
+                        return RuntimeError
                 except NotImplementedError:
                     self.error(newTypeError(&"unsupported unary operator '-' for object of type '{operand.typeName()}'"))
                     return RuntimeError
@@ -342,7 +345,8 @@ proc run(self: VM, repl: bool): InterpretResult =
                 var right = self.pop()
                 var left = self.pop()
                 try:
-                    self.push(left.binaryShl(right))
+                    if not self.push(left.binaryShl(right)):
+                        return RuntimeError
                 except NotImplementedError:
                     self.error(newTypeError(&"unsupported binary operator '<<' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
@@ -351,7 +355,8 @@ proc run(self: VM, repl: bool): InterpretResult =
                 var right = self.pop()
                 var left = self.pop()
                 try:
-                    self.push(left.binaryShr(right))
+                    if not self.push(left.binaryShr(right)):
+                        return RuntimeError
                 except NotImplementedError:
                     self.error(newTypeError(&"unsupported binary operator '>>' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
@@ -360,7 +365,8 @@ proc run(self: VM, repl: bool): InterpretResult =
                 var right = self.pop()
                 var left = self.pop()
                 try:
-                    self.push(left.binaryXor(right))
+                    if not self.push(left.binaryXor(right)):
+                        return RuntimeError
                 except NotImplementedError:
                     self.error(newTypeError(&"unsupported binary operator '^' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
@@ -369,7 +375,8 @@ proc run(self: VM, repl: bool): InterpretResult =
                 var right = self.pop()
                 var left = self.pop()
                 try:
-                    self.push(left.binaryOr(right))
+                    if not self.push(left.binaryOr(right)):
+                        return RuntimeError
                 except NotImplementedError:
                     self.error(newTypeError(&"unsupported binary operator '&' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
@@ -377,7 +384,8 @@ proc run(self: VM, repl: bool): InterpretResult =
                 # Bitwise not
                 var operand = self.pop()
                 try:
-                    self.push(operand.binaryNot())
+                    if not self.push(operand.binaryNot()):
+                        return RuntimeError
                 except NotImplementedError:
                     self.error(newTypeError(&"unsupported unary operator '~' for object of type '{operand.typeName()}'"))
                     return RuntimeError
@@ -386,7 +394,8 @@ proc run(self: VM, repl: bool): InterpretResult =
                 var right = self.pop()
                 var left = self.pop()
                 try:
-                    self.push(left.binaryAnd(right))
+                   if not self.push(left.binaryAnd(right)):
+                       return RuntimeError
                 except NotImplementedError:
                     self.error(newTypeError(&"unsupported binary operator '&' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
@@ -395,7 +404,8 @@ proc run(self: VM, repl: bool): InterpretResult =
                 var right = self.pop()
                 var left = self.pop()
                 try:
-                    self.push(left.sum(right))
+                    if not self.push(left.sum(right)):
+                        return RuntimeError
                 except NotImplementedError:
                     self.error(newTypeError(&"unsupported binary operator '+' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
@@ -404,7 +414,8 @@ proc run(self: VM, repl: bool): InterpretResult =
                 var right = self.pop()
                 var left = self.pop()
                 try:
-                    self.push(left.sub(right))
+                    if not self.push(left.sub(right)):
+                        return RuntimeError
                 except NotImplementedError:
                     self.error(newTypeError(&"unsupported binary operator '-' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
@@ -413,7 +424,8 @@ proc run(self: VM, repl: bool): InterpretResult =
                 var right = self.pop()
                 var left = self.pop()
                 try:
-                    self.push(left.trueDiv(right))
+                    if not self.push(left.trueDiv(right)):
+                        return RuntimeError
                 except NotImplementedError:
                     self.error(newTypeError(&"unsupported binary operator '/' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
@@ -422,7 +434,8 @@ proc run(self: VM, repl: bool): InterpretResult =
                 var right = self.pop()
                 var left = self.pop()
                 try:
-                    self.push(left.mul(right))
+                    if not self.push(left.mul(right)):
+                        return RuntimeError
                 except NotImplementedError:
                     self.error(newTypeError(&"unsupported binary operator '*' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
@@ -431,7 +444,8 @@ proc run(self: VM, repl: bool): InterpretResult =
                 var right = self.pop()
                 var left = self.pop()
                 try:
-                    self.push(left.divMod(right))
+                    if not self.push(left.divMod(right)):
+                        return RuntimeError
                 except NotImplementedError:
                     self.error(newTypeError(&"unsupported binary operator '%' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
@@ -440,7 +454,8 @@ proc run(self: VM, repl: bool): InterpretResult =
                 var right = self.pop()
                 var left = self.pop()
                 try:
-                    self.push(left.pow(right))
+                    if not self.push(left.pow(right)):
+                        return RuntimeError
                 except NotImplementedError:
                     self.error(newTypeError(&"unsupported binary operator '**' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
@@ -496,7 +511,8 @@ proc run(self: VM, repl: bool): InterpretResult =
                 var right = self.pop()
                 var left = self.pop()
                 try:
-                    self.push(objAs(left, right.kind))
+                    if not self.push(objAs(left, right.kind)):
+                        return RuntimeError
                 except NotImplementedError:
                     self.error(newTypeError(&"unsupported binary operator 'as' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
@@ -506,7 +522,8 @@ proc run(self: VM, repl: bool): InterpretResult =
                 var right = self.pop()
                 var left = self.pop()
                 try:
-                    self.push(left.getItem(right))
+                    if not self.push(left.getItem(right)):
+                        return RuntimeError
                 except NotImplementedError:
                     self.error(newTypeError(&"object of type '{left.typeName()}' does not support getItem expressions"))
                     return RuntimeError
@@ -516,7 +533,8 @@ proc run(self: VM, repl: bool): InterpretResult =
                 var left = self.pop()
                 var operand = self.pop()
                 try:
-                    self.push(operand.Slice(right, left))
+                    if not self.push(operand.Slice(right, left)):
+                        return RuntimeError
                 except NotImplementedError:
                     self.error(newTypeError(&"object of type '{operand.typeName()}' does not support slicing"))
                     return RuntimeError
@@ -591,13 +609,6 @@ proc run(self: VM, repl: bool): InterpretResult =
                 # Handles returning values from the callee to the caller
                 # and sets up the stack to proceed with execution
                 var retResult = self.pop()
-                if repl and not self.lastPop.isNil() and self.frameCount == 1:
-                    # TODO -> Make this more efficient (move into japl.nim?)
-                    # Prints the last expression to stdout as long as we're
-                    # in REPL mode, the expression isn't nil and we're at the
-                    # top-level code
-                    echo stringify(self.lastPop)
-                    self.lastPop = cast[ptr Nil](self.cached[2])
                 self.frameCount -= 1
                 discard self.frames.pop()
                 if self.frameCount == 0:
@@ -729,7 +740,7 @@ proc initVM*(): VM =
 
 
 
-proc interpret*(self: VM, source: string, repl: bool = false, file: string): InterpretResult =
+proc interpret*(self: VM, source: string, file: string): InterpretResult =
     ## Interprets a source string containing JAPL code
     self.resetStack()
     self.source = source
@@ -755,7 +766,7 @@ proc interpret*(self: VM, source: string, repl: bool = false, file: string): Int
     when DEBUG_TRACE_VM:
         echo "==== VM debugger starts ====\n"
     try:
-        result = self.run(repl)
+        result = self.run()
     except KeyboardInterrupt:   # TODO: Better handling
         self.error(newInterruptedError(""))
         return RuntimeError

@@ -18,9 +18,12 @@
 import strformat
 import parseopt
 import os
+
 import config
 import vm
-
+import types/japlNil
+import types/typeutils
+import types/methods
 
 
 proc repl() =
@@ -51,11 +54,12 @@ proc repl() =
             echo &"[Nim {NimVersion} on {hostOs} ({hostCPU})]"
             continue
         elif source != "":
+            let result = bytecodeVM.interpret(source, "stdin")
+            if not bytecodeVM.lastPop.isNil():
+                echo stringify(bytecodeVM.lastPop)
+                bytecodeVM.lastPop = cast[ptr Nil](bytecodeVM.cached[2])
             when DEBUG_TRACE_VM:
-                let result = bytecodeVM.interpret(source, true, "stdin")
                 echo &"Result: {result}"
-            when not DEBUG_TRACE_VM:
-                discard bytecodeVM.interpret(source, true, "stdin")
     when DEBUG_TRACE_VM:
         echo "==== Debugger exits ===="
 
@@ -85,10 +89,10 @@ proc main(file: var string = "", fromString: bool = false) =
         echo "==== VM Constants ====\n"
         echo &"- FRAMES_MAX -> {FRAMES_MAX}"
         echo "==== Code starts ====\n"
-        let result = bytecodeVM.interpret(source, false, file)
+        let result = bytecodeVM.interpret(source, file)
         echo &"Result: {result}"
     when not DEBUG_TRACE_VM:
-        discard bytecodeVM.interpret(source, false, file)
+        discard bytecodeVM.interpret(source, file)
     bytecodeVM.freeVM()
 
 

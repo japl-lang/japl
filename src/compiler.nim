@@ -844,6 +844,14 @@ proc parseFunction(self: Compiler, funType: FunctionType) =
     ## keyword ones as well
     var self = initCompiler(funType, self, self.parser, self.file)
     self.beginScope()
+    if self.parser.check(LB):
+        self.parser.consume(LB, "Expecting '{' before function body")
+        self.parseBlock()
+        var fun = self.endCompiler()
+        self = self.enclosing
+        self.emitByte(OpCode.Constant)
+        self.emitBytes(self.makeConstant(fun))
+        return
     self.parser.consume(LP, "Expecting '('")
     if self.parser.hadError:
         return

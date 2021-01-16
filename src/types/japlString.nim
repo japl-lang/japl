@@ -133,14 +133,17 @@ proc Slice*(self: ptr String, a: ptr Obj, b: ptr Obj): returnType =
     ## Handles slice expressions
     var startIndex = b.toInt()
     var endIndex = a.toInt()
+    var a = a
+    var b = b
     result.kind = returnTypes.Object
     if a.isNil():
-        endIndex = self.len
+        a = self.len.asInt()
     if b.isNil():
-        startIndex = 0
+        b = 0.asInt()
     if not b.isInt() or not a.isInt():
         result.kind = returnTypes.Exception
         result.result = newTypeError("string indeces must be integers")
+        return result
     elif startIndex < 0:
         startIndex = (self.len + startIndex)
         if startIndex < 0:
