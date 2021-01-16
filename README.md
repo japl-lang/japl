@@ -125,3 +125,18 @@ Each of these options is independent of the others and can be enabled/disabled a
 Note that the build tool will generate a file named `config.nim` inside the `src` directory and will use that for subsequent builds, so if you want to override it you'll have to pass `--override-config` as a command-line options. Passing it without any option will fallback to (somewhat) sensible defaults
 
 **P.S.**: The test suite assumes that all debugging options are turned off, so for development/debug builds we recommend skipping the test suite by passing `--skip-tests` to the build script
+
+
+### Installing on Linux
+
+If you're on linux and can't stand the fact of having to call japl with `./src/japl`, we have some good news! The build script can
+optionally move the compiled binary in the first writeable entry inside your PATH so that you can just type `jpl` inside your terminal
+to open the REPL. To avoid issues, this option is disabled by default and must be turned on by passing `--install`, but note that
+if in _any_ directory listed in PATH there is either a file or a folder named `jpl` the build script will complain about it and refuse to overwrite
+the already existing data unless `--ignore-binary` is passed!
+
+### Environment variables
+
+On both Windows and Linux, the build script supports reading parameters from environment variables if they are not specified via the command line.
+All options follow the same naming scheme: `JAPL_OPTION_NAME=value` and will only be applied only if no explicit override for them is passed
+when running the script
