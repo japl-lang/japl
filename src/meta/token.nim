@@ -30,7 +30,7 @@ type
     COLON, CONTINUE, CARET,
     SHL, SHR, NAN, INF, BAND,
     BOR, TILDE, IS, AS, LAMBDA
-  Token* = ref object
+  Token* = object
     kind*: TokenType
     lexeme*: string
     line*: int

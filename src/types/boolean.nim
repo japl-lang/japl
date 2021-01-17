@@ -26,7 +26,6 @@ proc asBool*(b: bool): ptr Bool =
     ## Converts a nim bool into a JAPL bool
     result = allocateObj(Bool, ObjectType.Bool)
     result.boolValue = b
-    result.isHashable = true
 
 
 proc typeName*(self: ptr Bool): string = 

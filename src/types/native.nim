@@ -39,8 +39,8 @@ type
         ## A native object
         name*: ptr String
         arity*: int    # The number of required parameters
-        optionals*: int   # The number of optional parameters
-        defaults*: seq[ptr Obj]   # List of default arguments, in order
+        optionals*: int   # The number of optional parameters (TODO)
+        defaults*: seq[ptr Obj]   # List of default arguments, in order (TODO)
         nimproc*: proc (args: seq[ptr Obj]): tuple[kind: retNative, result: ptr Obj]   # The function's body
 
 
@@ -56,7 +56,6 @@ proc newNative*(name: string, nimproc: proc(args: seq[ptr Obj]): tuple[kind: ret
         result.name = nil
     result.arity = arity
     result.nimproc = nimproc
-    result.isHashable = false
 
 
 proc typeName*(self: ptr Native): string =

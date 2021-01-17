@@ -19,7 +19,10 @@ import strutils
 import sequtils
 import algorithm
 import strformat
-import lexer
+import tables
+
+import multibyte
+import lexer 
 import meta/opcode
 import meta/token
 import meta/looptype
@@ -27,14 +30,12 @@ import types/baseObject
 import types/function
 import types/numbers
 import types/japlString
-import tables
+import types/iterable
+import types/arraylist
 import config
-import memory
-import multibyte
 when isMainModule:
     import util/debug
-when DEBUG_TRACE_COMPILER:
-    import types/methods
+import types/methods
 
 
 type
@@ -48,8 +49,8 @@ type
         scopeDepth*: int
         parser*: Parser
         loop*: Loop
-        objects*: seq[ptr Obj]
-        file*: string
+        objects*: ptr ArrayList[ptr Obj]
+        file*: ptr String
         interned*: Table[string, ptr Obj]
 
     Local* = ref object   # A local variable
@@ -58,10 +59,10 @@ type
 
     Parser* = ref object  # A Parser object
         current*: int
-        tokens*: seq[Token]
+        tokens*: ptr ArrayList[Token]
         hadError*: bool
         panicMode*: bool
-        file*: string
+        file*: ptr String
 
     Precedence {.pure.} = enum
         None,
@@ -359,7 +360,7 @@ template markObject*(self: Compiler, obj: ptr Obj): untyped =
     ## Marks compile-time objects (since those take up memory as well)
     ## for the VM to reclaim space later on
     let temp = obj
-    self.objects.add(temp)
+    self.objects.append(temp)
     temp
 
 
@@ -858,7 +859,7 @@ proc parseFunction(self: Compiler, funType: FunctionType) =
     ## keyword arguments (WIP), but once a parameter is declared
     ## as a keyword one, all subsequent parameters must be
     ## keyword ones as well
-    var self = initCompiler(funType, self, self.parser, self.file)
+    var self = initCompiler(funType, self, self.parser, self.file.toStr())
     self.beginScope()
     if self.parser.check(LB):
         self.parser.consume(LB, "Expecting '{' before function body")
@@ -1021,34 +1022,6 @@ proc declaration(self: Compiler) =
         self.statement()
 
 
-proc freeObject(self: Compiler, obj: ptr Obj) =
-    ## Frees the associated memory
-    ## of an object
-    case obj.kind:
-        of ObjectType.String:
-            var str = cast[ptr String](obj)
-            when DEBUG_TRACE_ALLOCATION:
-                echo &"DEBUG - Compiler: Freeing string object of length {str.len}"
-            discard freeArray(char, str.str, str.len)
-            discard free(ObjectType.String, obj)
-        of ObjectType.Exception, ObjectType.Class,
-           ObjectType.Module, ObjectType.BaseObject, ObjectType.Integer,
-           ObjectType.Float, ObjectType.Bool, ObjectType.NotANumber, 
-           ObjectType.Infinity, ObjectType.Nil, ObjectType.Native:
-               when DEBUG_TRACE_ALLOCATION:
-                    echo &"DEBUG - Compiler: Freeing {obj.typeName()} object with value '{stringify(obj)}'"
-               discard free(obj.kind, obj)
-        of ObjectType.Function:
-            var fun = cast[ptr Function](obj)
-            when DEBUG_TRACE_ALLOCATION:
-                if fun.name == nil:
-                    echo &"DEBUG - Compiler: Freeing global code object"
-                else:
-                    echo &"DEBUG - Compiler: Freeing function object with name '{stringify(fun)}'"
-            fun.chunk.freeChunk()
-            discard free(ObjectType.Function, fun)
-
-
 proc freeCompiler*(self: Compiler) =
     ## Frees all the allocated objects
     ## from the compiler
@@ -1056,7 +1029,7 @@ proc freeCompiler*(self: Compiler) =
         var objCount = len(self.objects)
         var objFreed = 0
     for obj in reversed(self.objects):
-        self.freeObject(obj)
+        freeObject(obj)
         discard self.objects.pop()
         when DEBUG_TRACE_ALLOCATION:
             objFreed += 1
@@ -1141,10 +1114,10 @@ proc compile*(self: Compiler, source: string): ptr Function =
     ## Compiles a source string into a function
     ## object. This wires up all the code
     ## inside the parser and the lexer
-    var scanner = initLexer(source, self.file)
+    var scanner = initLexer(source, self.file.toStr())
     var tokens = scanner.lex()
     if not scanner.errored:
-        self.parser = initParser(tokens, self.file)
+        self.parser = initParser(tokens, self.file.toStr())
         while not self.parser.match(EOF):
             self.declaration()
         var function = self.endCompiler()
@@ -1172,12 +1145,8 @@ proc initParser*(tokens: seq[Token], file: string): Parser =
     # to try and hook their parsers into JAPL with ease (pretty
     # much like our lexer now has the sole requirement of
     # having a lex() procedure that returns a list of tokens)
-    result = new(Parser)
-    result.current = 0
-    result.tokens = tokens
-    result.hadError = false
-    result.panicMode = false
-    result.file = file
+    result = Parser(current: 0, tokens: newArrayList[Token](), hadError: false, panicMode: false, file: file.asStr())
+    result.tokens.extend[:Token](tokens)
 
 
 proc initCompiler*(context: FunctionType, enclosing: Compiler = nil, parser: Parser = initParser(@[], ""), file: string): Compiler =
@@ -1190,11 +1159,12 @@ proc initCompiler*(context: FunctionType, enclosing: Compiler = nil, parser: Par
     result.scopeDepth = 0
     result.localCount = 0
     result.loop = Loop(alive: false, loopEnd: -1)
-    result.objects = @[]
+    result.objects = newArrayList[ptr Obj]()
     result.context = context
     result.enclosing = enclosing
-    result.file = file
-    result.parser.file = file
+    result.file = file.asStr()
+    result.objects.append(result.file)
+    result.parser.file = result.file
     result.locals.add(Local(depth: 0, name: Token(kind: EOF, lexeme: "")))
     inc(result.localCount)
     case context:

@@ -24,9 +24,9 @@ type
         ## All the possible object types
         String, Exception, Function,
         Class, Module, BaseObject,
-        Native,
-        Integer, Float, Bool, NotANumber,
-        Infinity, Nil
+        Native, Integer, Float, 
+        Bool, NotANumber, Infinity, 
+        Nil, List, Dict, Set, Tuple
     Obj* = object of RootObj
         ## The base object for all
         ## JAPL types. Every object
@@ -34,7 +34,6 @@ type
         ## from this base type
         kind*: ObjectType
         hashValue*: uint64
-        isHashable*: bool   # This is false for unhashable objects
 
 
 ## Object constructors and allocators

@@ -23,7 +23,14 @@ import boolean
 import japlNil
 import numbers
 import native
+import iterable
 import typeutils
+import ../config
+import ../memory
+import ../meta/opcode
+import arraylist
+when DEBUG_TRACE_ALLOCATION:
+    import strformat
 
 import parseutils
 
@@ -83,12 +90,14 @@ proc stringify*(self: ptr Obj): string =
             discard
 
 
+proc `$`*(self: ptr Obj): string = 
+    result = self.stringify()
+
+
 proc hash*(self: ptr Obj): uint64 =
     ## Returns the hash of the object using
     ## the FNV-1a algorithm (or a predefined value).
     ## Raises an error if the object is not hashable
-    if not self.isHashable:
-        raise newException(NotImplementedError, "")
     case self.kind:
         of ObjectType.BaseObject:
             result = 2166136261u  # Constant hash
@@ -465,3 +474,48 @@ proc Slice*(self: ptr Obj, a: ptr Obj, b: ptr Obj): returnType =
             result = cast[ptr String](self).Slice(a, b)
         else:
             raise newException(NotImplementedError, "")
+
+
+
+proc freeObject*(obj: ptr Obj) =
+    ## Frees the associated memory
+    ## of an object
+    case obj.kind:
+        of ObjectType.String:
+            var str = cast[ptr String](obj)
+            when DEBUG_TRACE_ALLOCATION:
+                echo &"DEBUG - Memory Manager: Freeing string object of length {str.len}"
+            discard freeArray(char, str.str, str.len)
+            discard free(ObjectType.String, obj)
+        of ObjectType.Exception, ObjectType.Class,
+           ObjectType.Module, ObjectType.BaseObject, ObjectType.Integer,
+           ObjectType.Float, ObjectType.Bool, ObjectType.NotANumber, 
+           ObjectType.Infinity, ObjectType.Nil, ObjectType.Native:
+               when DEBUG_TRACE_ALLOCATION:
+                    echo &"DEBUG - Memory Manager: Freeing {obj.typeName()} object with value '{stringify(obj)}'"
+               discard free(obj.kind, obj)
+        of ObjectType.Function:
+            var fun = cast[ptr Function](obj)
+            when DEBUG_TRACE_ALLOCATION:
+                if fun.name == nil:
+                    echo &"DEBUG - Memory Manager: Freeing global code object"
+                else:
+                    echo &"DEBUG - Memory Manager: Freeing function object with name '{stringify(fun)}'"
+            freeObject(fun.chunk.consts)
+            freeObject(fun.chunk.lines)
+            freeObject(fun.chunk.code)
+            discard free(ObjectType.Function, fun)
+        of ObjectType.List, ObjectType.Set, ObjectType.Dict, ObjectType.Tuple:
+            when DEBUG_TRACE_ALLOCATION:
+                let iter = cast[ptr Iterable](obj)
+                echo &"DEBUG - Memory Manager: Freeing {obj.typeName()} object of length {iter.length}"
+            case obj.kind:
+                # Note that we only free user-defined data structures!
+                # Internal lists and other custom data types such
+                # as the VM's stack or call frames stack must be handled
+                # separately
+                of ObjectType.List:
+                    let lst = cast[ptr ArrayList[ptr Obj]](obj)
+                    discard freeArray(ptr Obj, lst.container, lst.length)
+                else:
+                    discard  # TODO

@@ -60,7 +60,6 @@ proc asStr*(s: string): ptr String =
         result.hashValue = result.hash()
     else:
         result.hashValue = 0u
-    result.isHashable = true
 
 
 proc isFalsey*(self: ptr String): bool =

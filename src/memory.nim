@@ -36,13 +36,16 @@ proc reallocate*(pointr: pointer, oldSize: int, newSize: int): pointer =
                 echo &"DEBUG - Memory manager: Deallocating {oldSize} bytes"
             dealloc(pointr)
             return nil
-        when DEBUG_TRACE_ALLOCATION:
-            if oldSize == 0:
-                echo &"DEBUG - Memory manager: Allocating {newSize} bytes of memory"
-            else:
-                echo &"DEBUG - Memory manager: Resizing {oldSize} bytes of memory to {newSize} bytes"
         if oldSize > 0 and pointr != nil or oldSize == 0:
+            when DEBUG_TRACE_ALLOCATION:
+                if oldSize == 0:
+                    echo &"DEBUG - Memory manager: Allocating {newSize} bytes of memory"
+                else:
+                    echo &"DEBUG - Memory manager: Resizing {oldSize} bytes of memory to {newSize} bytes"
             result = realloc(pointr, newSize)
+        when DEBUG_TRACE_ALLOCATION:
+            if oldSize > 0 and pointr == nil:
+                echo &"DEBUG - Memory manager: Warning, asked to realloc() nil pointer from {oldSize} to {newSize} bytes, ignoring request"
     except NilAccessDefect:
         stderr.write("A fatal error occurred -> could not manage memory, segmentation fault\n")
         quit(71)   # For now, there's not much we can do if we can't get the memory we need
@@ -50,7 +53,7 @@ proc reallocate*(pointr: pointer, oldSize: int, newSize: int): pointer =
 
 template resizeArray*(kind: untyped, pointr: pointer, oldCount, newCount: int): untyped =
     ## Handy macro (in the C sense of macro, not nim's) to resize a dynamic array
-    cast[ptr kind](reallocate(pointr, sizeof(kind) * oldCount, sizeof(kind) * newCount))
+    cast[ptr UncheckedArray[kind]](reallocate(pointr, sizeof(kind) * oldCount, sizeof(kind) * newCount))
 
 
 template freeArray*(kind: untyped, pointr: pointer, oldCount: int): untyped =

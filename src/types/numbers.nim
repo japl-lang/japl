@@ -53,14 +53,14 @@ proc asInt*(n: int): ptr Integer =
     ## Converts a nim int into a JAPL int
     result = allocateObj(Integer, ObjectType.Integer)
     result.intValue = n
-    result.isHashable = true
+    
 
 
 proc asFloat*(n: float): ptr Float =
     ## Converts a nim float into a JAPL float
     result = allocateObj(Float, ObjectType.Float)
     result.floatValue = n
-    result.isHashable = true
+    
 
 
 proc asNan*(): ptr NotANumber =

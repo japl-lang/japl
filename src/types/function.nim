@@ -37,7 +37,7 @@ proc newFunction*(name: string = "", chunk: Chunk, arity: int = 0): ptr Function
         result.name = nil
     result.arity = arity
     result.chunk = chunk
-    result.isHashable = false
+    result.optionals = 0  # TODO
 
 
 proc newLambda*(chunk: Chunk, arity: int = 0): ptr Function =
@@ -49,7 +49,7 @@ proc newLambda*(chunk: Chunk, arity: int = 0): ptr Function =
     result.name = "<lambda function>".asStr()
     result.arity = arity
     result.chunk = chunk
-    result.isHashable = false
+    result.optionals = 0
 
 
 proc typeName*(self: ptr Function): string =

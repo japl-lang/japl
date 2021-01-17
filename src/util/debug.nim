@@ -18,7 +18,7 @@
 import ../meta/opcode
 import ../types/baseObject
 import ../types/methods
-
+import ../types/arraylist
 import strformat
 
 

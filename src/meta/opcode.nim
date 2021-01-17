@@ -16,7 +16,7 @@
 ## A chunk is a piece of bytecode together with its constants
 
 import ../types/baseObject
-
+import ../types/arraylist
 
 type
     Chunk* = ref object
@@ -24,9 +24,9 @@ type
         ## Consts represents the constants table the code is referring to
         ## Code is the compiled bytecode
         ## Lines maps bytecode instructions to line numbers (1 to 1 correspondence)
-        consts*: seq[ptr Obj]
-        code*: seq[uint8]
-        lines*: seq[int]   # TODO: Run-length encoding
+        consts*: ptr ArrayList[ptr Obj]
+        code*: ptr ArrayList[uint8]
+        lines*: ptr ArrayList[int]   # TODO: Run-length encoding
     OpCode* {.pure.} = enum
         ## Enum of possible opcodes
         Constant = 0u8,
@@ -92,13 +92,13 @@ const jumpInstructions* = {OpCode.JumpIfFalse, OpCode.Jump, OpCode.Loop}
 
 proc newChunk*(): Chunk =
     ## Initializes a new, empty chunk
-    result = Chunk(consts: @[], code: @[], lines: @[])
+    result = Chunk(consts: newArrayList[ptr Obj](), code: newArrayList[uint8](), lines: newArrayList[int]())
 
 
 proc writeChunk*(self: Chunk, newByte: uint8, line: int) =
     ## Appends newByte at line to a chunk.
-    self.code.add(newByte)
-    self.lines.add(line)
+    self.code.append(newByte)
+    self.lines.append(line)
 
 
 proc writeChunk*(self: Chunk, bytes: array[3, uint8], line: int) =
@@ -107,16 +107,9 @@ proc writeChunk*(self: Chunk, bytes: array[3, uint8], line: int) =
         self.writeChunk(cByte, line)
 
 
-proc freeChunk*(self: Chunk) =
-    ## Resets a chunk to its initial value.
-    self.consts = @[]
-    self.code = @[]
-    self.lines = @[]
-
-
 proc addConstant*(self: Chunk, constant: ptr Obj): array[3, uint8] =
     ## Writes a constant to a chunk. Returns its index casted to an array
-    self.consts.add(constant)
+    self.consts.append(constant)
     let index = self.consts.high()
     result = cast[array[3, uint8]](index)
 

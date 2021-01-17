@@ -30,10 +30,6 @@ proc repl() =
     var bytecodeVM = initVM()
     echo JAPL_VERSION_STRING
     echo &"[Nim {NimVersion} on {hostOs} ({hostCPU})]"
-    when DEBUG_TRACE_VM:
-        echo "==== Runtime Constants ====\n"
-        echo &"- FRAMES_MAX -> {FRAMES_MAX}"
-        echo "==== Debugger started ====\n"
     var source = ""
     while true:
         try:
@@ -59,12 +55,12 @@ proc repl() =
                 bytecodeVM.lastPop = cast[ptr Nil](bytecodeVM.cached[2])
 
 
-proc main(file: var string = "", fromString: bool = false) =
+proc main(file: var string = "", fromString: bool = false, interactive: bool = false) =
     var source: string
-    if file == "":
+    if file == "" and not fromString:
         repl()
         return   # We exit after the REPL has ran
-    elif not fromString:
+    if not fromString:
         var sourceFile: File
         try:
             sourceFile = open(filename=file)
@@ -80,6 +76,8 @@ proc main(file: var string = "", fromString: bool = false) =
         file = "<string>"
     var bytecodeVM = initVM()
     discard bytecodeVM.interpret(source, file)
+    if interactive:
+        repl()
     bytecodeVM.freeVM()
 
 
@@ -87,6 +85,7 @@ when isMainModule:
     var optParser = initOptParser(commandLineParams())
     var file: string = ""
     var fromString: bool = false
+    var interactive: bool = false
     for kind, key, value in optParser.getopt():
         case kind:
             of cmdArgument:
@@ -99,6 +98,11 @@ when isMainModule:
                     of "version":
                         echo JAPL_VERSION_STRING
                         quit()
+                    of "string":
+                        file = key
+                        fromString = true
+                    of "interactive":
+                        interactive = true
                     else:
                         echo &"error: unkown option '{key}'"
                         quit()
@@ -110,13 +114,15 @@ when isMainModule:
                     of "v":
                         echo JAPL_VERSION_STRING
                         quit()
-                    of "c":
+                    of "s":
                         file = key
                         fromString = true
+                    of "i":
+                        interactive = true
                     else:
                         echo &"error: unkown option '{key}'"
                         quit()
             else:
-                echo "usage: japl [filename]"
+                echo "usage: japl [options] [filename.jpl]"
                 quit()
-    main(file, fromString)
+    main(file, fromString, interactive)

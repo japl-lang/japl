@@ -28,19 +28,21 @@ of what's done in JAPL:
 - [x] Control flow (if/else)
 - [x] Loops (for/while)
 - [x] Comparisons operators (`>`, `<`, `>=`, `<=`, `!=`, `==`)
-- [ ] Casting with the `as` operator
+- [x] Casting with the `as` operator
 - [x] Modulo division (`%`) and exponentiation (`**`)
 - [x] Bitwise operators (AND, OR, XOR, NOT)
 - [x] Simple optimizations (constant string interning, singletons caching)
 - [ ] Garbage collector (Mark & Sweep)
 - [x] Operations on strings (addition, multiplication -> TODO both sides)
-- [ ] Functions and Closures
+- [x] Functions
+- [ ] Closures
 - [ ] Functions default and keyword arguments
 - [ ] An OOP system (class-based)
 - [x] Global and local variables
 - [x] Explicit scopes using bracket
 - [ ] Native asynchronous (`await`/`async fun`) support 
 - [ ] Bytecode optimizations such as constant folding and stack caching 
+- [x] Lambda functions as inline expressions
 - [ ] Arbitrary-precision arithmetic
 - [x] Multi-line comments `/* like this */` (can be nested)
 - [ ] Generators 
@@ -53,6 +55,7 @@ of what's done in JAPL:
 - [ ] Optional JIT Compilation 
 - [ ] Static type checker (compiler module)
 - [ ] Runtime Type Checking
+- [x] 0-argument functions without ()
 
 
 ## Contributing
@@ -108,7 +111,14 @@ If you need more customizability or want to enable debugging for JAPL, there's a
 
 ### Nim compiler options
 
-The build tool calls the system's nim compiler to build JAPL and by default, the only extra flag that's passed to it is `--gc:markAndSweep`. If you want to customize the options passed to the compiler, you can pass a comma separated list of key:value options (spaces are not allowed). For example, doing `python3 build.py src --flags d:release,threads:on` will call `nim compile src/japl --gc:markAndSweep -d:release --threads:on`.
+The build tool calls the system's nim compiler to build JAPL. If you want to customize the options passed to the compiler, you can pass a comma separated list of key:value options (spaces are not allowed). For example, doing `python3 build.py src --flags d:release,threads:on` will call `nim compile src/japl -d:release --threads:on`.
+
+#### Known issues
+
+Right now JAPL is in its very early stages and we've encountered a series of issues related to nim's garbage collection implementations. Some of them
+seem to clash with JAPL's own memory management and cause random `NilAccessDefects` because the GC frees stuff that JAPL needs. If the test suite shows
+weird crashes try changing the `gc` option to `boehm` (particularly recommended since it seems to cause very little interference with JAPL), `orc`~ or
+`markAndSweep` to see if this mitigates the problem; this is a temporary solution until JAPL becomes fully independent from nim's runtime memory management.
 
 ### JAPL Debugging options
 

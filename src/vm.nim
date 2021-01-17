@@ -17,13 +17,11 @@
 {.experimental: "implicitDeref".}
 
 ## Standard library imports
-import algorithm
 import strformat
 import tables
 import std/enumerate
 ## Our modules
 import stdlib
-import memory
 import config
 import compiler
 import meta/opcode
@@ -38,6 +36,7 @@ import types/methods
 import types/typeutils
 import types/function
 import types/native
+import types/arraylist
 # We always import it to
 # avoid the compiler complaining
 # about functions not existing
@@ -55,17 +54,19 @@ type
         RuntimeError
     VM* = ref object
         ## A wrapper around the virtual machine
-        ## functionality
+        ## functionality. Using custom heap allocated
+        ## types for everything might sound excessive,
+        ## but bad things happen when nim's GC puts its
+        ## hands on JAPL-owned objects, so it was decided
+        ## to reduce the GC's impact to a minimal
         lastPop*: ptr Obj
-        frameCount*: int
-        source*: string
-        frames*: seq[CallFrame]
-        stack*: ref seq[ptr Obj]
-        stackTop*: int
-        objects*: seq[ptr Obj]
-        globals*: Table[string, ptr Obj]
+        source*: ptr String
+        frames*: ptr ArrayList[CallFrame]
+        stack*: ptr ArrayList[ptr Obj]
+        objects*: ptr ArrayList[ptr Obj]
+        globals*: Table[string, ptr Obj]   # TODO: Custom hashmap
         cached*: array[6, ptr Obj]
-        file*: string
+        file*: ptr String
 
 
 func handleInterrupt() {.noconv.} =
@@ -75,14 +76,22 @@ func handleInterrupt() {.noconv.} =
     raise newException(KeyboardInterrupt, "Ctrl+C")
 
 
-proc resetStack*(self: VM) =
-    ## Resets the VM stack to a blank state
+proc initStack*(self: VM) =
+    ## Initializes the VM's stack, frame stack
+    ## and objects arraylist
     when DEBUG_TRACE_VM:
         echo "DEBUG - VM: Resetting the stack"
-    self.stack = new(seq[ptr Obj])
-    self.frames = @[]
-    self.frameCount = 0
-    self.stackTop = 0
+    self.stack = newArrayList[ptr Obj]()
+    self.objects = newArrayList[ptr Obj]()
+    self.frames = newArrayList[CallFrame]()
+
+
+proc resetStack*(self: VM) = 
+    ## Resets the VM's stack to a blank state
+    while self.stack.len() >= 1:
+        discard self.stack.pop()
+    while self.frames.len() >= 1:
+        discard self.frames.pop()
 
 
 proc getBoolean(self: VM, kind: bool): ptr Obj =
@@ -105,7 +114,7 @@ proc error*(self: VM, error: ptr JAPLException) =
 
     # Exceptions are objects too and they need to
     # be freed like any other entity in JAPL
-    self.objects.add(error)   # TODO -> Move this somewhere else to mark exceptions even before they are raised
+    self.objects.append(error)   # TODO -> Move this somewhere else to mark exceptions even before they are raised
     var previous = ""  # All this stuff seems overkill, but it makes the traceback look nicer
     var repCount = 0   # and if we are here we are far beyond a point where performance matters anyway
     var mainReached = false
@@ -137,15 +146,13 @@ proc error*(self: VM, error: ptr JAPLException) =
 proc pop*(self: VM): ptr Obj =
     ## Pops an object off the stack
     result = self.stack.pop()
-    self.stackTop -= 1
 
 
 proc push*(self: VM, obj: ptr Obj) =
     ## Pushes an object onto the stack
-    self.stack.add(obj)
+    self.stack.append(obj)
     if obj notin self.objects and obj notin self.cached:
-        self.objects.add(obj)
-    self.stackTop += 1
+        self.objects.append(obj)
 
 
 proc push*(self: VM, ret: returnType): bool =
@@ -175,7 +182,7 @@ proc push*(self: VM, ret: returnType): bool =
 proc peek*(self: VM, distance: int): ptr Obj =
     ## Peeks an object (at a given distance from the
     ## current index) from the stack
-    return self.stack[self.stackTop - distance - 1]
+    return self.stack[self.stack.high() - distance]
 
 
 proc call(self: VM, function: ptr Function, argCount: int): bool =
@@ -190,14 +197,12 @@ proc call(self: VM, function: ptr Function, argCount: int): bool =
     elif argCount > function.arity and (argCount - function.arity) - function.optionals != 0:
         self.error(newTypeError(&"function '{stringify(function.name)}' takes at least {function.arity} arguments and at most {function.arity + function.optionals}, got {argCount}"))
         return false
-    if self.frameCount == FRAMES_MAX:
+    if self.frames.len() == FRAMES_MAX:
         self.error(newRecursionError("max recursion depth exceeded"))
         return false
     let slot = self.stack.high() - argCount
-    var frame = CallFrame(function: function, ip: 0, slot: slot, stack: self.stack)   # TODO: 
-    # Check why this raises NilAccessError when high recursion limit is hit
-    self.frames.add(frame)
-    self.frameCount += 1
+    var frame = CallFrame(function: function, ip: 0, slot: slot, stack: self.stack)
+    self.frames.append(frame)
     return true
 
 
@@ -306,7 +311,7 @@ proc showRuntime*(self: VM, frame: CallFrame, iteration: uint64) =
         stdout.write("main\n")
     else:
         stdout.write(&"function, '{frame.function.name.stringify()}'\n")
-    echo &"DEBUG - VM:\tCount -> {self.frameCount}"
+    echo &"DEBUG - VM:\tCount -> {self.frames.len()}"
     echo &"DEBUG - VM:\tLength -> {frame.len}"
     stdout.write("DEBUG - VM:\tTable -> ")
     stdout.write("[")
@@ -329,7 +334,7 @@ proc run(self: VM): InterpretResult =
     ## Chews trough bytecode instructions executing
     ## them one at a time: this is the runtime's
     ## main loop
-    var frame = self.frames[self.frameCount - 1]
+    var frame = self.frames[self.frames.high()]
     var instruction: OpCode
     when DEBUG_TRACE_VM:
         var iteration: uint64 = 0
@@ -615,52 +620,20 @@ proc run(self: VM): InterpretResult =
                 var argCount = frame.readByte()
                 if not self.callObject(self.peek(int argCount), argCount):
                     return RuntimeError
-                frame = self.frames[self.frameCount - 1]
+                frame = self.frames[self.frames.high()]
             of OpCode.Break:
                 discard   # Unused (the compiler converts it to other stuff before it arrives here)
             of OpCode.Return:
                 # Handles returning values from the callee to the caller
                 # and sets up the stack to proceed with execution
                 var retResult = self.pop()
-                self.frameCount -= 1
                 discard self.frames.pop()
-                if self.frameCount == 0:
+                if self.frames.len() == 0:
                     discard self.pop()
                     return OK
-                self.stackTop -= frame.clear()
+                discard frame.clear()
                 self.push(retResult)
-                frame = self.frames[self.frameCount - 1]
-
-
-proc freeObject(self: VM, obj: ptr Obj) =
-    ## Frees the associated memory
-    ## of an object
-    case obj.kind:
-        of ObjectType.String:
-            var str = cast[ptr String](obj)
-            when DEBUG_TRACE_ALLOCATION:
-                echo &"DEBUG - VM: Freeing string object of length {str.len}"
-            discard freeArray(char, str.str, str.len)
-            discard free(ObjectType.String, obj)
-        of ObjectType.Exception, ObjectType.Class,
-           ObjectType.Module, ObjectType.BaseObject, ObjectType.Integer,
-           ObjectType.Float, ObjectType.Bool, ObjectType.NotANumber, 
-           ObjectType.Infinity, ObjectType.Nil, ObjectType.Native:
-               when DEBUG_TRACE_ALLOCATION:
-                    if obj notin self.cached:
-                        echo &"DEBUG - VM: Freeing {obj.typeName()} object with value '{stringify(obj)}'"
-                    else:
-                        echo &"DEBUG - VM: Freeing cached {obj.typeName()} object with value '{stringify(obj)}'"
-               discard free(obj.kind, obj)
-        of ObjectType.Function:
-            var fun = cast[ptr Function](obj)
-            when DEBUG_TRACE_ALLOCATION:
-                if fun.name == nil:
-                    echo &"DEBUG - VM: Freeing global code object"
-                else:
-                    echo &"DEBUG - VM: Freeing function object with name '{stringify(fun)}'"
-            fun.chunk.freeChunk()
-            discard free(ObjectType.Function, fun)
+                frame = self.frames[self.frames.high()]
 
 
 proc freeObjects(self: VM) =
@@ -672,12 +645,12 @@ proc freeObjects(self: VM) =
         var runtimeFreed = 0
         var cachedFreed = 0
     for obj in reversed(self.objects):
-        self.freeObject(obj)
+        freeObject(obj)
         discard self.objects.pop()
         when DEBUG_TRACE_ALLOCATION:
             runtimeFreed += 1
     for cached_obj in self.cached:
-        self.freeObject(cached_obj)
+        freeObject(cached_obj)
         when DEBUG_TRACE_ALLOCATION:
             cachedFreed += 1
     when DEBUG_TRACE_ALLOCATION:
@@ -689,6 +662,9 @@ proc freeVM*(self: VM) =
     unsetControlCHook()
     try:
         self.freeObjects()
+        freeObject(self.objects)
+        freeObject(self.stack)
+        freeObject(self.frames)
     except NilAccessDefect:
         stderr.write("A fatal error occurred -> could not free memory, segmentation fault\n")
         quit(71)
@@ -696,6 +672,7 @@ proc freeVM*(self: VM) =
         if self.objects.len > 0:
             echo &"DEBUG - VM: Warning, {self.objects.len} objects were not freed"
         echo "DEBUG - VM: The virtual machine has shut down"
+    
 
 
 proc initCache(self: VM) = 
@@ -725,7 +702,7 @@ proc initCache(self: VM) =
     self.cached[4] = nInf.asObj()
 
 
-proc stdlibInit*(vm: VM) =
+proc initStdlib*(vm: VM) =
     ## Initializes the VM's standard library by defining builtin
     ## functions that do not require imports. An arity of -1
     ## means that the function is variadic (or that it can
@@ -753,10 +730,10 @@ proc initVM*(): VM =
     ## and internal data structures
     when DEBUG_TRACE_VM:
         echo &"DEBUG - VM: Initializing the virtual machine, {JAPL_VERSION_STRING}"
-    result = VM(objects: @[], globals: initTable[string, ptr Obj](), source: "", file: "")
+    result = VM(globals: initTable[string, ptr Obj]())
+    result.initStack()
     result.initCache()
-    result.stdlibInit()
-    result.resetStack()
+    result.initStdlib()
     setControlCHook(handleInterrupt)
     result.lastPop = cast[ptr Nil](result.cached[2])
     when DEBUG_TRACE_VM:
@@ -769,8 +746,10 @@ proc interpret*(self: VM, source: string, file: string): InterpretResult =
     when DEBUG_TRACE_VM:
         echo &"DEBUG - VM: Preparing to run '{file}'"
     self.resetStack()
-    self.source = source
-    self.file = file
+    self.source = source.asStr()
+    self.file = file.asStr()
+    self.objects.append(self.source)
+    self.objects.append(self.file)
     when DEBUG_TRACE_VM:
         echo &"DEBUG - VM: Compiling '{file}'"
     var compiler = initCompiler(SCRIPT, file=file)
@@ -779,8 +758,7 @@ proc interpret*(self: VM, source: string, file: string): InterpretResult =
     # get called multiple times (like in the REPL) and we don't wanna loose
     # what we allocated before, so we merge everything we already
     # allocated and everything the compiler allocated at compile time
-    self.objects = self.objects & compiler.objects
-    # TODO: revisit the best way to transfer marked objects from the compiler to the vm
+    self.objects.extend(compiler.objects)
     if compiled == nil:
         # Compile-time error
         compiler.freeCompiler()

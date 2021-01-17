@@ -18,6 +18,7 @@
 
 import ../types/function
 import ../types/baseObject
+import ../types/arraylist
 {.experimental: "implicitDeref".}
 
 
@@ -26,7 +27,7 @@ type
         function*: ptr Function
         ip*: int
         slot*: int
-        stack*: ref seq[ptr Obj]
+        stack*: ptr ArrayList[ptr Obj]
 
 
 proc clear*(self: CallFrame): int =
@@ -35,8 +36,7 @@ proc clear*(self: CallFrame): int =
         discard self.stack.pop()
         inc result
 
-
-proc getView*(self: CallFrame): seq[ptr Obj] =
+proc getView*(self: CallFrame): ptr ArrayList[ptr Obj] =
     result = self.stack[self.slot..self.stack.high()]
 
 

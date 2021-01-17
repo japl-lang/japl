@@ -64,17 +64,18 @@ http://www.apache.org/licenses/LICENSE-2.0 for more info.
 Basic usage
 -----------
 
-$ jpl  -> Start the REPL
+$ jpl  -> Starts the REPL
 
-$ jpl filename.jpl -> Run filename.jpl
+$ jpl filename.jpl -> Runs filename.jpl
 
 
 Command-line options
 --------------------
 
--h, --help  -> Show this help text and exit
--v, --version -> Print the JAPL version number and exit
--c -> Executes the passed string
+-h, --help  -> Shows this help text and exit
+-v, --version -> Prints the JAPL version number and exit
+-s, --string -> Executes the passed string as if it was a file
+-i, --interactive -> Enables interactive mode, which opens a REPL session after execution of a file or source string
 """'''
 
 
@@ -200,63 +201,66 @@ def build(path: str, flags: Dict[str, str] = {}, options: Dict[str, bool] = {}, 
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("path", help="The path to JAPL's source directory")
-    parser.add_argument("--verbose", help="Prints debug information to stdout", action="store_true", default=os.getenv("JAPL_VERBOSE"))
-    parser.add_argument("--flags", help="Optional flags to be passed to the nim compiler. Must be a comma-separated list of name:value (without spaces)", default=os.getenv("JAPL_FLAGS"))
-    parser.add_argument("--options", help="Set compile-time options and constants, pass a comma-separated list of name:value (without spaces)."
-    "Note that if a config.nim file exists in the destination directory, that will override any setting defined here unless --override-config is used", default=os.getenv("JAPL_OPTIONS"))
-    parser.add_argument("--override-config", help="Overrides the setting of an already existing config.nim file in the destination directory", action="store_true", default=os.getenv("JAPL_OVERRIDE_CONFIG"))
-    parser.add_argument("--skip-tests", help="Skips running the JAPL test suite, useful for debug builds", action="store_true", default=os.getenv("JAPL_SKIP_TESTS"))
-    parser.add_argument("--keep-results", help="Instructs the build tool not to delete the testresults.txt file from the test suite, useful for debugging", action="store_true", default=os.getenv("JAPL_KEEP_RESULTS"))
-    parser.add_argument("--install", help="Tries to move the compiled binary to PATH (this is always disabled on windows)", action="store_true", default=os.environ.get("JAPL_INSTALL"))
-    parser.add_argument("--ignore-binary", help="Ignores an already existing 'jpl' binary in any installation directory and overwrites it, use (with care!) with --install", action="store_true", default=os.getenv("JAPL_IGNORE_BINARY"))
-    args = parser.parse_args()
-    flags = {
-            "gc": "markAndSweep",  # Because refc is broken ¯\_(ツ)_/¯
-            }
-    options = {
-        "debug_vm": "false",
-        "skip_stdlib_init": "false",
-        "debug_gc": "false",
-        "debug_compiler": "false",
-        "debug_alloc": "false",
-        "map_load_factor": "0.75",
-        "array_grow_factor": "2",
-        "frames_max": "800",
-    }
-    # We support environment variables!
-    for key, value in options.items():
-        if var := os.getenv(f"JAPL_{key.upper()}"):
-            options[key] = var
-    logging.basicConfig(format="[%(levelname)s - %(asctime)s] %(message)s",
-                        datefmt="%T",
-                        level=logging.DEBUG if args.verbose else logging.INFO
-                        )
-    if args.flags:
-        try:
-            for value in args.flags.split(","):
-                k, v = value.split(":", maxsplit=2)
-                flags[k] = v
-        except Exception:
-            logging.error("Invalid parameter for --flags")
-            exit()
-    if args.options:
-        try:
-            for value in args.options.split(","):
-                k, v = value.split(":", maxsplit=2)
-                if k not in options:
-                    logging.error("Invalid compile-time option '{key}'")
-                    exit()
-                options[k] = v
-        except Exception:
-            logging.error("Invalid parameter for --options")
-            exit()
-    build(args.path, flags, options, args.override_config, args.skip_tests, args.install, args.ignore_binary)
-    if not args.keep_results and not args.skip_tests:
-        if os.path.isfile("testresults.txt"):
+    try:
+        parser = argparse.ArgumentParser()
+        parser.add_argument("path", help="The path to JAPL's source directory")
+        parser.add_argument("--verbose", help="Prints debug information to stdout", action="store_true", default=os.getenv("JAPL_VERBOSE"))
+        parser.add_argument("--flags", help="Optional flags to be passed to the nim compiler. Must be a comma-separated list of name:value (without spaces)", default=os.getenv("JAPL_FLAGS"))
+        parser.add_argument("--options", help="Set compile-time options and constants, pass a comma-separated list of name:value (without spaces)."
+        "Note that if a config.nim file exists in the destination directory, that will override any setting defined here unless --override-config is used", default=os.getenv("JAPL_OPTIONS"))
+        parser.add_argument("--override-config", help="Overrides the setting of an already existing config.nim file in the destination directory", action="store_true", default=os.getenv("JAPL_OVERRIDE_CONFIG"))
+        parser.add_argument("--skip-tests", help="Skips running the JAPL test suite, useful for debug builds", action="store_true", default=os.getenv("JAPL_SKIP_TESTS"))
+        parser.add_argument("--keep-results", help="Instructs the build tool not to delete the testresults.txt file from the test suite, useful for debugging", action="store_true", default=os.getenv("JAPL_KEEP_RESULTS"))
+        parser.add_argument("--install", help="Tries to move the compiled binary to PATH (this is always disabled on windows)", action="store_true", default=os.environ.get("JAPL_INSTALL"))
+        parser.add_argument("--ignore-binary", help="Ignores an already existing 'jpl' binary in any installation directory and overwrites it, use (with care!) with --install", action="store_true", default=os.getenv("JAPL_IGNORE_BINARY"))
+        args = parser.parse_args()
+        flags = {
+                "gc": "refc",
+                }
+        options = {
+            "debug_vm": "false",
+            "skip_stdlib_init": "false",
+            "debug_gc": "false",
+            "debug_compiler": "false",
+            "debug_alloc": "false",
+            "map_load_factor": "0.75",
+            "array_grow_factor": "2",
+            "frames_max": "800",
+        }
+        # We support environment variables!
+        for key, value in options.items():
+            if var := os.getenv(f"JAPL_{key.upper()}"):
+                options[key] = var
+        logging.basicConfig(format="[%(levelname)s - %(asctime)s] %(message)s",
+                            datefmt="%T",
+                            level=logging.DEBUG if args.verbose else logging.INFO
+                            )
+        if args.flags:
             try:
-                os.remove("testresults.txt")
-            except Exception as error:
-                logging.warning(f"Could not remove test results file due to a {type(error).__name__}: {error}")
-    logging.debug("Build tool exited")
+                for value in args.flags.split(","):
+                    k, v = value.split(":", maxsplit=2)
+                    flags[k] = v
+            except Exception:
+                logging.error("Invalid parameter for --flags")
+                exit()
+        if args.options:
+            try:
+                for value in args.options.split(","):
+                    k, v = value.split(":", maxsplit=2)
+                    if k not in options:
+                        logging.error("Invalid compile-time option '{key}'")
+                        exit()
+                    options[k] = v
+            except Exception:
+                logging.error("Invalid parameter for --options")
+                exit()
+        build(args.path, flags, options, args.override_config, args.skip_tests, args.install, args.ignore_binary)
+        if not args.keep_results and not args.skip_tests:
+            if os.path.isfile("testresults.txt"):
+                try:
+                    os.remove("testresults.txt")
+                except Exception as error:
+                    logging.warning(f"Could not remove test results file due to a {type(error).__name__}: {error}")
+        logging.debug("Build tool exited")
+    except KeyboardInterrupt:
+        logging.info("Interrupted by the user")
