@@ -117,8 +117,8 @@ The build tool calls the system's nim compiler to build JAPL. If you want to cus
 
 Right now JAPL is in its very early stages and we've encountered a series of issues related to nim's garbage collection implementations. Some of them
 seem to clash with JAPL's own memory management and cause random `NilAccessDefects` because the GC frees stuff that JAPL needs. If the test suite shows
-weird crashes try changing the `gc` option to `boehm` (particularly recommended since it seems to cause very little interference with JAPL), `orc`~ or
-`regions` to see if this mitigates the problem; this is a temporary solution until JAPL becomes fully independent from nim's runtime memory management.
+weird crashes try changing the `gc` option to `boehm` (particularly recommended since it seems to cause very little interference with JAPL), or `regions` 
+to see if this mitigates the problem; this is a temporary solution until JAPL becomes fully independent from nim's runtime memory management.
 
 ### JAPL Debugging options
 
