@@ -76,15 +76,18 @@ proc deepComp(left, right: string, path: string): tuple[same: bool, place: int] 
 
 
 proc logWithLevel(level: LogLevel, file: File, msg: string) =
-    let msg = &"[{$level} - {$getTime()}] {msg}" 
+    let msg = &"[{$level} - {$getTime()}] {msg}"
     if level in savedLogs:
         file.writeLine(msg)
     if level in echoedLogs:
         if level == LogLevel.Error:
             setForegroundColor(fgRed)
+        elif level == LogLevel.Info:
+            setForegroundColor(fgGreen)
+        elif level == LogLevel.Stdout:
+            setForegroundColor(fgYellow)
         echo msg
-        if level == LogLevel.Error:
-            setForegroundColor(fgDefault)
+        setForegroundColor(fgDefault)
 
 
 proc main(testsDir: string, japlExec: string, testResultsFile: File): tuple[numOfTests: int, successTests: int, failedTests: int, skippedTests: int] =
@@ -150,7 +153,7 @@ proc main(testsDir: string, japlExec: string, testResultsFile: File): tuple[numO
 when isMainModule:
     let testResultsFile = open(testResultsPath, fmWrite)
     template log (msg: string) =
-        logWithLevel(LogLevel.Info, testResultsFile, msg)
+        logWithLevel(LogLevel.Stdout, testResultsFile, msg)
     log("Running Nim tests")
     # Nim tests
     logWithLevel(LogLevel.Debug, testResultsFile, "Running testMultiByte")
