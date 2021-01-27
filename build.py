@@ -45,8 +45,8 @@ CONFIG_TEMPLATE = '''# Copyright 2020 Mattia Giambirtone
 import strformat
 
 
-const MAP_LOAD_FACTOR* = {map_load_factor}  # Load factor for builtin hashmaps (TODO)
-const ARRAY_GROW_FACTOR* = {array_grow_factor}   # How much extra memory to allocate for dynamic arrays (TODO)
+const MAP_LOAD_FACTOR* = {map_load_factor}  # Load factor for builtin hashmaps
+const ARRAY_GROW_FACTOR* = {array_grow_factor}   # How much extra memory to allocate for dynamic arrays
 const FRAMES_MAX* = {frames_max}  # The maximum recursion limit
 const JAPL_VERSION* = "0.3.0"
 const JAPL_RELEASE* = "alpha"

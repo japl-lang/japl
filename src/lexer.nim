@@ -257,7 +257,7 @@ when isMainModule:
             stdout.write("Lexer output: [")
             var lexed = lexer.lex()
             for i, el in lexed:
-                stdout.write($el[])
+                stdout.write($el)
                 if i < lexed.high():
                     stdout.write(", ")
             stdout.write("]\n")

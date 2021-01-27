@@ -26,8 +26,10 @@ import types/typeutils
 import types/methods
 
 
-proc repl() =
-    var bytecodeVM = initVM()
+proc repl(bytecodeVM: VM) =
+    var bytecodeVM = bytecodeVM
+    if bytecodeVM == nil:
+        bytecodeVM = initVM()
     echo JAPL_VERSION_STRING
     echo &"[Nim {NimVersion} on {hostOs} ({hostCPU})]"
     var source = ""
@@ -58,7 +60,7 @@ proc repl() =
 proc main(file: var string = "", fromString: bool = false, interactive: bool = false) =
     var source: string
     if file == "" and not fromString:
-        repl()
+        repl(nil)
         return   # We exit after the REPL has ran
     if not fromString:
         var sourceFile: File
@@ -77,7 +79,7 @@ proc main(file: var string = "", fromString: bool = false, interactive: bool = f
     var bytecodeVM = initVM()
     discard bytecodeVM.interpret(source, file)
     if interactive:
-        repl()
+        repl(bytecodeVM)
     bytecodeVM.freeVM()
 
 

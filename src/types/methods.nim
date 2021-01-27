@@ -205,6 +205,10 @@ proc eq*(self, other: ptr Obj): bool =
             discard
 
 
+proc `==`*(self, other: ptr Obj): bool = 
+    result = self.eq(other)
+
+
 proc negate*(self: ptr Obj): returnType = 
     ## Returns the result of -self or
     ## raises an error if the operation
