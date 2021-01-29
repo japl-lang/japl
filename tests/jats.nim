@@ -1,8 +1,6 @@
 # Just Another Test Suite for running JAPL tests
 
 import nim/nimtests
-when isMainModule:
-    runNimTests()
 
 import ../src/vm
 import testutils
@@ -136,7 +134,10 @@ when isMainModule:
         elif paramStr(1) == "-v":
             echo "JATS v" & $jatsVersion
             quit(0)
+
     log(LogLevel.Debug, &"Welcome to JATS")
+
+    runNimTests()
     var jatr = "jatr"
     var testDir = "japl"
     if not fileExists(jatr) and fileExists("tests" / jatr):
