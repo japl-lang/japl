@@ -1,5 +1,9 @@
 # Just Another Test Suite for running JAPL tests
 
+import nim/nimtests
+when isMainModule:
+    runNimTests()
+
 import ../src/vm
 import testutils
 
@@ -138,6 +142,7 @@ when isMainModule:
         jatr = "tests" / jatr
         testDir = "tests" / testDir
 
+    log(LogLevel.Info, &"Running JAPL tests.")
     log(LogLevel.Info, &"Building tests...")
     let tests: seq[Test] = buildTests(testDir)
     log(LogLevel.Debug, &"Tests built.")
