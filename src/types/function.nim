@@ -76,6 +76,4 @@ proc hash*(self: ptr Function): uint64 =
 
 
 proc eq*(self, other: ptr Function): bool =
-    result = self.name.stringify() == other.name.stringify() # Since in JAPL functions cannot
-    # be overridden, if two function names are equal they are also the same
-    # function object (TODO: Verify this)
+    result = self == other  # Pointer equality
