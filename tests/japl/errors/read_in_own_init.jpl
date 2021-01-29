@@ -1,0 +1,4 @@
+var a = 1; { var a = a; }
+//output:A fatal error occurred while compiling '''', line 1, at ';' -> cannot read local variable in its own initializer
+
+//output:

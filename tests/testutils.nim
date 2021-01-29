@@ -1,7 +1,7 @@
 # Common code from between the JAPL testing suites
 # (during transition from runtests -> Just Another Test Runner
 
-import re, strutils, terminal, osproc, strformat, times
+import re, strutils, terminal, osproc, strformat, times, os
 
 # types
 
@@ -19,8 +19,6 @@ type
         process*: Process
         cycles*: int
 
-
-
 # logging stuff
 
 type LogLevel* {.pure.} = enum
@@ -35,21 +33,56 @@ const savedLogs = {LogLevel.Debug, LogLevel.Info, LogLevel.Error}
 
 const logColors = [LogLevel.Debug: fgDefault, LogLevel.Info: fgGreen, LogLevel.Error: fgRed, LogLevel.Stdout: fgYellow]
 
-proc log*(level: LogLevel, file: File, msg: string) =
+var totalLog = ""
+
+proc log*(level: LogLevel, msg: string) =
     let msg = &"[{$level} - {$getTime()}] {msg}"
     if level in savedLogs:
-        file.writeLine(msg)
+        totalLog &= msg & "\n"
     if level in echoedLogs:
         setForegroundColor(logColors[level])
         echo msg
         setForegroundColor(fgDefault)
 
+proc getTotalLog*: string =
+    totalLog
+
+const progbarLength = 25
+type Buffer* = ref object
+    contents: string
+    previous: string
+
+proc newBuffer*: Buffer =
+    new(result)
+
+proc updateProgressBar*(buf: Buffer, text: string, total: int, current: int) =
+    var newline = ""
+    newline &= "["
+    let ratio = current / total
+    let filledCount = int(ratio * progbarLength)
+    for i in countup(1, filledCount):
+        newline &= "="
+    for i in countup(filledCount + 1, progbarLength):
+        newline &= " "
+    newline &= &"] ({current}/{total}) {text}"
+    # to avoid process switching during half-written progress bars and whatnot all terminal editing happens at the end
+    buf.contents = newline
+
+proc render*(buf: Buffer) =
+    if buf.previous != buf.contents:
+        echo buf.contents
+        buf.previous = buf.contents
 
 # parsing the test notation
 
 proc compileExpectedOutput*(source: string): string =
     for line in source.split('\n'):
-        if line =~ re"^.*//output:(.*)$":
+        if line =~ re"^.*//output:[ ]?(.*)$":
+            result &= matches[0] & "\n"
+
+proc compileExpectedError*(source: string): string =
+    for line in source.split('\n'):
+        if line =~ re"^.*//error:[ ]?(.*)$":
             result &= matches[0] & "\n"
 
 # stuff for cleaning test output

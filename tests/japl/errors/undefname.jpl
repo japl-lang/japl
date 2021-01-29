@@ -1,7 +1,7 @@
 var a = b;
 //output:An unhandled exception occurred, traceback below:
 
-//output:  File '', line 1, in <module>:
+//output:   File '''', line 1, in <module>:
 
 //output:ReferenceError: undefined name 'b'
 
