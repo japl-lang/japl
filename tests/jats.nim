@@ -132,8 +132,10 @@ when isMainModule:
     if paramCount() > 0:
         if paramStr(1) == "-h":
             echo "Usage: jats [-h | -v | -i | -o filename.txt]"
+            quit(0)
         elif paramStr(1) == "-v":
             echo "JATS v" & $jatsVersion
+            quit(0)
     log(LogLevel.Debug, &"Welcome to JATS")
     var jatr = "jatr"
     var testDir = "japl"
