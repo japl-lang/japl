@@ -157,20 +157,27 @@ def build(path: str, flags: Dict[str, str] = {}, options: Dict[str, bool] = {}, 
             logging.info("Running tests under tests/")
             logging.debug("Compiling test suite")
             start = time()
-            tests_path = "./tests/runtests" if os.name != "nt" else ".\tests\runtests"
-            _, stderr, status = run_command(f"nim compile {tests_path}", stdout=DEVNULL, stderr=PIPE)
+            test_runner_path = "./tests/jatr" if os.name != "nt" else ".\tests\jatr"
+            tests_path = "./tests/jats" if os.name != "nt" else ".\tests\jats"
+            command = "nim {flags} compile {path}".format(flags=nim_flags, path=test_runner_path)
+            _, stderr, status = run_command(command, stdout=DEVNULL, stderr=PIPE)
             if status != 0:
                 logging.error(f"Command '{command}' exited with non-0 exit code {status}, output below:\n{stderr.decode()}")
             else:
-                logging.debug(f"Test suite compilation completed in {time() - start:.2f} seconds")
-                logging.debug("Running tests")
-                start = time()
-                # TODO: Find a better way of running the test suite
-                process = run_command(f"{tests_path}", mode="run", shell=True, stderr=PIPE)
+                command = f"nim compile {tests_path}"
+                _, stderr, status = run_command(command, stdout=DEVNULL, stderr=PIPE)
                 if status != 0:
                     logging.error(f"Command '{command}' exited with non-0 exit code {status}, output below:\n{stderr.decode()}")
                 else:
-                    logging.debug(f"Test suite ran in {time() - start:.2f} seconds")
+                    logging.debug(f"Test suite compilation completed in {time() - start:.2f} seconds")
+                    logging.debug("Running tests")
+                    start = time()
+                    # TODO: Find a better way of running the test suite
+                    process = run_command(f"{tests_path}", mode="run", shell=True, stderr=PIPE)
+                    if status != 0:
+                        logging.error(f"Command '{command}' exited with non-0 exit code {status}, output below:\n{stderr.decode()}")
+                    else:
+                        logging.debug(f"Test suite ran in {time() - start:.2f} seconds")
                     logging.info("Test suite completed!")
         if args.install:
             if os.name == "nt":

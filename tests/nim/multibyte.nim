@@ -15,7 +15,7 @@
 
 # Tests that our multibyte module works
 
-import ../src/multibyte
+import ../../src/multibyte
 
 
 template testMultibyte* =
