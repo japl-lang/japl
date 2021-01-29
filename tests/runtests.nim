@@ -26,6 +26,8 @@ import multibyte
 
 import os, strformat, times, re, terminal, strutils
 
+import testutils
+
 const tempOutputFile = ".testoutput.txt"
 const testResultsPath = "testresults.txt"
 
