@@ -15,7 +15,7 @@
 # Common code from between the JAPL testing suites
 # (during transition from runtests -> Just Another Test Runner
 
-import re, strutils, terminal, osproc, strformat, times, os
+import re, strutils, terminal, osproc, strformat, times
 
 # types
 
@@ -43,17 +43,21 @@ type LogLevel* {.pure.} = enum
 
 
 const echoedLogs = {LogLevel.Info, LogLevel.Error, LogLevel.Stdout}
+const echoedLogsSilent = {LogLevel.Error}
 const savedLogs = {LogLevel.Debug, LogLevel.Info, LogLevel.Error}
 
 const logColors = [LogLevel.Debug: fgDefault, LogLevel.Info: fgGreen, LogLevel.Error: fgRed, LogLevel.Stdout: fgYellow]
 
 var totalLog = ""
+var verbose = true
+proc setVerbosity*(verb: bool) =
+    verbose = verb
 
 proc log*(level: LogLevel, msg: string) =
     let msg = &"[{$level} - {$getTime()}] {msg}"
     if level in savedLogs:
         totalLog &= msg & "\n"
-    if level in echoedLogs:
+    if (verbose and (level in echoedLogs)) or ((not verbose) and (level in echoedLogsSilent)):
         setForegroundColor(logColors[level])
         echo msg
         setForegroundColor(fgDefault)
@@ -83,7 +87,7 @@ proc updateProgressBar*(buf: Buffer, text: string, total: int, current: int) =
     buf.contents = newline
 
 proc render*(buf: Buffer) =
-    if buf.previous != buf.contents:
+    if verbose and buf.previous != buf.contents:
         echo buf.contents
         buf.previous = buf.contents
 
@@ -101,6 +105,6 @@ proc compileExpectedError*(source: string): string =
 
 # stuff for cleaning test output
 
-proc strip*(input: string): string =
+proc tuStrip*(input: string): string =
     return input.replace(re"[\n\r]*$", "")
 

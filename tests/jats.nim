@@ -16,10 +16,9 @@
 
 import nim/nimtests
 
-import ../src/vm
 import testutils
 
-import os, osproc, strformat, streams
+import os, osproc, strformat, streams, parseopt, strutils
 
 # Tests that represent not-yet implemented behaviour
 const exceptions = ["all.jpl", "for_with_function.jpl", "runtime_interning.jpl", "problem4.jpl"]
@@ -99,10 +98,10 @@ proc runTests(tests: seq[Test], runner: string) =
     buffer.render()
 
 proc evalTest(test: Test) =
-    test.output = test.output.strip()
-    test.error = test.error.strip()
-    test.expectedOutput = test.expectedOutput.strip()
-    test.expectedError = test.expectedError.strip()
+    test.output = test.output.tuStrip()
+    test.error = test.error.tuStrip()
+    test.expectedOutput = test.expectedOutput.tuStrip()
+    test.expectedError = test.expectedError.tuStrip()
     if test.output != test.expectedOutput or test.error != test.expectedError:
         test.result = TestResult.Mismatch
     else:
@@ -113,7 +112,7 @@ proc evalTests(tests: seq[Test]) =
         if test.result == TestResult.ToEval:
             evalTest(test)
 
-proc printResults(tests: seq[Test]) =
+proc printResults(tests: seq[Test]): bool =
     var
         skipped = 0
         success = 0
@@ -138,16 +137,101 @@ proc printResults(tests: seq[Test]) =
     let finalLevel = if fail == 0 and crash == 0: LogLevel.Info else: LogLevel.Error
     log(finalLevel, &"{tests.len()} tests: {success} succeeded, {skipped} skipped, {fail} failed, {crash} crashed.")
 
+    fail == 0 and crash == 0
+
 when isMainModule:
     const jatsVersion = "(dev)"
 
-    if paramCount() > 0:
-        if paramStr(1) == "-h":
-            echo "Usage: jats [-h | -v | -i | -o filename.txt]"
-            quit(0)
-        elif paramStr(1) == "-v":
-            echo "JATS v" & $jatsVersion
-            quit(0)
+    var optparser = initOptParser(commandLineParams())
+    type Action {.pure.} = enum
+        Run, Help, Version
+    var action: Action = Action.Run
+    type DebugAction {.pure.} = enum
+        Interactive, Stdout
+    var debugActions: seq[DebugAction]
+    var targetFiles: seq[string]
+    var verbose = true
+
+    type QuitValue {.pure.} = enum
+        Success, Failure, ArgParseErr, InternalErr
+    var quitVal = QuitValue.Success
+
+    proc evalKey(key: string) =
+        let key = key.toLower()
+        if key == "h" or key == "help":
+            action = Action.Help
+        elif key == "v" or key == "version":
+            action = Action.Version
+        elif key == "i" or key == "interactive":
+            debugActions.add(DebugAction.Interactive)
+        elif key == "s" or key == "silent":
+            verbose = false
+        elif key == "stdout":
+            debugActions.add(DebugAction.Stdout)
+        else:
+            echo &"Unknown flag: {key}"
+            action = Action.Help
+            quitVal = QuitValue.ArgParseErr
+
+    proc evalKeyVal(key: string, val: string) =
+        let key = key.toLower()
+        if key == "o" or key == "output":
+            targetFiles.add(val)
+        else:
+            echo &"Unknown option: {key}"
+            action = Action.Help
+            quitVal = QuitValue.ArgParseErr
+
+    proc evalArg(key: string) =
+        echo &"Unexpected argument"
+        action = Action.Help
+        quitVal = QuitValue.ArgParseErr
+
+    while true:
+        optparser.next()
+        case optparser.kind:
+            of cmdEnd: break
+            of cmdShortOption, cmdLongOption:
+                if optparser.val == "":
+                    evalKey(optparser.key)
+                else:
+                    evalKeyVal(optparser.key, optparser.val)
+            of cmdArgument:
+                evalArg(optparser.key)
+
+    proc printUsage =
+        echo """
+JATS - Just Another Test Suite
+
+Usage:
+jats 
+Runs the tests
+Flags:
+-i (or --interactive) displays all debug info
+-o:<filename> (or --output:<filename>) saves debug info to a file
+-s (or --silent) will disable all output (except --stdout)
+--stdout will put all debug info to stdout
+-h (or --help) displays this help message
+-v (or --version) displays the version number of JATS
+"""
+    proc printVersion =
+        echo &"JATS - Just Another Test Suite version {jatsVersion}"
+    
+    if action == Action.Help:
+        printUsage()
+        quit int(quitVal)
+    elif action == Action.Version:
+        printVersion()
+        quit int(quitVal)
+    elif action == Action.Run:
+        discard
+    else:
+        echo &"Unknown action {action}, please contact the devs to fix this."
+        quit int(QuitValue.InternalErr)
+
+    setVerbosity(verbose)
+
+    # start of JATS
 
     log(LogLevel.Debug, &"Welcome to JATS")
 
@@ -169,17 +253,29 @@ when isMainModule:
     log(LogLevel.Debug, &"Evaluating tests...")
     tests.evalTests()
     log(LogLevel.Debug, &"Tests evaluated.")
-    tests.printResults()
+    if not tests.printResults():
+        quitVal = QuitValue.Failure
+    
     log(LogLevel.Debug, &"Quitting JATS.")
 
     # special options to view the entire debug log
+    let logs = getTotalLog()
+    for action in debugActions:
+        case action:
+            of DebugAction.Interactive:
+                let lessExe = findExe("less", extensions = @[""])
+                let moreExe = findExe("more", extensions = @[""])
+                var viewer = if lessExe == "": moreExe else: lessExe
+                if viewer != "":
+                    writeFile("testresults.txt", logs) # yes, testresults.txt is reserved
+                    discard execShellCmd(viewer & " testresults.txt") # this way because of pipe buffer sizes
+                    removeFile("testresults.txt")
+                else:
+                    write stderr, "Interactive mode not supported on your platform, try --stdout and piping, or install/alias 'more' or 'less' to a terminal pager.\n"
+            of DebugAction.Stdout:
+                echo logs
+    for file in targetFiles:
+        writeFile(file, logs)
 
-    if paramCount() > 0:
-        if paramStr(1) == "-i":
-            when defined(posix):
-                discard execCmdEx(&"echo {getTotalLog()} | less")
-            else:
-                discard execCmdEx("echo {getTotalLog()} | more")
-        if paramStr(1) == "-o":
-            writeFile(paramStr(2), getTotalLog())
+    quit int(quitVal)
 
