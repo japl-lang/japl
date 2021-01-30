@@ -96,12 +96,12 @@ def run_command(command: str, mode: str = "Popen", **kwargs):
     return stdout, stderr, process.returncode
 
 
-def build(path: str, flags: Dict[str, str] = {}, options: Dict[str, bool] = {}, override: bool = False, skip_tests: bool = False, install: bool = False,
-          ignore_binary: bool = False):
+def build(path: str, flags: Dict[str, str] = {}, options: Dict[str, bool] = {}, override: bool = False,
+          skip_tests: bool = False, install: bool = False, ignore_binary: bool = False):
     """
     Compiles the JAPL runtime, generating the appropriate
     configuration needed for compilation to succeed,
-    running tests and performing installation
+    runs tests and performs installation
     when possible.
     Nim 1.2 or above is required to build JAPL
 
@@ -116,12 +116,30 @@ def build(path: str, flags: Dict[str, str] = {}, options: Dict[str, bool] = {}, 
     :param options: Compile-time options such as debugging the
     compiler or the VM, defaults to {} (use defaults)
     :type options: dict, optional
+    :param override: Wether to ignore an already existing
+    config.nim file from a previous build or not. Setting this
+    to True will overwrite the configuration file and is useful
+    for when build options have to be tweaked, while setting it
+    to False will not touch the file at all. Defaults to False
+    :type override: bool, optional
+    :param skip_tests: Wether to skip running JATS (just another
+    test suite) or not, defaults to False
+    :type skip_tests: bool, optional
+    :param install: Wether to try to install JAPL in PATH so that
+    it can be invoked with "jpl" as a command instead of running it
+    via the binary directly, defaults to False
+    :type install: bool, optional
+    :param ignore_binary: Wether to ignore (and overwrite) a previous
+    JAPL entry in PATH. The build script will complain if there is a file
+    or folder already named "jpl" in ANY entry in PATH so this option allows
+    to overwrite whatever data is there. Note that JAPL right now isn't aware
+    of what it is replacing so make sure you don't lose any sensitive data!
     """
 
 
     config_path = os.path.join(path, "config.nim")
     main_path = os.path.join(path, "japl.nim")
-    logging.info("Just Another Build Tool, version 0.3.3")
+    logging.info("Just Another Build Tool, version 0.3.4")
     listing = "\n- {} = {}"
     if not os.path.exists(path):
         logging.error(f"Input path '{path}' does not exist")
@@ -217,7 +235,6 @@ if __name__ == "__main__":
         "Note that if a config.nim file exists in the destination directory, that will override any setting defined here unless --override-config is used", default=os.getenv("JAPL_OPTIONS"))
         parser.add_argument("--override-config", help="Overrides the setting of an already existing config.nim file in the destination directory", action="store_true", default=os.getenv("JAPL_OVERRIDE_CONFIG"))
         parser.add_argument("--skip-tests", help="Skips running the JAPL test suite, useful for debug builds", action="store_true", default=os.getenv("JAPL_SKIP_TESTS"))
-        parser.add_argument("--keep-results", help="Instructs the build tool not to delete the testresults.txt file from the test suite, useful for debugging", action="store_true", default=os.getenv("JAPL_KEEP_RESULTS"))
         parser.add_argument("--install", help="Tries to move the compiled binary to PATH (this is always disabled on windows)", action="store_true", default=os.environ.get("JAPL_INSTALL"))
         parser.add_argument("--ignore-binary", help="Ignores an already existing 'jpl' binary in any installation directory and overwrites it, use (with care!) with --install", action="store_true", default=os.getenv("JAPL_IGNORE_BINARY"))
         args = parser.parse_args()
@@ -238,7 +255,7 @@ if __name__ == "__main__":
         for key, value in options.items():
             if var := os.getenv(f"JAPL_{key.upper()}"):
                 options[key] = var
-        logging.basicConfig(format="[%(levelname)s - %(asctime)s] %(message)s",
+        logging.basicConfig(format="[JABT - %(levelname)s - %(asctime)s] %(message)s",
                             datefmt="%T",
                             level=logging.DEBUG if args.verbose else logging.INFO
                             )
@@ -262,12 +279,6 @@ if __name__ == "__main__":
                 logging.error("Invalid parameter for --options")
                 exit()
         build(args.path, flags, options, args.override_config, args.skip_tests, args.install, args.ignore_binary)
-        if not args.keep_results and not args.skip_tests:
-            if os.path.isfile("testresults.txt"):
-                try:
-                    os.remove("testresults.txt")
-                except Exception as error:
-                    logging.warning(f"Could not remove test results file due to a {type(error).__name__}: {error}")
         logging.debug("Build tool exited")
     except KeyboardInterrupt:
         logging.info("Interrupted by the user")
