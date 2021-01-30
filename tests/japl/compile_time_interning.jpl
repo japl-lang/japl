@@ -2,12 +2,12 @@
 
 var a = "hello";
 var b = "hello";
-print(a is b);//output:true
+print(a is b);//stdout:true
 
 //different strings
 
 var x = "ex";
 var y = "ey";
-print(x is y);//output:false
+print(x is y);//stdout:false
 
 

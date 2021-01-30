@@ -1,0 +1,3 @@
+//stdin:Hello world!
+print(readline());
+//stdout:Hello world!

@@ -4,73 +4,73 @@
 var x = 4;
 {
     var x = 5;
-    print(x);//output:5
+    print(x);//stdout:5
 }
-print(x);//output:4
+print(x);//stdout:4
 
 // type changing shadowing
 var y = true;
 {
     var y = 2;
-    print(y);//output:2
+    print(y);//stdout:2
 }
-print(y);//output:true
+print(y);//stdout:true
 
 // no shadowing here
 var z = 3;
 {
     z = true;
-    print(z);//output:true
+    print(z);//stdout:true
 }
-print(z);//output:true
+print(z);//stdout:true
 
 //in-function shadowing
 fun shadow(x) {
     //will be called once with the input 3
-    print(x);//output:3
+    print(x);//stdout:3
     {
         var x = 4;
-        print(x);//output:4
+        print(x);//stdout:4
     }
-    print(x);//output:3
+    print(x);//stdout:3
     x = nil;
-    print(x);//output:nil
+    print(x);//stdout:nil
     return x;
 }
 
-print(shadow(3));//output:nil
+print(shadow(3));//stdout:nil
 
 //shadowing functions
 fun hello() {
     print("hello");
 }
-hello();//output:hello
+hello();//stdout:hello
 {
     fun hello() {
         print("hello in");
     }
-    hello();//output:hello in
+    hello();//stdout:hello in
     {
         fun hello() {
             print("hello inmost");
         }
-        hello();//output:hello inmost
+        hello();//stdout:hello inmost
     }
-    hello();//output:hello in
+    hello();//stdout:hello in
 }
-hello();//output:hello
+hello();//stdout:hello
 
 //functions shadowing with type change
 fun eat() {
     print("nom nom nom");
 }
-eat();//output:nom nom nom
+eat();//stdout:nom nom nom
 {
     var eat = 4;
-    print(eat);//output:4
+    print(eat);//stdout:4
     {{{{{
         eat = 5;
     }}}}} //multiple scopes haha
-    print(eat);//output:5
+    print(eat);//stdout:5
 }
-eat();//output:nom nom nom
+eat();//stdout:nom nom nom

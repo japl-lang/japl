@@ -27,6 +27,7 @@ type
         path*: string
         expectedOutput*: string
         expectedError*: string
+        input*: string
         output*: string
         error*: string
         process*: Process
@@ -36,13 +37,19 @@ type
 
 proc compileExpectedOutput*(source: string): string =
     for line in source.split('\n'):
-        if line =~ re"^.*//output:[ ]?(.*)$":
+        if line =~ re"^.*//stdout:[ ]?(.*)$":
             result &= matches[0] & "\n"
 
 proc compileExpectedError*(source: string): string =
     for line in source.split('\n'):
-        if line =~ re"^.*//error:[ ]?(.*)$":
+        if line =~ re"^.*//stderr:[ ]?(.*)$":
             result &= matches[0] & "\n"
+
+proc compileInput*(source: string): string =
+    for line in source.split('\n'):
+        if line =~ re"^.*//stdin:[ ]?(.*)$":
+            result &= matches[0] & "\n"
+
 
 # stuff for cleaning test output
 

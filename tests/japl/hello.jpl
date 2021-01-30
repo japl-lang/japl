@@ -1,4 +1,4 @@
 print("Hello, world.");
-//output:Hello, world.
+//stdout:Hello, world.
 
-//output:
+//stdout:

@@ -1,5 +1,5 @@
 print((5/0)*0);
 
-//output:nan
+//stdout:nan
 
-//output:
+//stdout:

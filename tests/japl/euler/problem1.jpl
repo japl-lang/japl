@@ -8,4 +8,4 @@ for (var x = 3; x < 1001; x = x + 1)
         sum = sum + x;
     }
 }
-print(sum);//output:234168
+print(sum);//stdout:234168

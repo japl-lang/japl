@@ -15,4 +15,4 @@ var mul2 = lambda(x)
 print(add2(sub2(mul2(sub2(5)))));
 //5-2=3
 //3*2=6
-//output:6
+//stdout:6

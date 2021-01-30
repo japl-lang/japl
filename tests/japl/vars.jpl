@@ -1,30 +1,30 @@
 var x = 1;
 var y = 2;
-print(x);//output:1
-print(y);//output:2
+print(x);//stdout:1
+print(y);//stdout:2
 {
     var x = 4;
     var y = 5;
-    print(x);//output:4
-    print(y);//output:5
+    print(x);//stdout:4
+    print(y);//stdout:5
     {
         var z = 6;
         var y = 2;
-        print(x);//output:4
-        print(y);//output:2
+        print(x);//stdout:4
+        print(y);//stdout:2
     }
-    print(x);//output:4
-    print(y);//output:5
+    print(x);//stdout:4
+    print(y);//stdout:5
 }
 
-print(x);//output:1
-print(y);//output:2
+print(x);//stdout:1
+print(y);//stdout:2
 
 var longName;
-print(longName); //output:nil
+print(longName); //stdout:nil
 longName = 5;
-print(longName); //output:5
+print(longName); //stdout:5
 longName = "hello";
-print(longName); //output:hello
+print(longName); //stdout:hello
 longName = longName + " world";
-print(longName); //output:hello world
+print(longName); //stdout:hello world

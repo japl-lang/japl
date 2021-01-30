@@ -18,7 +18,7 @@ import nim/nimtests
 
 import testobject, testutils, logutils
 
-import os, osproc, strformat, streams, parseopt, strutils
+import os, strformat, parseopt, strutils
 
 when isMainModule:
     const jatsVersion = "(dev)"
@@ -111,52 +111,53 @@ Flags:
         quit int(QuitValue.InternalErr)
 
     setVerbosity(verbose)
+    setLogfiles(targetFiles)
 
     # start of JATS
 
-    log(LogLevel.Debug, &"Welcome to JATS")
+    try:
+        log(LogLevel.Debug, &"Welcome to JATS")
 
-    runNimTests()
-    var jatr = "jatr"
-    var testDir = "japl"
-    if not fileExists(jatr) and fileExists("tests" / jatr):
-        log(LogLevel.Debug, &"Must be in root: prepending \"tests\" to paths")
-        jatr = "tests" / jatr
-        testDir = "tests" / testDir
+        runNimTests()
+        var jatr = "jatr"
+        var testDir = "japl"
+        if not fileExists(jatr) and fileExists("tests" / jatr):
+            log(LogLevel.Debug, &"Must be in root: prepending \"tests\" to paths")
+            jatr = "tests" / jatr
+            testDir = "tests" / testDir
 
-    log(LogLevel.Info, &"Running JAPL tests.")
-    log(LogLevel.Info, &"Building tests...")
-    let tests: seq[Test] = buildTests(testDir)
-    log(LogLevel.Debug, &"Tests built.")
-    log(LogLevel.Info, &"Running tests...")
-    tests.runTests(jatr)
-    log(LogLevel.Debug, &"Tests ran.")
-    log(LogLevel.Debug, &"Evaluating tests...")
-    tests.evalTests()
-    log(LogLevel.Debug, &"Tests evaluated.")
-    if not tests.printResults():
-        quitVal = QuitValue.Failure
-    
-    log(LogLevel.Debug, &"Quitting JATS.")
+        log(LogLevel.Info, &"Running JAPL tests.")
+        log(LogLevel.Info, &"Building tests...")
+        let tests: seq[Test] = buildTests(testDir)
+        log(LogLevel.Debug, &"Tests built.")
+        log(LogLevel.Info, &"Running tests...")
+        tests.runTests(jatr)
+        log(LogLevel.Debug, &"Tests ran.")
+        log(LogLevel.Debug, &"Evaluating tests...")
+        tests.evalTests()
+        log(LogLevel.Debug, &"Tests evaluated.")
+        if not tests.printResults():
+            quitVal = QuitValue.Failure
+        
+        log(LogLevel.Debug, &"Quitting JATS.")
 
-    # special options to view the entire debug log
-    let logs = getTotalLog()
-    for action in debugActions:
-        case action:
-            of DebugAction.Interactive:
-                let lessExe = findExe("less", extensions = @[""])
-                let moreExe = findExe("more", extensions = @[""])
-                var viewer = if lessExe == "": moreExe else: lessExe
-                if viewer != "":
-                    writeFile("testresults.txt", logs) # yes, testresults.txt is reserved
-                    discard execShellCmd(viewer & " testresults.txt") # this way because of pipe buffer sizes
-                    removeFile("testresults.txt")
-                else:
-                    write stderr, "Interactive mode not supported on your platform, try --stdout and piping, or install/alias 'more' or 'less' to a terminal pager.\n"
-            of DebugAction.Stdout:
-                echo logs
-    for file in targetFiles:
-        writeFile(file, logs)
+        # special options to view the entire debug log
+    finally:
+        let logs = getTotalLog()
+        for action in debugActions:
+            case action:
+                of DebugAction.Interactive:
+                    let lessExe = findExe("less", extensions = @[""])
+                    let moreExe = findExe("more", extensions = @[""])
+                    var viewer = if lessExe == "": moreExe else: lessExe
+                    if viewer != "":
+                        writeFile("testresults.txt", logs) # yes, testresults.txt is reserved
+                        discard execShellCmd(viewer & " testresults.txt") # this way because of pipe buffer sizes
+                        removeFile("testresults.txt")
+                    else:
+                        write stderr, "Interactive mode not supported on your platform, try --stdout and piping, or install/alias 'more' or 'less' to a terminal pager.\n"
+                of DebugAction.Stdout:
+                    echo logs
 
     quit int(quitVal)
 

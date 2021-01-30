@@ -28,7 +28,8 @@ proc buildTest(path: string): Test =
       result: if path.extractFilename in exceptions: TestResult.Skip
               else: TestResult.Unstarted,
       expectedOutput: compileExpectedOutput(source),
-      expectedError: compileExpectedError(source)
+      expectedError: compileExpectedError(source),
+      input: compileInput(source)
     )
 
 proc buildTests*(testDir: string): seq[Test] =
@@ -44,6 +45,15 @@ proc runTest(test: Test, runner: string) =
     log(LogLevel.Debug, &"Starting test {test.path}.")
     let process = startProcess(runner, args = @[test.path])
     test.process = process
+    if test.input.len() > 0:
+        var f: File
+        let suc = f.open(process.inputHandle, fmWrite)
+        if suc:
+            f.write(test.input)
+        else:
+            log(LogLevel.Error, &"Stdin File handle could not be opened for test {test.path}")
+            test.result = Crash
+
     test.result = TestResult.Running
 
 proc tryFinishTest(test: Test): bool =
@@ -59,8 +69,16 @@ proc tryFinishTest(test: Test): bool =
     log(LogLevel.Debug, &"Test {test.path} finished.")
     return true
 
-const maxAliveTests = 8
+proc killTest(test: Test) =
+    if test.process.running():
+        test.process.kill()
+        discard test.process.waitForExit()
+        log(LogLevel.Error, &"Test {test.path} was killed for taking too long.")
+    discard test.tryFinishTest()
+
+const maxAliveTests = 16
 const testWait = 100
+const timeout = 100 # number of cycles after which a test is killed for timeout
 
 proc runTests*(tests: seq[Test], runner: string) =
     var
@@ -89,6 +107,11 @@ proc runTests*(tests: seq[Test], runner: string) =
                     inc finishedTests
                     buffer.updateProgressBar(&"Finished {tests[i].path}.", totalTests, finishedTests)
                     dec aliveTests
+                elif tests[i].cycles >= timeout:
+                    tests[i].killTest()
+                    inc finishedTests
+                    dec aliveTests
+                    buffer.updateProgressBar(&"Killed {tests[i].path}.", totalTests, finishedTests)
                 else:
                     inc tests[i].cycles
     buffer.render()
