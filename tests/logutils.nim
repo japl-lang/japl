@@ -1,7 +1,7 @@
 
 # logging stuff
 
-import terminal, strformat, times
+import terminal, strformat, times, strutils
 
 type LogLevel* {.pure.} = enum
     Debug, # always written to file only (large outputs, such as the entire output of the failing test or stacktrace)
@@ -39,6 +39,7 @@ type Buffer* = ref object
     previous: string
 
 proc newBuffer*: Buffer =
+    hideCursor()
     new(result)
 
 proc updateProgressBar*(buf: Buffer, text: string, total: int, current: int) =
@@ -46,16 +47,24 @@ proc updateProgressBar*(buf: Buffer, text: string, total: int, current: int) =
     newline &= "["
     let ratio = current / total
     let filledCount = int(ratio * progbarLength)
-    for i in countup(1, filledCount):
-        newline &= "="
-    for i in countup(filledCount + 1, progbarLength):
-        newline &= " "
+    if filledCount > 0:
+        newline &= "=".repeat(filledCount)
+    if filledCount < progbarLength:
+        newline &= " ".repeat(progbarLength - filledCount - 1)
     newline &= &"] ({current}/{total}) {text}"
     # to avoid process switching during half-written progress bars and whatnot all terminal editing happens at the end
+    let w = terminalWidth()
+    if w > newline.len():
+        newline &= " ".repeat(w - newline.len() - 1)
     buf.contents = newline
+
+proc clearLineAndWrite(text: string, oldsize: int) =
+    write stdout, text & "\r"
 
 proc render*(buf: Buffer) =
     if verbose and buf.previous != buf.contents:
-        echo buf.contents
+        clearLineAndWrite(buf.contents, buf.previous.len())
         buf.previous = buf.contents
 
+proc endBuffer*(buf: Buffer) =
+    showCursor()

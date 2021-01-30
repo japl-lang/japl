@@ -60,7 +60,7 @@ proc tryFinishTest(test: Test): bool =
     return true
 
 const maxAliveTests = 8
-const testWait = 10
+const testWait = 100
 
 proc runTests*(tests: seq[Test], runner: string) =
     var
@@ -87,11 +87,12 @@ proc runTests*(tests: seq[Test], runner: string) =
             if tests[i].result == TestResult.Running:
                 if tryFinishTest(tests[i]):
                     inc finishedTests
-                    buffer.updateProgressBar(&"", totalTests, finishedTests)
+                    buffer.updateProgressBar(&"Finished {tests[i].path}.", totalTests, finishedTests)
                     dec aliveTests
                 else:
                     inc tests[i].cycles
     buffer.render()
+    buffer.endBuffer()
 
 proc evalTest(test: Test) =
     test.output = test.output.tuStrip()
