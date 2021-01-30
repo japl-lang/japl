@@ -16,7 +16,7 @@
 
 import nim/nimtests
 
-import testutils
+import testutils, logutils
 
 import os, osproc, strformat, streams, parseopt, strutils
 
