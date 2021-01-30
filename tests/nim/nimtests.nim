@@ -1,5 +1,5 @@
 import multibyte
-import ../testutils
+import ../logutils
 
 proc runNimTests* =
     log(LogLevel.Info, "Running nim tests.")

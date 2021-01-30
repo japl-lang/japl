@@ -1,6 +1,8 @@
 
 # logging stuff
 
+import terminal, strformat, times
+
 type LogLevel* {.pure.} = enum
     Debug, # always written to file only (large outputs, such as the entire output of the failing test or stacktrace)
     Info, # important information about the progress of the test suite
