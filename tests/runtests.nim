@@ -12,40 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Test object helpers
+# Test runner supervisor/manager
 
 import testobject
 import logutils
-
-import os
-import osproc
-import streams
-import strformat
 import testconfig
 
-
-
-proc buildTest(path: string): Test =
-    log(LogLevel.Debug, &"Building test {path}")
-    let source = readFile(path)
-    result = Test(
-      path: path,
-      result: if path.extractFilename in exceptions: TestResult.Skip
-              else: TestResult.Unstarted,
-      expectedOutput: compileExpectedOutput(source),
-      expectedError: compileExpectedError(source),
-      input: compileInput(source)
-    )
-
-
-proc buildTests*(testDir: string): seq[Test] =
-    for candidateObj in walkDir(testDir):
-        let candidate = candidateObj.path
-        if dirExists(candidate):
-            log(LogLevel.Debug, &"Descending into dir {candidate}")
-            result &= buildTests(candidate)
-        else:
-            result.add buildTest(candidate)
+import strformat
 
 
 proc runTest(test: Test, runner: string) =
@@ -129,48 +102,4 @@ proc runTests*(tests: seq[Test], runner: string) =
                     inc tests[i].cycles
     buffer.render()
     buffer.endBuffer()
-
-
-proc evalTest(test: Test) =
-    test.output = test.output.tuStrip()
-    test.error = test.error.tuStrip()
-    test.expectedOutput = test.expectedOutput.tuStrip()
-    test.expectedError = test.expectedError.tuStrip()
-    if test.output != test.expectedOutput or test.error != test.expectedError:
-        test.result = TestResult.Mismatch
-    else:
-        test.result = TestResult.Success
-
-
-proc evalTests*(tests: seq[Test]) =
-    for test in tests:
-        if test.result == TestResult.ToEval:
-            evalTest(test)
-
-
-proc printResults*(tests: seq[Test]): bool =
-    var
-        skipped = 0
-        success = 0
-        fail = 0
-        crash = 0
-    for test in tests:
-        log(LogLevel.Debug, &"Test {test.path} result: {test.result}")
-        case test.result:
-            of TestResult.Skip:
-                inc skipped
-            of TestResult.Mismatch:
-                inc fail
-                log(LogLevel.Debug, &"[{test.path}\noutput:\n{test.output}\nerror:\n{test.error}\nexpected output:\n{test.expectedOutput}\nexpectedError:\n{test.expectedError}\n]")
-            of TestResult.Crash:
-                inc crash
-                log(LogLevel.Debug, &"{test.path} \ncrash:\n{test.output}")
-            of TestResult.Success:
-                inc success
-            else:
-                log(LogLevel.Error, &"Probably a testing suite bug: test {test.path} has result {test.result}")
-    let finalLevel = if fail == 0 and crash == 0: LogLevel.Info else: LogLevel.Error
-    log(finalLevel, &"{tests.len()} tests: {success} succeeded, {skipped} skipped, {fail} failed, {crash} crashed.")
-    result = fail == 0 and crash == 0
-
 

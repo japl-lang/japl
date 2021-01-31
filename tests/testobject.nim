@@ -22,38 +22,91 @@ type
     TestResult* {.pure.} = enum
         Unstarted, Running, ToEval, Success, Skip, Mismatch, Crash
 
+    ExpectedLineKind* {.pure.} = enum
+        Raw, Regex
+
+    ExpectedLine* = object
+        kind*: ExpectedLineKind
+        content*: string        
+
     Test* = ref object
-        result*: TestResult
+        # test origins
+        source*: string
         path*: string
-        expectedOutput*: string
-        expectedError*: string
+        name*: string
+        # generated after building
+        expectedOutput*: seq[ExpectedLine]
+        expectedError*: seq[ExpectedLine]
         input*: string
+        # during running/output of running
         output*: string
         error*: string
         process*: Process
         cycles*: int
+        # after evaluation
+        result*: TestResult
 
-# parsing the test notation
+# Helpers for building tests:
 
-proc compileExpectedOutput*(source: string): string =
+proc genEL(content: string, kind: ExpectedLineKind): ExpectedLine =
+    ExpectedLine(kind: kind, content: content)
+
+proc compileExpectedOutput(source: string, rawkw: string, rekw: string): seq[ExpectedLine] =
     for line in source.split('\n'):
-        if line =~ re"^.*//stdout:[ ]?(.*)$":
-            result &= matches[0] & "\n"
+        if line =~ re("^.*//" & rawkw & ":[ ]?(.*)$"):
+            result &= genEL(matches[0], ExpectedLineKind.Raw)
+        elif line =~ re("^.*//" & rekw & ":[ ]?(.*$"):
+            result &= genEL(matches[0], ExpectedLineKind.Regex)
 
+proc compileExpectedOutput(source: string): seq[ExpectedLine] =
+    compileExpectedOutput(source, "stdout", "stdoutre")
 
-proc compileExpectedError*(source: string): string =
-    for line in source.split('\n'):
-        if line =~ re"^.*//stderr:[ ]?(.*)$":
-            result &= matches[0] & "\n"
+proc compileExpectedError(source: string): seq[ExpectedLine] =
+  compileExpectedOutput(source, "stderr", "stderrre")
 
-proc compileInput*(source: string): string =
+proc compileInput(source: string): string =
     for line in source.split('\n'):
         if line =~ re"^.*//stdin:[ ]?(.*)$":
             result &= matches[0] & "\n"
 
+proc parseMixed*(test: Test, source: string) =
+    test.source &= source
+    test.expectedOutput = compileExpectedOutput(source)
+    test.expectedError = compileExpectedError(source)
+    test.input = compileInput(source)
+    test.result = TestResult.Unstarted
 
-# stuff for cleaning test output
+proc parseSource*(test: Test, source: string) =
+    test.source &= source
+
+proc parseStdin*(test: Test, source: string) =
+    test.input &= source
+
+proc parseStdout*(test: Test, source: string, regex: bool = false, stderr: bool = false) =
+    var kind: ExpectedLineKind.Raw
+    if regex:
+        kind = ExpectedLineKind.Regex
+    for line in source.split('\n'):
+        if stderr:
+            test.expectedError.add(genEL(line, kind))
+        else:
+            test.expectedOutput.add(genEL(line, kind))
+
+proc parseStderr*(test: Test, source: string, regex: bool = false) =
+    parseStdout(test, source, regex, true)
+
+proc parsePython*(test: Test, source: string) =
+    discard # TODO
+
+proc newTest*(name: string, path: string): Test =
+    result.path = path
+    result.name = name
+
+proc skip*(test: Test) =
+    test.result = TestResult.Skip
+
+# Helpers for running tests
 
 proc tuStrip*(input: string): string =
-    return input.replace(re"\[DEBUG.*\n","\n").replace(re"[\n\r]*", "\n").replace(re"\n$","")
+    return input.replace(re"\[DEBUG.*\n","\n").strip()
 

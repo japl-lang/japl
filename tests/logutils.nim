@@ -23,8 +23,8 @@ import strutils
 type LogLevel* {.pure.} = enum
     Debug, # always written to file only (large outputs, such as the entire output of the failing test or stacktrace)
     Info, # important information about the progress of the test suite
-    Error, # failing tests (printed with red)
-    Stdout, # always printed to stdout only (for cli experience)
+    Error, # failing tests (printed with yellow)
+    Fatal # always printed with red, halts the entire suite (test parsing errors, printed with red)
 
 # don't move this to testglobals/testconfig
 const echoedLogs = {LogLevel.Info, LogLevel.Error, LogLevel.Stdout}
@@ -32,7 +32,7 @@ const echoedLogsSilent = {LogLevel.Error}
 const savedLogs = {LogLevel.Debug, LogLevel.Info, LogLevel.Error}
 const progbarLength = 25
 
-const logColors = [LogLevel.Debug: fgDefault, LogLevel.Info: fgGreen, LogLevel.Error: fgRed, LogLevel.Stdout: fgYellow]
+const logColors = [LogLevel.Debug: fgDefault, LogLevel.Info: fgGreen, LogLevel.Error: fgYellow, LogLevel.Fatal: fgRed]
 
 var totalLog = ""
 var verbose = true
@@ -54,6 +54,10 @@ proc log*(level: LogLevel, msg: string) =
         setForegroundColor(logColors[level])
         echo msg
         setForegroundColor(fgDefault)
+
+proc fatal*(msg: string) =
+    log(LogLevel.Fatal, msg)
+    raise newException(CatchableError, msg)
 
 proc getTotalLog*: string =
     totalLog

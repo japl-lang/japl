@@ -17,27 +17,17 @@
 # a testrunner process
 
 import ../src/vm
-import directives
 import os
 import strformat
 
 
 var btvm = initVM()
-if paramCount() > 0 and paramStr(1) == "stdin":
-    block main:
-        while true:
-            block test:
-                var test = ""
-                while true:
-                    let nl = stdin.readLine()
-                    if 
     
-elif paramCount() > 0:
-    try:
-        discard btvm.interpret(readFile(paramStr(1)), "")
-        quit(0)
-    except:
-        let error = getCurrentException()
-        writeLine stderr, error.msg
-        quit(1)
+try:
+    discard btvm.interpret(stdin.readAll(), "")
+    quit(0)
+except:
+    let error = getCurrentException()
+    writeLine stderr, error.msg
+    quit(1)
        
