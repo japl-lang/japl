@@ -213,6 +213,10 @@ proc `$`*[K, V](self: ptr HashMap[K, V]): string =
     result &= "}"
 
 
+proc typeName*[K, V](self: ptr HashMap[K, V]): string = 
+    result = "dict"
+
+
 var d = newHashMap[int, int]()
 d[1] = 55
 d[2] = 876

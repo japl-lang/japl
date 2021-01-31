@@ -62,8 +62,6 @@ of what's done in JAPL:
 
 If you want to contribute, feel free to open a PR!
 
-Right now there are some major issues with the virtual machine which need to be addressed before the development can proceed, and some help is ~~desperately needed~~ greatly appreciated!
-
 To get started, you might want to have a look at the currently open issues and start from there
 
 ### Community
@@ -72,7 +70,7 @@ Our first goal is to create a welcoming and helpful community, so if you are so 
 
 ### A special thanks
 
-JAPL is born thanks to the amazing work of Bob Nystrom that wrote a book available completely for free at [this](https://craftinginterpreters.com) link, where he describes the implementation of a simple language called Lox.
+JAPL is born thanks to the amazing work of Bob Nystrom that wrote a book available completely for free at [this](https://craftinginterpreters.com) link, where he describes the implementation of a simple language called Lox
 
 ## JAPL - Installing
 
@@ -97,7 +95,7 @@ git clone https://github.com/japl-lang/japl
 
 ### Running the build script
 
-As a next step, you need to run the build script. This will generate the required configuration files, compile the JAPL runtime and run tests (unless `--skip-tests` is passed). There are some options that can be tweaked with command-line options, for more information, run `python3 build.py --help`.
+As a next step, you need to run the build script. This will generate the required configuration files, compile the JAPL runtime and run tests (unless `--skip-tests` is used). There are some settings that can be tweaked with command-line options (or environment variables), for more information, run `python3 build.py --help`.
 
 To compile the JAPL runtime, you'll first need to move into the project's directory you cloned before, so run `cd japl`, then `python3 build.py ./src` and wait for it to complete. You should now find an executable named `japl` (or `japl.exe` on windows) inside the `src` folder.
 
@@ -111,14 +109,13 @@ If you need more customizability or want to enable debugging for JAPL, there's a
 
 ### Nim compiler options
 
-The build tool calls the system's nim compiler to build JAPL. If you want to customize the options passed to the compiler, you can pass a comma separated list of key:value options (spaces are not allowed). For example, doing `python3 build.py src --flags d:release,threads:on` will call `nim compile src/japl -d:release --threads:on`.
+The build tool calls the system's nim compiler to build JAPL. If you want to customize the options passed to the compiler, you can pass a comma separated list of key:value pairs (spaces not allowed) via the `--flags` option. For example, doing `python3 build.py src --flags d:release,threads:on` will call `nim compile src/japl -d:release --threads:on`.
 
 #### Known issues
 
 Right now JAPL is in its very early stages and we've encountered a series of issues related to nim's garbage collection implementations. Some of them
-seem to clash with JAPL's own memory management and cause random `NilAccessDefects` because the GC frees stuff that JAPL needs. If the test suite shows
-weird crashes try changing the `gc` option to `boehm` (particularly recommended since it seems to cause very little interference with JAPL), or `regions` 
-to see if this mitigates the problem; this is a temporary solution until JAPL becomes fully independent from nim's runtime memory management.
+seem to clash with JAPL's own memory management and cause random `NilAccessDefect`s because the GC frees stuff that JAPL needs. If the test suite shows
+weird crashes try changing (via `--flags`) the `gc` option to `boehm` (particularly recommended since it seems to cause very little interference with JAPL), or `regions` to see if this mitigates the problem; this is a temporary solution until the JAPL VM becomes fully independent from nim's runtime memory management.
 
 ### JAPL Debugging options
 
@@ -129,12 +126,16 @@ There are also some compile-time constants (such as the heap grow factor for the
 - `debug_gc` -> Debugs the garbage collector (once we have one)
 - `debug_alloc` -> Debugs memory allocation/deallocation
 - `debug_compiler` -> Debugs the compiler, showing each byte that is spit into the bytecode
+- `skip_stdlib_init` -> Skips the initialization of the standard library (useful to reduce the amount of unneeded output in debug logs)
+- `array_grow_factor` -> Sets the multiplicative factor by which JAPL's dynamic array implementation will increase its size when it becomes full
+- `map_load_factor` -> A real value between 0 and 1 that indicates the max. % of full buckets in JAPL's hashmap implementation that are needed to trigger a resize
+- `frames_max` - The max. number of call frames allowed, used to limit recursion depth
 
-Each of these options is independent of the others and can be enabled/disabled at will. To enable an option, pass `option_name:true` to `--options` while to disable it, replace `true` with `false`.
+Each of these options is independent of the others and can be enabled/disabled at will. Except for `array_grow_factor`, `map_load_factor` and `frames_max` (which take integers and a real values respectively), all other options require boolean parameters; to enable an option, pass `option_name:true` to `--options` while to disable it, replace `true` with `false`.
 
 Note that the build tool will generate a file named `config.nim` inside the `src` directory and will use that for subsequent builds, so if you want to override it you'll have to pass `--override-config` as a command-line options. Passing it without any option will fallback to (somewhat) sensible defaults
 
-**P.S.**: The test suite assumes that all debugging options are turned off, so for development/debug builds we recommend skipping the test suite by passing `--skip-tests` to the build script
+**P.S.**: For now the test suite assumes that all debugging options are turned off, so for development/debug builds we recommend skipping the test suite by passing `--skip-tests` to the build script. This will be fixed soon (the test suite will ignore debugging output)
 
 
 ### Installing on Linux
@@ -148,5 +149,5 @@ the already existing data unless `--ignore-binary` is passed!
 ### Environment variables
 
 On both Windows and Linux, the build script supports reading parameters from environment variables if they are not specified via the command line.
-All options follow the same naming scheme: `JAPL_OPTION_NAME=value` and will only be applied only if no explicit override for them is passed
+All options follow the same naming scheme: `JAPL_OPTION_NAME=value` and will only be applied if no explicit override for them is passed
 when running the script

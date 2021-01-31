@@ -23,7 +23,7 @@ import shutil
 import logging
 import argparse
 from time import time
-from typing import Dict
+from typing import Dict, Optional
 from subprocess import Popen, PIPE, DEVNULL, run
 
 
@@ -46,14 +46,14 @@ import strformat
 
 
 const MAP_LOAD_FACTOR* = {map_load_factor}  # Load factor for builtin hashmaps
-const ARRAY_GROW_FACTOR* = {array_grow_factor}   # How much extra memory to allocate for dynamic arrays
+const ARRAY_GROW_FACTOR* = {array_grow_factor}   # How much extra memory to allocate for dynamic arrays when resizing
 const FRAMES_MAX* = {frames_max}  # The maximum recursion limit
 const JAPL_VERSION* = "0.3.0"
 const JAPL_RELEASE* = "alpha"
 const DEBUG_TRACE_VM* = {debug_vm} # Traces VM execution
 const SKIP_STDLIB_INIT* = {skip_stdlib_init} # Skips stdlib initialization in debug mode
 const DEBUG_TRACE_GC* = {debug_gc}    # Traces the garbage collector (TODO)
-const DEBUG_TRACE_ALLOCATION* = {debug_alloc}   # Traces memory allocation/deallocation (WIP)
+const DEBUG_TRACE_ALLOCATION* = {debug_alloc}   # Traces memory allocation/deallocation
 const DEBUG_TRACE_COMPILER* = {debug_compiler}  # Traces the compiler
 const JAPL_VERSION_STRING* = &"JAPL {{JAPL_VERSION}} ({{JAPL_RELEASE}}, {{CompileDate}} {{CompileTime}})"
 const HELP_MESSAGE* = """The JAPL runtime interface, Copyright (C) 2020 Mattia Giambirtone
@@ -87,23 +87,23 @@ def run_command(command: str, mode: str = "Popen", **kwargs):
 
     if mode == "Popen":
         process = Popen(shlex.split(command, posix=os.name != "nt"), **kwargs)
-    else:
-        process = run(command, **kwargs)
-    if mode == "Popen":
         stdout, stderr = process.communicate()
     else:
+        process = run(command, **kwargs)
         stdout, stderr = None, None
     return stdout, stderr, process.returncode
 
 
-def build(path: str, flags: Dict[str, str] = {}, options: Dict[str, bool] = {}, override: bool = False,
-          skip_tests: bool = False, install: bool = False, ignore_binary: bool = False):
+def build(path: str, flags: Optional[Dict[str, str]] = {}, options: Optional[Dict[str, bool]] = {},
+          override: Optional[bool] = False, skip_tests: Optional[bool] = False,
+          install: Optional[bool] = False, ignore_binary: Optional[bool] = False,
+          verbose: Optional[bool] = False):
     """
-    Compiles the JAPL runtime, generating the appropriate
-    configuration needed for compilation to succeed,
-    runs tests and performs installation
-    when possible.
-    Nim 1.2 or above is required to build JAPL
+    Builds the JAPL runtime.
+
+    This function generates the required configuration
+    according to the user's choice, runs tests and 
+    performs installation when possible.
 
     :param path: The path to JAPL's main source directory
     :type path: string, optional
@@ -134,6 +134,10 @@ def build(path: str, flags: Dict[str, str] = {}, options: Dict[str, bool] = {}, 
     or folder already named "jpl" in ANY entry in PATH so this option allows
     to overwrite whatever data is there. Note that JAPL right now isn't aware
     of what it is replacing so make sure you don't lose any sensitive data!
+    :type ignore_binary: bool, optional
+    :param verbose: This parameter tells the test suite to use verbose logs,
+    defaults to False
+    :type verbose: bool, optional
     """
 
 
@@ -272,13 +276,20 @@ if __name__ == "__main__":
                 for value in args.options.split(","):
                     k, v = value.split(":", maxsplit=2)
                     if k not in options:
-                        logging.error("Invalid compile-time option '{key}'")
+                        logging.error(f"Invalid compile-time option '{k}'")
                         exit()
                     options[k] = v
             except Exception:
                 logging.error("Invalid parameter for --options")
                 exit()
-        build(args.path, flags, options, args.override_config, args.skip_tests, args.install, args.ignore_binary)
+        build(args.path,
+              flags,
+              options,
+              args.override_config,
+              args.skip_tests,
+              args.install,
+              args.ignore_binary,
+              args.verbose)
         logging.debug("Build tool exited")
     except KeyboardInterrupt:
         logging.info("Interrupted by the user")

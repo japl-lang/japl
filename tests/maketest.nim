@@ -14,18 +14,21 @@
 
 
 # Test creation tool, use mainly for exceptions
-#
 
+import os
+import strformat
+import re
+import strutils
 
-# Imports nim tests as well
-import multibyte, os, strformat, times, re, terminal, strutils
 
 const tempCodeFile = ".tempcode_drEHdZuwNYLqsQaMDMqeNRtmqoqXBXfnCfeqEcmcUYJToBVQkF.jpl"
 const tempOutputFile = ".tempoutput.txt"
 
-proc autoremove(path: string) =
+
+proc autoRemove(path: string) =
     if fileExists(path):
         removeFile(path)
+
 
 when isMainModule:
     var testsDir = "tests" / "japl"
@@ -41,16 +44,13 @@ when isMainModule:
     if not dirExists(testsDir):
         echo "Tests dir not found"
         quit(1)
-
     echo "Please enter the JAPL code or specify a file containing it with file:<path>"
-
     let response = stdin.readLine()
     if response =~ re"^file:(.*)$":
         let codepath = matches[0]
         writeFile(tempCodeFile, readFile(codepath))
     else:
         writeFile(tempCodeFile, response)
-
     let japlCode = readFile(tempCodeFile)
     discard execShellCmd(&"{japlExec} {tempCodeFile} > {tempOutputFile} 2>&1")
     var output: string
@@ -59,9 +59,8 @@ when isMainModule:
     else:
         echo "Temporary output file not detected, aborting"
         quit(1)
-    autoremove(tempCodeFile) 
-    autoremove(tempOutputFile)
-        
+    autoRemove(tempCodeFile) 
+    autoRemove(tempOutputFile) 
     echo "Got the following output:"
     echo output                
     echo "Do you want to keep it as a test? [y/N]"
