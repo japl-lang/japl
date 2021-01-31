@@ -13,10 +13,10 @@ fun printInt(x) {
         print("six");
 }
 var x = 3;
-printInt(x);//output:three
+printInt(x);//stdout:three
 x = 5;
-printInt(x);//output:five
+printInt(x);//stdout:five
 x = 7;
 printInt(x);
 x = 1;
-printInt(x);//output:one
+printInt(x);//stdout:one

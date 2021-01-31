@@ -3,11 +3,11 @@ while (x > 0)
 {
     x = x - 1;
     print(x);
-    //output:4
-    //output:3
-    //output:2
-    //output:1
-    //output:0
+    //stdout:4
+    //stdout:3
+    //stdout:2
+    //stdout:1
+    //stdout:0
 }
 
 var string = "h";
@@ -17,4 +17,4 @@ while (x < 10)
     x = x + 1;
     string = string + "A";
 }
-print(string);//output:hAAAAAAAAAA
+print(string);//stdout:hAAAAAAAAAA

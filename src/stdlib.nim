@@ -47,6 +47,12 @@ proc natPrint*(args: seq[ptr Obj]): tuple[kind: retNative, result: ptr Obj] =
     # to nil
     return (kind: retNative.Nil, result: nil)
 
+proc natReadline*(args: seq[ptr Obj]): tuple[kind: retNative, result: ptr Obj] =
+    ## Native function readline
+    ## Reads a line from stdin and returns
+    ## it as a string.
+    return (kind: retNative.Object, result: stdin.readLine().asStr())
+
 
 proc natClock*(args: seq[ptr Obj]): tuple[kind: retNative, result: ptr Obj] =
     ## Native function clock

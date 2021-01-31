@@ -31,7 +31,8 @@ proc repl(bytecodeVM: VM) =
     if bytecodeVM == nil:
         bytecodeVM = initVM()
     echo JAPL_VERSION_STRING
-    echo &"[Nim {NimVersion} on {hostOs} ({hostCPU})]"
+    let nimDetails = &"[Nim {NimVersion} on {hostOs} ({hostCPU})]"
+    echo nimDetails
     var source = ""
     while true:
         try:
@@ -46,10 +47,14 @@ proc repl(bytecodeVM: VM) =
             bytecodeVM.freeVM()
             break
         if source == "//clear" or source == "// clear":
-            echo "\x1Bc"
-            echo JAPL_VERSION_STRING
-            echo &"[Nim {NimVersion} on {hostOs} ({hostCPU})]"
+            echo "\x1Bc" & JAPL_VERSION_STRING
+            echo nimDetails
             continue
+        elif source == "//exit" or source == "// exit":
+            echo "Goodbye!"
+            echo JAPL_VERSION_STRING
+            echo nimDetails
+            break
         elif source != "":
             discard bytecodeVM.interpret(source, "stdin")
             if not bytecodeVM.lastPop.isNil():

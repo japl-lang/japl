@@ -13,5 +13,5 @@ while (a < 4000000)
     a = b;
     b = c;
 }
-print(sum);//output:4613732
+print(sum);//stdout:4613732
 

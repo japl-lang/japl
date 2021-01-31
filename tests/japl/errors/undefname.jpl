@@ -1,8 +1,8 @@
 var a = b;
-//output:An unhandled exception occurred, traceback below:
+//stdout:An unhandled exception occurred, traceback below:
 
-//output:   File '''', line 1, in <module>:
+//stdout:   File '''', line 1, in <module>:
 
-//output:ReferenceError: undefined name 'b'
+//stdout:ReferenceError: undefined name 'b'
 
-//output:
+//stdout:

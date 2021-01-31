@@ -718,6 +718,7 @@ proc initStdlib*(vm: VM) =
         vm.defineGlobal("toInt", newNative("toInt", natToInt, 1))
         vm.defineGlobal("toString", newNative("toString", natToString, 1))
         vm.defineGlobal("type", newNative("type", natType, 1))
+        vm.defineGlobal("readline", newNative("readline", natReadline, 0))
     when DEBUG_TRACE_VM and SKIP_STDLIB_INIT:
         echo "DEBUG - VM: Skipping stdlib initialization"
 
