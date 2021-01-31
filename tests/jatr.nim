@@ -17,13 +17,10 @@
 # a testrunner process
 
 import ../src/vm
-<<<<<<< HEAD
 import directives
-import os, strformat
-=======
 import os
+import strformat
 
->>>>>>> upstream/master
 
 var btvm = initVM()
 if paramCount() > 0 and paramStr(1) == "stdin":

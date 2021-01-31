@@ -14,11 +14,15 @@
 
 # Test object helpers
 
-import testobject, logutils, os, osproc, streams, strformat
+import testobject
+import logutils
 
-# Tests that represent not-yet implemented behaviour
-const exceptions = ["all.jpl", "for_with_function.jpl", "runtime_interning.jpl"]
-# TODO: for_with_function.jpl should already be implemented, check on it
+import os
+import osproc
+import streams
+import strformat
+import testconfig
+
 
 
 proc buildTest(path: string): Test =
@@ -60,12 +64,9 @@ proc runTest(test: Test, runner: string) =
 
     test.result = TestResult.Running
 
-<<<<<<< HEAD
 proc readOutputs(test: Test) =
     test.output = test.process.outputStream.readAll()
     test.error = test.process.errorStream.readAll()
-=======
->>>>>>> upstream/master
 
 proc tryFinishTest(test: Test): bool =
     if test.process.running():
@@ -82,8 +83,8 @@ proc tryFinishTest(test: Test): bool =
 
 proc killTest(test: Test) =
     if test.process.running():
-        test.readOutputs()
         test.process.kill()
+        log(LogLevel.Debug, &"SIGKILL sent to {test.path}")
         discard test.process.waitForExit()
         test.result = TestResult.Crash
         log(LogLevel.Error, &"Test {test.path} was killed for taking too long.")
@@ -92,13 +93,6 @@ proc killTests*(tests: seq[Test]) =
     for test in tests:
         if test.result == TestResult.Running:
             killTest(test)
-
-
-
-const maxAliveTests = 16
-const testWait = 100
-const timeout = 100 # number of cycles after which a test is killed for timeout
-
 
 proc runTests*(tests: seq[Test], runner: string) =
     var

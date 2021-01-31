@@ -15,7 +15,10 @@
 
 # logging stuff
 
-import terminal, strformat, times, strutils
+import terminal
+import strformat
+import times
+import strutils
 
 type LogLevel* {.pure.} = enum
     Debug, # always written to file only (large outputs, such as the entire output of the failing test or stacktrace)
@@ -23,16 +26,18 @@ type LogLevel* {.pure.} = enum
     Error, # failing tests (printed with red)
     Stdout, # always printed to stdout only (for cli experience)
 
-
+# don't move this to testglobals/testconfig
 const echoedLogs = {LogLevel.Info, LogLevel.Error, LogLevel.Stdout}
 const echoedLogsSilent = {LogLevel.Error}
 const savedLogs = {LogLevel.Debug, LogLevel.Info, LogLevel.Error}
+const progbarLength = 25
 
 const logColors = [LogLevel.Debug: fgDefault, LogLevel.Info: fgGreen, LogLevel.Error: fgRed, LogLevel.Stdout: fgYellow]
 
 var totalLog = ""
 var verbose = true
 var logfiles: seq[string]
+
 proc setVerbosity*(verb: bool) =
     verbose = verb
 
@@ -53,7 +58,6 @@ proc log*(level: LogLevel, msg: string) =
 proc getTotalLog*: string =
     totalLog
 
-const progbarLength = 25
 type Buffer* = ref object
     contents: string
     previous: string

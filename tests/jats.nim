@@ -18,32 +18,22 @@ import nim/nimtests
 import testobject
 import testutils
 import logutils
+import testconfig
 
-
-<<<<<<< HEAD
-import os, strformat, parseopt, strutils, terminal
-
-when isMainModule:
-  
-
-    const jatsVersion = "(dev)"
-=======
 import os
 import strformat
 import parseopt
 import strutils
+import terminal
+import re
 
->>>>>>> upstream/master
-
-const jatsVersion = "(dev)"
 type 
     Action {.pure.} = enum
         Run, Help, Version
     DebugAction {.pure.} = enum
         Interactive, Stdout
     QuitValue {.pure.} = enum
-        Success, Failure, ArgParseErr, InternalErr
-
+        Success, Failure, ArgParseErr, InternalErr, Interrupt
 
 when isMainModule:
     var optparser = initOptParser(commandLineParams())
@@ -51,16 +41,8 @@ when isMainModule:
     var debugActions: seq[DebugAction]
     var targetFiles: seq[string]
     var verbose = true
-<<<<<<< HEAD
 
-    type QuitValue {.pure.} = enum
-        Success, Failure, ArgParseErr, InternalErr, Interrupt
     var quitVal = QuitValue.Success
-
-
-=======
-    var quitVal = QuitValue.Success
->>>>>>> upstream/master
     proc evalKey(key: string) =
         let key = key.toLower()
         if key == "h" or key == "help":
@@ -83,6 +65,13 @@ when isMainModule:
         let key = key.toLower()
         if key == "o" or key == "output":
             targetFiles.add(val)
+        elif key == "j" or key == "jobs":
+            if val.match(re"^[0-9]*$"):
+                maxAliveTests = parseInt(val)
+            else:
+                echo "Can't parse non-integer option passed to -j/--jobs."
+                action = Action.Help
+                quitVal = QuitValue.ArgParseErr
         else:
             echo &"Unknown option: {key}"
             action = Action.Help
@@ -119,14 +108,13 @@ Flags:
 -o:<filename> (or --output:<filename>) saves debug info to a file
 -s (or --silent) will disable all output (except --stdout)
 --stdout will put all debug info to stdout
+-j:<parallel test count> (or --jobs:<parallel test count>) to specify number of tests to run parallel
 -h (or --help) displays this help message
 -v (or --version) displays the version number of JATS
 """
 
-
     proc printVersion =
         echo &"JATS - Just Another Test Suite version {jatsVersion}"
-    
 
     if action == Action.Help:
         printUsage()
