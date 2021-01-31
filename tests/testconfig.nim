@@ -21,3 +21,8 @@ const exceptions* = ["all.jpl", "for_with_function.jpl", "runtime_interning.jpl"
 var maxAliveTests* = 16 # number of tests that can run parallel
 const testWait* = 100 # number of milliseconds per cycle
 const timeout* = 100 # number of cycles after which a test is killed for timeout
+
+var testRunner* = "jatr"
+
+const outputStripReplaces* = [ "\[DEBUG.*\n", "[\n\r ]*$" ]
+const outputStripReplaceTargets* = [ "", "" ]

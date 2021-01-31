@@ -23,8 +23,6 @@ import streams
 import strformat
 import testconfig
 
-
-
 proc evalTest(test: Test) =
     test.output = test.output.tuStrip()
     test.error = test.error.tuStrip()

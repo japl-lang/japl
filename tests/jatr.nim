@@ -24,7 +24,14 @@ import strformat
 var btvm = initVM()
     
 try:
-    discard btvm.interpret(stdin.readAll(), "")
+    var source: string
+    while true:
+        let ch = stdin.readChar()
+        if ch == char(4):
+            break
+        else:
+            source &= ch
+    discard btvm.interpret(source, "")
     quit(0)
 except:
     let error = getCurrentException()

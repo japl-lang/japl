@@ -19,53 +19,28 @@ import logutils
 import testconfig
 
 import strformat
+import os
 
-
-proc runTest(test: Test, runner: string) =
+proc runTest(test: Test) =
     log(LogLevel.Debug, &"Starting test {test.path}.")
-    let process = startProcess(runner, args = @[test.path])
-    test.process = process
-    if test.input.len() > 0:
-        var f: File
-        let suc = f.open(process.inputHandle, fmWrite)
-        if suc:
-            f.write(test.input)
-            f.close()
-        else:
-            log(LogLevel.Error, &"Stdin File handle could not be opened for test {test.path}")
-            test.result = Crash
-
-    test.result = TestResult.Running
-
-proc readOutputs(test: Test) =
-    test.output = test.process.outputStream.readAll()
-    test.error = test.process.errorStream.readAll()
+    test.start()
 
 proc tryFinishTest(test: Test): bool =
-    if test.process.running():
+    if test.running():
         return false
-    test.readOutputs()
-    if test.process.peekExitCode() == 0:
-        test.result = TestResult.ToEval
-    else:
-        test.result = TestResult.Crash
-    test.process.close()
+    test.finish()
     log(LogLevel.Debug, &"Test {test.path} finished.")
     return true
 
-
 proc killTest(test: Test) =
-    if test.process.running():
-        test.process.kill()
-        log(LogLevel.Debug, &"SIGKILL sent to {test.path}")
-        discard test.process.waitForExit()
-        test.result = TestResult.Crash
+    if test.running():
+        test.kill()
         log(LogLevel.Error, &"Test {test.path} was killed for taking too long.")
 
 proc killTests*(tests: seq[Test]) =
     for test in tests:
-        if test.result == TestResult.Running:
-            killTest(test)
+        if test.running():
+            test.kill()
 
 proc runTests*(tests: seq[Test], runner: string) =
     var
@@ -81,7 +56,7 @@ proc runTests*(tests: seq[Test], runner: string) =
         sleep(testWait)
         if aliveTests < maxAliveTests and currentTest < tests.len():
             if tests[currentTest].result == TestResult.Unstarted:
-                tests[currentTest].runTest(runner)
+                tests[currentTest].runTest()
                 inc aliveTests
                 inc currentTest
             else:
