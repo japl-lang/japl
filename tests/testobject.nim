@@ -54,5 +54,5 @@ proc compileInput*(source: string): string =
 # stuff for cleaning test output
 
 proc tuStrip*(input: string): string =
-    return input.replace(re"[\n\r]*$", "")
+    return input.replace(re"\[DEBUG.*\n","\n").replace(re"[\n\r]*", "\n").replace(re"\n$","")
 

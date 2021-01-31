@@ -50,17 +50,21 @@ proc runTest(test: Test, runner: string) =
         let suc = f.open(process.inputHandle, fmWrite)
         if suc:
             f.write(test.input)
+            f.close()
         else:
             log(LogLevel.Error, &"Stdin File handle could not be opened for test {test.path}")
             test.result = Crash
 
     test.result = TestResult.Running
 
+proc readOutputs(test: Test) =
+    test.output = test.process.outputStream.readAll()
+    test.error = test.process.errorStream.readAll()
+
 proc tryFinishTest(test: Test): bool =
     if test.process.running():
         return false
-    test.output = test.process.outputStream.readAll()
-    test.error = test.process.errorStream.readAll()
+    test.readOutputs()
     if test.process.peekExitCode() == 0:
         test.result = TestResult.ToEval
     else:
@@ -71,10 +75,17 @@ proc tryFinishTest(test: Test): bool =
 
 proc killTest(test: Test) =
     if test.process.running():
+        test.readOutputs()
         test.process.kill()
         discard test.process.waitForExit()
+        test.result = TestResult.Crash
         log(LogLevel.Error, &"Test {test.path} was killed for taking too long.")
-    discard test.tryFinishTest()
+
+proc killTests*(tests: seq[Test]) =
+    for test in tests:
+        if test.result == TestResult.Running:
+            killTest(test)
+
 
 const maxAliveTests = 16
 const testWait = 100
@@ -149,7 +160,7 @@ proc printResults*(tests: seq[Test]): bool =
                 log(LogLevel.Debug, &"[{test.path}\noutput:\n{test.output}\nerror:\n{test.error}\nexpected output:\n{test.expectedOutput}\nexpectedError:\n{test.expectedError}\n]")
             of TestResult.Crash:
                 inc crash
-                log(LogLevel.Debug, &"{test.path} \ncrash:\n{test.error}")
+                log(LogLevel.Debug, &"{test.path} \ncrash:\n{test.output}")
             of TestResult.Success:
                 inc success
             else:

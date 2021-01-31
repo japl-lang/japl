@@ -18,9 +18,11 @@ import nim/nimtests
 
 import testobject, testutils, logutils
 
-import os, strformat, parseopt, strutils
+import os, strformat, parseopt, strutils, terminal
 
 when isMainModule:
+  
+
     const jatsVersion = "(dev)"
 
     var optparser = initOptParser(commandLineParams())
@@ -34,8 +36,9 @@ when isMainModule:
     var verbose = true
 
     type QuitValue {.pure.} = enum
-        Success, Failure, ArgParseErr, InternalErr
+        Success, Failure, ArgParseErr, InternalErr, Interrupt
     var quitVal = QuitValue.Success
+
 
     proc evalKey(key: string) =
         let key = key.toLower()
@@ -130,6 +133,12 @@ Flags:
         log(LogLevel.Info, &"Building tests...")
         let tests: seq[Test] = buildTests(testDir)
         log(LogLevel.Debug, &"Tests built.")
+        proc ctrlc() {.noconv.} =
+            showCursor()
+            tests.killTests()
+            echo "Interrupted by ^C."
+            quit(int(QuitValue.Interrupt))
+        setControlCHook(ctrlc)
         log(LogLevel.Info, &"Running tests...")
         tests.runTests(jatr)
         log(LogLevel.Debug, &"Tests ran.")
