@@ -21,8 +21,9 @@ import strformat
 import tables
 import std/enumerate
 ## Our modules
-import stdlib
 import config
+when not SKIP_STDLIB_INIT:
+    import stdlib
 import compiler
 import meta/opcode
 import meta/frame
@@ -294,6 +295,7 @@ proc readConstant(self: CallFrame): ptr Obj =
 proc showRuntime*(self: VM, frame: CallFrame, iteration: uint64) = 
     ## Shows debug information about the current
     ## state of the virtual machine
+    let view = frame.getView()
     stdout.write("DEBUG - VM: General information\n")
     stdout.write(&"DEBUG - VM:\tIteration -> {iteration}\nDEBUG - VM:\tStack -> [")
     for i, v in self.stack:
@@ -312,18 +314,18 @@ proc showRuntime*(self: VM, frame: CallFrame, iteration: uint64) =
     else:
         stdout.write(&"function, '{frame.function.name.stringify()}'\n")
     echo &"DEBUG - VM:\tCount -> {self.frames.len()}"
-    echo &"DEBUG - VM:\tLength -> {frame.len}"
+    echo &"DEBUG - VM:\tLength -> {view.len}"
     stdout.write("DEBUG - VM:\tTable -> ")
     stdout.write("[")
     for i, e in frame.function.chunk.consts:
         stdout.write(stringify(e))
-        if i < frame.function.chunk.consts.high():
+        if i < len(frame.function.chunk.consts) - 1:
             stdout.write(", ")
     stdout.write("]\nDEBUG - VM:\tStack view -> ")
     stdout.write("[")
-    for i, e in frame.getView():
+    for i, e in view:
         stdout.write(stringify(e))
-        if i < len(frame) - 1:
+        if i < len(view) - 1:
             stdout.write(", ")
     stdout.write("]\n")
     echo "DEBUG - VM: Current instruction"

@@ -17,7 +17,8 @@
 # a testrunner process
 
 import ../src/vm
-import os, strformat
+import os
+
 
 var btvm = initVM()
 try:

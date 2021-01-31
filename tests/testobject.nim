@@ -40,6 +40,7 @@ proc compileExpectedOutput*(source: string): string =
         if line =~ re"^.*//stdout:[ ]?(.*)$":
             result &= matches[0] & "\n"
 
+
 proc compileExpectedError*(source: string): string =
     for line in source.split('\n'):
         if line =~ re"^.*//stderr:[ ]?(.*)$":

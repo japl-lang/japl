@@ -15,28 +15,34 @@
 # Just Another Test Suite for running JAPL tests
 
 import nim/nimtests
+import testobject
+import testutils
+import logutils
 
-import testobject, testutils, logutils
 
-import os, strformat, parseopt, strutils
+import os
+import strformat
+import parseopt
+import strutils
+
+
+const jatsVersion = "(dev)"
+type 
+    Action {.pure.} = enum
+        Run, Help, Version
+    DebugAction {.pure.} = enum
+        Interactive, Stdout
+    QuitValue {.pure.} = enum
+        Success, Failure, ArgParseErr, InternalErr
+
 
 when isMainModule:
-    const jatsVersion = "(dev)"
-
     var optparser = initOptParser(commandLineParams())
-    type Action {.pure.} = enum
-        Run, Help, Version
     var action: Action = Action.Run
-    type DebugAction {.pure.} = enum
-        Interactive, Stdout
     var debugActions: seq[DebugAction]
     var targetFiles: seq[string]
     var verbose = true
-
-    type QuitValue {.pure.} = enum
-        Success, Failure, ArgParseErr, InternalErr
     var quitVal = QuitValue.Success
-
     proc evalKey(key: string) =
         let key = key.toLower()
         if key == "h" or key == "help":
@@ -54,6 +60,7 @@ when isMainModule:
             action = Action.Help
             quitVal = QuitValue.ArgParseErr
 
+
     proc evalKeyVal(key: string, val: string) =
         let key = key.toLower()
         if key == "o" or key == "output":
@@ -62,6 +69,7 @@ when isMainModule:
             echo &"Unknown option: {key}"
             action = Action.Help
             quitVal = QuitValue.ArgParseErr
+
 
     proc evalArg(key: string) =
         echo &"Unexpected argument"
@@ -80,6 +88,7 @@ when isMainModule:
             of cmdArgument:
                 evalArg(optparser.key)
 
+
     proc printUsage =
         echo """
 JATS - Just Another Test Suite
@@ -95,9 +104,12 @@ Flags:
 -h (or --help) displays this help message
 -v (or --version) displays the version number of JATS
 """
+
+
     proc printVersion =
         echo &"JATS - Just Another Test Suite version {jatsVersion}"
     
+
     if action == Action.Help:
         printUsage()
         quit int(quitVal)
@@ -109,15 +121,11 @@ Flags:
     else:
         echo &"Unknown action {action}, please contact the devs to fix this."
         quit int(QuitValue.InternalErr)
-
     setVerbosity(verbose)
     setLogfiles(targetFiles)
-
     # start of JATS
-
     try:
         log(LogLevel.Debug, &"Welcome to JATS")
-
         runNimTests()
         var jatr = "jatr"
         var testDir = "japl"
@@ -125,7 +133,6 @@ Flags:
             log(LogLevel.Debug, &"Must be in root: prepending \"tests\" to paths")
             jatr = "tests" / jatr
             testDir = "tests" / testDir
-
         log(LogLevel.Info, &"Running JAPL tests.")
         log(LogLevel.Info, &"Building tests...")
         let tests: seq[Test] = buildTests(testDir)
@@ -138,9 +145,7 @@ Flags:
         log(LogLevel.Debug, &"Tests evaluated.")
         if not tests.printResults():
             quitVal = QuitValue.Failure
-        
         log(LogLevel.Debug, &"Quitting JATS.")
-
         # special options to view the entire debug log
     finally:
         let logs = getTotalLog()
@@ -158,6 +163,5 @@ Flags:
                         write stderr, "Interactive mode not supported on your platform, try --stdout and piping, or install/alias 'more' or 'less' to a terminal pager.\n"
                 of DebugAction.Stdout:
                     echo logs
-
     quit int(quitVal)
 

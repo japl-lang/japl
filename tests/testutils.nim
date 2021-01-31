@@ -17,8 +17,9 @@
 import testobject, logutils, os, osproc, streams, strformat
 
 # Tests that represent not-yet implemented behaviour
-const exceptions = ["all.jpl", "for_with_function.jpl", "runtime_interning.jpl", "problem4.jpl"]
-# TODO: for_with_function.jpl and problem4.jpl should already be implemented, check on them
+const exceptions = ["all.jpl", "for_with_function.jpl", "runtime_interning.jpl"]
+# TODO: for_with_function.jpl should already be implemented, check on it
+
 
 proc buildTest(path: string): Test =
     log(LogLevel.Debug, &"Building test {path}")
@@ -32,6 +33,7 @@ proc buildTest(path: string): Test =
       input: compileInput(source)
     )
 
+
 proc buildTests*(testDir: string): seq[Test] =
     for candidateObj in walkDir(testDir):
         let candidate = candidateObj.path
@@ -40,6 +42,7 @@ proc buildTests*(testDir: string): seq[Test] =
             result &= buildTests(candidate)
         else:
             result.add buildTest(candidate)
+
 
 proc runTest(test: Test, runner: string) =
     log(LogLevel.Debug, &"Starting test {test.path}.")
@@ -56,6 +59,7 @@ proc runTest(test: Test, runner: string) =
 
     test.result = TestResult.Running
 
+
 proc tryFinishTest(test: Test): bool =
     if test.process.running():
         return false
@@ -69,6 +73,7 @@ proc tryFinishTest(test: Test): bool =
     log(LogLevel.Debug, &"Test {test.path} finished.")
     return true
 
+
 proc killTest(test: Test) =
     if test.process.running():
         test.process.kill()
@@ -76,9 +81,11 @@ proc killTest(test: Test) =
         log(LogLevel.Error, &"Test {test.path} was killed for taking too long.")
     discard test.tryFinishTest()
 
+
 const maxAliveTests = 16
 const testWait = 100
 const timeout = 100 # number of cycles after which a test is killed for timeout
+
 
 proc runTests*(tests: seq[Test], runner: string) =
     var
@@ -87,7 +94,6 @@ proc runTests*(tests: seq[Test], runner: string) =
         finishedTests = 0
         buffer = newBuffer()
     let totalTests = tests.len()
-
     buffer.updateProgressBar(&"", totalTests, finishedTests)
     buffer.render()
     while aliveTests > 0 or currentTest < tests.len():
@@ -117,6 +123,7 @@ proc runTests*(tests: seq[Test], runner: string) =
     buffer.render()
     buffer.endBuffer()
 
+
 proc evalTest(test: Test) =
     test.output = test.output.tuStrip()
     test.error = test.error.tuStrip()
@@ -127,10 +134,12 @@ proc evalTest(test: Test) =
     else:
         test.result = TestResult.Success
 
+
 proc evalTests*(tests: seq[Test]) =
     for test in tests:
         if test.result == TestResult.ToEval:
             evalTest(test)
+
 
 proc printResults*(tests: seq[Test]): bool =
     var
@@ -138,7 +147,6 @@ proc printResults*(tests: seq[Test]): bool =
         success = 0
         fail = 0
         crash = 0
-        
     for test in tests:
         log(LogLevel.Debug, &"Test {test.path} result: {test.result}")
         case test.result:
@@ -156,7 +164,6 @@ proc printResults*(tests: seq[Test]): bool =
                 log(LogLevel.Error, &"Probably a testing suite bug: test {test.path} has result {test.result}")
     let finalLevel = if fail == 0 and crash == 0: LogLevel.Info else: LogLevel.Error
     log(finalLevel, &"{tests.len()} tests: {success} succeeded, {skipped} skipped, {fail} failed, {crash} crashed.")
-
-    fail == 0 and crash == 0
+    result = fail == 0 and crash == 0
 
 

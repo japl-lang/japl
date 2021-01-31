@@ -33,13 +33,22 @@ proc reallocate*(pointr: pointer, oldSize: int, newSize: int): pointer =
     try:
         if newSize == 0 and pointr != nil:   # pointr is awful, but clashing with builtins is even more awful
             when DEBUG_TRACE_ALLOCATION:
-                echo &"DEBUG - Memory manager: Deallocating {oldSize} bytes"
+                if oldSize > 1:
+                    echo &"DEBUG - Memory manager: Deallocating {oldSize} bytes"
+                else:
+                    echo "DEBUG - Memory manager: Deallocating 1 byte"
             dealloc(pointr)
             return nil
+        when DEBUG_TRACE_ALLOCATION:
+            if pointr == nil and newSize == 0:
+                echo &"DEBUG - Memory manager: Warning, asked to dealloc() nil pointer from {oldSize} to {newSize} bytes, ignoring request"
         if oldSize > 0 and pointr != nil or oldSize == 0:
             when DEBUG_TRACE_ALLOCATION:
                 if oldSize == 0:
-                    echo &"DEBUG - Memory manager: Allocating {newSize} bytes of memory"
+                    if newSize > 1:
+                        echo &"DEBUG - Memory manager: Allocating {newSize} bytes of memory"
+                    else:
+                        echo "DEBUG - Memory manager: Allocating 1 byte of memory"
                 else:
                     echo &"DEBUG - Memory manager: Resizing {oldSize} bytes of memory to {newSize} bytes"
             result = realloc(pointr, newSize)

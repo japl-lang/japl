@@ -58,6 +58,8 @@ proc typeName*(self: ptr Obj): string =
             result = cast[ptr Nil](self).typeName()
         of ObjectType.Native:
             result = cast[ptr Native](self).typeName()
+        of ObjectType.List:
+            result = "list"  # We can't do casting here since it's not a concrete type!
         else:
             discard
 
