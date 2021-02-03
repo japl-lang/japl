@@ -158,4 +158,4 @@ when running the script
 JABT comes with a handy `--profile` option that allows to pass a JSON file with
 all the build arguments and flags. The JAPL toolsuite comes with some build profiles by default, they are
 found inside the `resources/profiles` directory and are particularly useful to replicate common build options.
-
+Note that profiles have priority over command-line options and environment variables!
