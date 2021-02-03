@@ -1,0 +1,15 @@
+// Debugs JAPL's memory manager, without any help
+// from nim itself (the nim compiler options are identical to those of
+// production.json)
+{"flags": {
+        "gc": "none",
+        "d": "danger"
+        },
+ "verbose": true,
+ "override_config": true,
+ "install": true,
+ "ignore_binary": true,
+ "options": {
+         "debug_alloc": "true"
+         }
+}

@@ -95,7 +95,7 @@ git clone https://github.com/japl-lang/japl
 
 ### Running the build script
 
-As a next step, you need to run the build script. This will generate the required configuration files, compile the JAPL runtime and run tests (unless `--skip-tests` is used). There are some settings that can be tweaked with command-line options (or environment variables), for more information, run `python3 build.py --help`.
+As a next step, you need to run JABT (YES, Just Another Build Tool). This will generate the required configuration files, compile the JAPL runtime and run tests (unless `--skip-tests` is used). There are some settings that can be tweaked with command-line options (or environment variables), for more information, run `python3 build.py --help`.
 
 To compile the JAPL runtime, you'll first need to move into the project's directory you cloned before, so run `cd japl`, then `python3 build.py ./src` and wait for it to complete. You should now find an executable named `japl` (or `japl.exe` on windows) inside the `src` folder.
 
@@ -151,3 +151,11 @@ the already existing data unless `--ignore-binary` is passed!
 On both Windows and Linux, the build script supports reading parameters from environment variables if they are not specified via the command line.
 All options follow the same naming scheme: `JAPL_OPTION_NAME=value` and will only be applied if no explicit override for them is passed
 when running the script
+
+
+### Build profiles
+
+JABT comes with a handy `--profile` option that allows to pass a JSON file with
+all the build arguments and flags. The JAPL toolsuite comes with some build profiles by default, they are
+found inside the `resources/profiles` directory and are particularly useful to replicate common build options.
+

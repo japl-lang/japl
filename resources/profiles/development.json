@@ -1,0 +1,11 @@
+// Development build options
+{"flags": {
+        "gc": "boehm",
+        "d": "debug",
+        "opt": "speed"
+        },
+ "verbose": true,
+ "override_config": true,
+ "install": true,
+ "ignore_binary": true
+}
