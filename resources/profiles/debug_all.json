@@ -1,0 +1,20 @@
+// Debugs JAPL with both its internal tooling and help from the
+// nim compiler itself (d:debug). The debug build is still optimized
+// for speed with opt:speed
+{"flags": {
+        "gc": "boehm",
+        "d": "debug",
+        "opt": "speed"
+        },
+ "verbose": true,
+ "override_config": true,
+ "skip_tests": true,
+ "install": true,
+ "ignore_binary": true,
+ "options": {
+         "debug_vm": "true",
+         "debug_gc": "true",
+         "debug_compiler": "true",
+         "debug_alloc": "true"
+         }
+}

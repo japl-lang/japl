@@ -1,0 +1,19 @@
+// Debugs JAPL with all flags turned on, but without any help
+// from nim itself (the nim compiler options are identical to those of
+// production.json)
+{"flags": {
+        "gc": "none",
+        "d": "danger"
+        },
+ "skip_tests": true,
+ "verbose": true,
+ "override_config": true,
+ "install": true,
+ "ignore_binary": true,
+ "options": {
+         "debug_vm": "true",
+         "debug_gc": "true",
+         "debug_compiler": "true",
+         "debug_alloc": "true"
+         }
+}

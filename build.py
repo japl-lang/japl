@@ -18,6 +18,7 @@
 
 import os
 import stat
+import json
 import shlex
 import shutil
 import logging
@@ -143,7 +144,6 @@ def build(path: str, flags: Optional[Dict[str, str]] = {}, options: Optional[Dic
 
     config_path = os.path.join(path, "config.nim")
     main_path = os.path.join(path, "japl.nim")
-    logging.info("Just Another Build Tool, version 0.3.4")
     listing = "\n- {} = {}"
     if not os.path.exists(path):
         logging.error(f"Input path '{path}' does not exist")
@@ -161,6 +161,7 @@ def build(path: str, flags: Optional[Dict[str, str]] = {}, options: Optional[Dic
             return
         else:
             logging.debug(f"Config file has been generated, compiling with options as follows: {''.join(listing.format(k, v) for k, v in options.items())}")
+    logging.debug(f"Nim compiler options: {''.join(listing.format(k, v) for k, v in flags.items())}")
     logging.debug(f"Compiling '{main_path}'")
     nim_flags = " ".join(f"-{name}:{value}" if len(name) == 1 else f"--{name}:{value}" for name, value in flags.items())
     command = "nim {flags} compile {path}".format(flags=nim_flags, path=main_path)
@@ -241,6 +242,7 @@ if __name__ == "__main__":
         parser.add_argument("--skip-tests", help="Skips running the JAPL test suite, useful for debug builds", action="store_true", default=os.getenv("JAPL_SKIP_TESTS"))
         parser.add_argument("--install", help="Tries to move the compiled binary to PATH (this is always disabled on windows)", action="store_true", default=os.environ.get("JAPL_INSTALL"))
         parser.add_argument("--ignore-binary", help="Ignores an already existing 'jpl' binary in any installation directory and overwrites it, use (with care!) with --install", action="store_true", default=os.getenv("JAPL_IGNORE_BINARY"))
+        parser.add_argument("--profile", help="The path to a json file specifying build options and arguments. Overrides ANY other option!", default=os.environ.get("JAPL_PROFILE"))
         args = parser.parse_args()
         flags = {
                 "gc": "refc",
@@ -263,6 +265,7 @@ if __name__ == "__main__":
                             datefmt="%T",
                             level=logging.DEBUG if args.verbose else logging.INFO
                             )
+        logging.info("Just Another Build Tool, version 0.3.4")
         if args.flags:
             try:
                 for value in args.flags.split(","):
@@ -282,6 +285,31 @@ if __name__ == "__main__":
             except Exception:
                 logging.error("Invalid parameter for --options")
                 exit()
+        if args.profile:
+            try:
+                with open(args.profile) as profile:
+                    skip = 0
+                    line = profile.readline()
+                    while line.startswith("//"):
+                        # We skip comments and keep track of
+                        # where we should reset our buffer
+                        skip = profile.tell()
+                        line = profile.readline()
+                    profile.seek(skip - 1)
+                    data = json.load(profile)
+                    if "options" in data:
+                        for option, value in data["options"].items():
+                            options[option] = value
+                    if "flags" in data:
+                        for flag, value in data["flags"].items():
+                            flags[flag] = value
+                    for arg in {"override_config", "skip_tests", "verbose", "install", "ignore_binary"}:
+                        setattr(args, arg, data.get(arg, getattr(args, arg)))
+            except Exception as e:
+                logging.error(f"An error occurred while loading profile '{args.profile}' -> {type(e).__name__}: {e}")
+                exit()
+            else:
+                logging.info(f"Using profile '{args.profile}'")
         build(args.path,
               flags,
               options,
