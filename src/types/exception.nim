@@ -59,5 +59,11 @@ proc newTypeError*(message: string): ptr JAPLException =
     result.message = message
 
 
+proc newValueError*(message: string): ptr JAPLException =
+    result = allocateObj(JAPLException, ObjectType.Exception)
+    result.errName = "ValueError"
+    result.message = message
+
+
 proc stringify*(self: ptr JAPLException): string =
     result = &"{self.errName}: {self.message}"

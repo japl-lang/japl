@@ -25,6 +25,8 @@ import types/native
 import times
 import math
 import strformat
+import parseutils
+import strutils
 
 
 
@@ -47,10 +49,17 @@ proc natPrint*(args: seq[ptr Obj]): tuple[kind: retNative, result: ptr Obj] =
     # to nil
     return (kind: retNative.Nil, result: nil)
 
+
 proc natReadline*(args: seq[ptr Obj]): tuple[kind: retNative, result: ptr Obj] =
     ## Native function readline
     ## Reads a line from stdin and returns
-    ## it as a string.
+    ## it as a string, optionally writing
+    ## a given prompt to stdout
+    if len(args) > 1:
+        return (kind: retNative.Exception, result: newTypeError(&"Function 'readLine' takes 0 to 1 arguments, got {len(args)}"))
+    elif not args[0].isStr():
+        return (kind: retNative.Exception, result: newTypeError(&"The prompt must be of type 'string', not '{args[0].typeName()}'"))
+    stdout.write(args[0].toStr())
     return (kind: retNative.Object, result: stdin.readLine().asStr())
 
 
@@ -65,7 +74,7 @@ proc natClock*(args: seq[ptr Obj]): tuple[kind: retNative, result: ptr Obj] =
     result = (kind: retNative.Object, result: getTime().toUnixFloat().asFloat())
 
 
-proc natRound*(args: seq[ptr Obj]): tuple[kind: retNative, result: ptr Obj] = 
+proc natRound*(args: seq[ptr Obj]): tuple[kind: retNative, result: ptr Obj] =
     ## Rounds a floating point number to a given
     ## precision (when precision == 0, this function drops the
     ## decimal part and returns an integer). Note that when
@@ -94,22 +103,34 @@ proc natRound*(args: seq[ptr Obj]): tuple[kind: retNative, result: ptr Obj] =
             result = (kind: retNative.Object, result: round(args[0].toFloat(), precision).asFloat())
 
 
-proc natToInt*(args: seq[ptr Obj]): tuple[kind: retNative, result: ptr Obj] = 
-    ## Drops the decimal part of a float and returns an integer.
+proc natToInt*(args: seq[ptr Obj]): tuple[kind: retNative, result: ptr Obj] =
+    ## Drops the decimal part of a float and returns an integer or
+    ## converts an integer string to an actual integer object.
     ## If the value is already an integer, the same object is returned
     if args[0].isInt():
         result = (kind: retNative.Object, result: args[0])
     elif args[0].isFloat():
         result = (kind: retNative.Object, result: int(args[0].toFloat()).asInt())
+    elif args[0].isStr():
+        let s = args[0].toStr()
+        for c in s:
+            if not c.isDigit():
+                return (kind: retNative.Exception, result: newValueError("invalid argument"))
+        try:
+            var num: int
+            discard parseInt(args[0].toStr(), num)
+            result = (kind: retNative.Object, result: num.asInt())
+        except ValueError:
+            result = (kind: retNative.Exception, result: newValueError("invalid argument"))
     else:
-        result = (kind: retNative.Exception, result: newTypeError(&"input must be of type 'int' or 'float', not '{args[0].typeName()}'"))
+        result = (kind: retNative.Exception, result: newTypeError(&"input must be of type 'int', 'float' or 'string', not '{args[0].typeName()}'"))
 
 
-proc natType*(args: seq[ptr Obj]): tuple[kind: retNative, result: ptr Obj] = 
+proc natType*(args: seq[ptr Obj]): tuple[kind: retNative, result: ptr Obj] =
     ## Returns the type of a given object as a string
     result = (kind: retNative.Object, result: args[0].typeName().asStr())
 
 
-proc natToString*(args: seq[ptr Obj]): tuple[kind: retNative, result: ptr Obj] = 
+proc natToString*(args: seq[ptr Obj]): tuple[kind: retNative, result: ptr Obj] =
     ## Returns the string representation of an object
     result = (kind: retNative.Object, result: args[0].stringify().asStr())
