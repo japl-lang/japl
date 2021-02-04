@@ -5,11 +5,12 @@
         "gc": "none",
         "d": "danger"
         },
+ "skip_tests": true,
  "verbose": true,
  "override_config": true,
  "install": true,
  "ignore_binary": true,
  "options": {
-         "debug_vm": "true",
+         "debug_vm": "true"
          }
 }

@@ -5,6 +5,7 @@
         "gc": "none",
         "d": "danger"
         },
+ "skip_tests": true,
  "verbose": true,
  "override_config": true,
  "install": true,
