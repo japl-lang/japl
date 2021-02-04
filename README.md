@@ -11,7 +11,7 @@ You may wonder what's the meaning of JAPL: well, it turns out to be an acronym f
 This project is currently a WIP (Work in Progress) and is not optimized nor complete.
 The design of the language may change at any moment and all the source inside this repo is alpha code quality, for now.  
 
-For other useful information, check the LICENSE file in this repo.  
+For other useful information, check the LICENSE file in this repo.
 
 JAPL is licensed under the Apache 2.0 license.
 
@@ -75,7 +75,7 @@ JAPL is born thanks to the amazing work of Bob Nystrom that wrote a book availab
 ## JAPL - Installing
 
 JAPL is currently in its early stages and is therefore in a state of high mutability, so this installation guide might
-not be always up to date.
+not be always up to date
 
 ### Requirements
 
@@ -131,9 +131,9 @@ There are also some compile-time constants (such as the heap grow factor for the
 - `map_load_factor` -> A real value between 0 and 1 that indicates the max. % of full buckets in JAPL's hashmap implementation that are needed to trigger a resize
 - `frames_max` - The max. number of call frames allowed, used to limit recursion depth
 
-Each of these options is independent of the others and can be enabled/disabled at will. Except for `array_grow_factor`, `map_load_factor` and `frames_max` (which take integers and a real values respectively), all other options require boolean parameters; to enable an option, pass `option_name:true` to `--options` while to disable it, replace `true` with `false`.
+Each of these options is independent of the others and can be enabled/disabled at will. Except for `array_grow_factor`, `map_load_factor` and `frames_max` (which take integers and a real value respectively), all other options require boolean parameters; to enable an option, pass `option_name:true` to `--options` while to disable it, replace `true` with `false`.
 
-Note that the build tool will generate a file named `config.nim` inside the `src` directory and will use that for subsequent builds, so if you want to override it you'll have to pass `--override-config` as a command-line options. Passing it without any option will fallback to (somewhat) sensible defaults
+Note that the build tool will generate a file named `config.nim` inside the `src` directory and will use that for subsequent builds, so if you want to override it you'll have to enable `--override-config` (via CLI, env. variables or build profiles). Passing it without any other option will fallback to (somewhat) sensible defaults
 
 **P.S.**: For now the test suite assumes that all debugging options are turned off, so for development/debug builds we recommend skipping the test suite by passing `--skip-tests` to the build script. This will be fixed soon (the test suite will ignore debugging output)
 
