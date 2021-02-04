@@ -144,7 +144,6 @@ def build(path: str, flags: Optional[Dict[str, str]] = {}, options: Optional[Dic
 
     config_path = os.path.join(path, "config.nim")
     main_path = os.path.join(path, "japl.nim")
-    logging.info("Just Another Build Tool, version 0.3.4")
     listing = "\n- {} = {}"
     if not os.path.exists(path):
         logging.error(f"Input path '{path}' does not exist")
@@ -266,6 +265,7 @@ if __name__ == "__main__":
                             datefmt="%T",
                             level=logging.DEBUG if args.verbose else logging.INFO
                             )
+        logging.info("Just Another Build Tool, version 0.3.4")
         if args.flags:
             try:
                 for value in args.flags.split(","):
