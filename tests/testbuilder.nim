@@ -20,39 +20,73 @@ import os
 import strutils
 import sequtils
 import strformat
-import re
+
+proc parseModalLine(line: string): tuple[modal: bool, mode: string, detail: string] =
+    let line = line.strip()
+    result.modal = false
+    result.mode = ""
+    result.detail = ""
+    if line[0] == '[':
+        result.modal = true
+    else:
+        return result
+    
+    var colon = false
+
+    for i in countup(0, line.high()):
+        let ch = line[i]
+        if ch in Letters:
+            if colon:
+                result.detail &= ($ch).toLower()
+            else:
+                result.mode &= ($ch).toLower()
+        elif ch == ':':
+            if not colon:
+                colon = true
+            else:
+                fatal &"Two colons in <{line}> not allowed."
+        elif ch in Whitespace:
+            discard
+        elif ch == ']':
+            if i != line.high():
+                fatal &"] is only allowed to close the line <{line}>."
+        elif ch == '[':
+            if i > 0:
+                fatal &"[ is only allowed to open the modal line <{line}>."
+        else:
+            fatal &"Illegal character in <{line}>: {ch}."
+    if line[line.high()] != ']':
+        fatal &"Line <{line}> must be closed off by ']'."    
 
 proc buildTest(lines: seq[string], i: var int, name: string, path: string): Test =
     result = newTest(name, path)
     # since this is a very simple parser, some state can reduce code length
     var mode: string
-    var modedetail: string
+    var detail: string
     var inside: bool
     var body: string
     while i < lines.len():
-        let line = lines[i]
-        if line =~ re"^[ \t]*\[[ \t]*(.*)[ \t]*\][ \t]*$":
-            let content = matches[0]
-            var parts: seq[string]
-            for part in content.split(':'):
-                parts.add(part.strip())
+        let line = lines[i].strip()
+        let parsed = parseModalLine(line)
+        let modal = parsed.modal
+        if parsed.modal:
             if inside:
-                if parts[0] == "end":
+                if mode == "end":
                     # end inside
-                    if mode == "source" and (modedetail == "" or modedetail == "mixed"):
+                    if mode == "source" and (detail == "" or detail == "mixed"):
                         result.parseMixed(body)
-                    elif mode == "source" and modedetail == "raw":
+                    elif mode == "source" and detail == "raw":
                         result.parseSource(body)
-                    elif mode == "stdout" and (modedetail == ""):
+                    elif mode == "stdout" and (detail == ""):
                         result.parseStdout(body)
-                    elif mode == "stdoutre" or (mode == "stdout" and modedetail == "re"):
+                    elif mode == "stdoutre" or (mode == "stdout" and detail == "re"):
                         result.parseStdout(body, true)
-                    elif mode == "stderr" and (modedetail == ""):
+                    elif mode == "stderr" and (detail == ""):
                         result.parseStderr(body)
-                    elif mode == "stderrre" or (mode == "stderr" and modedetail == "re"):
+                    elif mode == "stderrre" or (mode == "stderr" and detail == "re"):
                         result.parseStderr(body, true)
-                    elif modedetail != "":
-                        fatal &"Invalid mode detail {modedetail} for mode {mode} in test {name} at {path}."
+                    elif detail != "":
+                        fatal &"Invalid mode detail {detail} for mode {mode} in test {name} at {path}."
                     # non-modedetail modes below:
                     elif mode == "stdin":
                         result.parseStdin(body)
@@ -64,35 +98,40 @@ proc buildTest(lines: seq[string], i: var int, name: string, path: string): Test
                         fatal &"Invalid mode {mode} for test {name} at {path}."
                     inside = false
                     mode = ""
-                    modedetail = ""
+                    detail = ""
                     body = ""
+                else:
+                    discard # it's inside, so let's pretend it's not modal and let it get added to the body
             else:
-                if parts[0] == "skip":
+                if mode == "skip":
                     result.skip()
                 else:
+                    # start a new mode
                     inside = true
-                    mode = parts[0]
-                    if parts.len() > 1:
-                        modedetail = parts[1]
-                    else:
-                        modedetail = ""
-        elif line =~ re"^[ \t]*$":
-            discard # nothing interesting
+                    mode = parsed.mode
+                    detail = parsed.detail
         elif inside:
             body &= line & "\n"
         else:
             # invalid
-            fatal &"Invalid test code: {line} in test {name} at {path}"
+            fatal &"Invalid code inside a test: {line} in test {name} at {path}"
+        inc i
 
 proc buildTestFile(path: string): seq[Test] =
-    log(LogLevel.Debug, &"Building test {path}")
-    let lines = path.split('\n') 
+    log(LogLevel.Debug, &"Checking {path} for tests")
+    let lines = path.readFile().split('\n') 
     var i = 0
     while i < lines.len():
-        let line = lines[i]
-        if line =~ re"\[Test:[ \t]*(.*)[ \t*]\]":
-            let testname = matches[0]
-            result.add buildTest(lines, i, testname, path)
+        let line = lines[i].strip()
+        let parsed = line.parseModalLine()
+        if parsed.modal:
+            if parsed.mode == "test":
+                let testname = parsed.detail
+                log(LogLevel.Debug, &"Building test {testname} at {path}")
+                result.add buildTest(lines, i, testname, path)
+            else:
+                fatal &"Invalid mode at root-level {parsed.mode} at line {i} of file {path}."
+        # root can only contain "test" modes, anything else is just a comment
         inc i
         
 proc buildTests*(testDir: string): seq[Test] =
@@ -102,6 +141,9 @@ proc buildTests*(testDir: string): seq[Test] =
             log(LogLevel.Debug, &"Descending into dir {candidate}")
             result &= buildTests(candidate)
         else:
-            result &= buildTestFile(candidate)
+            try:
+                result &= buildTestFile(candidate)
+            except:
+                log(LogLevel.Error, &"Building test file {candidate} failed")
 
 

@@ -105,6 +105,7 @@ proc parsePython*(test: Test, source: string) =
     discard # TODO
 
 proc newTest*(name: string, path: string): Test =
+    new(result)
     result.path = path
     result.name = name
 

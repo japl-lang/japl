@@ -1,3 +1,5 @@
+[Test: fibonacci]
+[source: mixed]
 fun fib(n) {
     if (n < 2)
         return n;
@@ -12,3 +14,5 @@ print(fib(6));//stdout:8
 print(fib(7));//stdout:13
 print(fib(8));//stdout:21
 print(fib(9));//stdout:34
+[end]
+[end]
