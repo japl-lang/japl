@@ -26,7 +26,7 @@ proc parseModalLine(line: string): tuple[modal: bool, mode: string, detail: stri
     result.modal = false
     result.mode = ""
     result.detail = ""
-    if line[0] == '[':
+    if line.len() > 0 and line[0] == '[':
         result.modal = true
     else:
         return result
@@ -144,6 +144,8 @@ proc buildTests*(testDir: string): seq[Test] =
             try:
                 result &= buildTestFile(candidate)
             except:
+                write stderr, getCurrentExceptionMsg()
+                write stderr, getCurrentException().getStacktrace()
                 log(LogLevel.Error, &"Building test file {candidate} failed")
 
 

@@ -56,7 +56,7 @@ proc log*(level: LogLevel, msg: string) =
         setForegroundColor(fgDefault)
 
 proc fatal*(msg: string) =
-    write stderr, msg
+    echo "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
     log(LogLevel.Fatal, msg)
     raise newException(CatchableError, msg)
 
