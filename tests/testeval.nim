@@ -42,7 +42,8 @@ proc printResults*(tests: seq[Test]): bool =
                 inc skipped
             of TestResult.Mismatch:
                 inc fail
-                log(LogLevel.Debug, &"[{test.path}\noutput:\n{test.output}\nerror:\n{test.error}\nexpected output:\n{test.expectedOutput}\nexpectedError:\n{test.expectedError}\n]")
+                log(LogLevel.Debug, &"[{test.path}\nstdout:\n{test.output}\nstderr:\n{test.error}\nexpected stdout:\n{test.expectedOutput}\nexpected stderr:\n{test.expectedError}\n]")
+                log(LogLevel.Debug, &"\nMismatch pos for stdout: {test.mismatchPos}\nMismatch pos for stderr: {test.errorMismatchPos}")
             of TestResult.Crash:
                 inc crash
                 log(LogLevel.Debug, &"{test.path} \ncrash:\n{test.output}")
@@ -53,5 +54,4 @@ proc printResults*(tests: seq[Test]): bool =
     let finalLevel = if fail == 0 and crash == 0: LogLevel.Info else: LogLevel.Error
     log(finalLevel, &"{tests.len()} tests: {success} succeeded, {skipped} skipped, {fail} failed, {crash} crashed.")
     result = fail == 0 and crash == 0
-
 

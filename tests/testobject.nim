@@ -51,6 +51,8 @@ type
         cycles*: int
         # after evaluation
         result*: TestResult
+        mismatchPos*: int # only for result mismatch
+        errorMismatchPos*: int # same but for stderr
 
 # Helpers for building tests:
 
@@ -108,9 +110,24 @@ proc newTest*(name: string, path: string): Test =
     new(result)
     result.path = path
     result.name = name
+    result.mismatchPos = -1
+    result.errorMismatchPos = -1
 
 proc skip*(test: Test) =
     test.result = TestResult.Skip
+
+# Expected line displayer
+proc `$`*(el: ExpectedLine): string =
+    case el.kind:
+        of ExpectedLineKind.Raw:
+            result &= "raw \""
+        of ExpectedLineKind.Regex:
+            result &= "regex \""
+    result &= el.content & "\""
+
+proc `$`*(els: seq[ExpectedLine]): string =
+    for el in els:
+        result &= $el & "\n"
 
 # Helpers for running tests
 
@@ -150,6 +167,8 @@ proc toStrip(input: string): string =
 
 
 proc eval*(test: Test): bool =
+    echo repr test.output.toStrip().split('\n')
+    echo repr test.expectedOutput
     let
         outputLines = test.output.toStrip().split('\n')
         errorLines = test.error.toStrip().split('\n')
@@ -158,29 +177,35 @@ proc eval*(test: Test): bool =
         if outputLines.len() - 1 == test.expectedOutput.len() and outputLines[outputLines.high()].strip() == "":
             discard
         else:
+            test.mismatchPos = outputLines.len()
             return false
     if test.expectedError.len() != errorLines.len():
         if errorLines.len() - 1 == test.expectedError.len() and errorLines[errorLines.high()].strip() == "":
             discard
         else:
+            test.errorMismatchPos = errorLines.len()
             return false
     for i in countup(0, test.expectedOutput.high()):
         let line = test.expectedOutput[i]
         case line.kind:
             of ExpectedLineKind.Raw:
                 if line.content.strip() != outputLines[i].strip():
+                    test.mismatchPos = i
                     return false
             of ExpectedLineKind.Regex:
                 if not outputLines[i].strip().match(re(line.content.strip())):
+                    test.mismatchPos = i
                     return false
     for i in countup(0, test.expectedError.high()):
         let line = test.expectedError[i]
         case line.kind:
             of ExpectedLineKind.Raw:
                 if line.content.strip() != errorLines[i].strip():
+                    test.errorMismatchPos = i
                     return false
             of ExpectedLineKind.Regex:
                 if not errorLines[i].strip().match(re(line.content.strip())):
+                    test.errorMismatchPos = i
                     return false
 
     return true

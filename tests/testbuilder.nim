@@ -61,23 +61,28 @@ proc parseModalLine(line: string): tuple[modal: bool, mode: string, detail: stri
 proc buildTest(lines: seq[string], i: var int, name: string, path: string): Test =
     result = newTest(name, path)
     # since this is a very simple parser, some state can reduce code length
+    inc i # to discard the first "test" mode
     var mode: string
     var detail: string
-    var inside: bool
+    var inside: bool = false
     var body: string
     while i < lines.len():
-        let line = lines[i].strip()
-        let parsed = parseModalLine(line)
+        let line = lines[i]
+        let parsed = parseModalLine(line.strip())
         let modal = parsed.modal
         if parsed.modal:
             if inside:
-                if mode == "end":
+                if parsed.mode == "end":
                     # end inside
+                    echo "end"
                     if mode == "source" and (detail == "" or detail == "mixed"):
                         result.parseMixed(body)
+                        echo "mixed " & body
                     elif mode == "source" and detail == "raw":
+                        echo "parse source " & body
                         result.parseSource(body)
                     elif mode == "stdout" and (detail == ""):
+                        echo "stdout " & body
                         result.parseStdout(body)
                     elif mode == "stdoutre" or (mode == "stdout" and detail == "re"):
                         result.parseStdout(body, true)
@@ -101,16 +106,21 @@ proc buildTest(lines: seq[string], i: var int, name: string, path: string): Test
                     detail = ""
                     body = ""
                 else:
-                    discard # it's inside, so let's pretend it's not modal and let it get added to the body
-            else:
+                    fatal &"Invalid mode {parsed.mode} when inside a block."
+            else: # still if modal, but not inside
+                echo "not inside"
                 if mode == "skip":
                     result.skip()
+                elif mode == "end":
+                    # end of test
+                    return result
                 else:
+                    echo "mode " & parsed.mode
                     # start a new mode
                     inside = true
                     mode = parsed.mode
                     detail = parsed.detail
-        elif inside:
+        elif inside: # when not modal
             body &= line & "\n"
         else:
             # invalid
