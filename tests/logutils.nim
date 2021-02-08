@@ -27,9 +27,9 @@ type LogLevel* {.pure.} = enum
     Fatal # always printed with red, halts the entire suite (test parsing errors, printed with red)
 
 # don't move this to testglobals/testconfig
-const echoedLogs = {LogLevel.Info, LogLevel.Error, LogLevel.Stdout}
-const echoedLogsSilent = {LogLevel.Error}
-const savedLogs = {LogLevel.Debug, LogLevel.Info, LogLevel.Error}
+const echoedLogs = {LogLevel.Info, LogLevel.Error, LogLevel.Fatal}
+const echoedLogsSilent = {LogLevel.Error, LogLevel.Fatal} # will be echoed even if test suite is silent
+const savedLogs = {LogLevel.Debug, LogLevel.Info, LogLevel.Error, LogLevel.Fatal}
 const progbarLength = 25
 
 const logColors = [LogLevel.Debug: fgDefault, LogLevel.Info: fgGreen, LogLevel.Error: fgYellow, LogLevel.Fatal: fgRed]
@@ -71,13 +71,15 @@ proc newBuffer*: Buffer =
     new(result)
 
 proc updateProgressBar*(buf: Buffer, text: string, total: int, current: int) =
+    if total <= 0:
+        return
     var newline = ""
     newline &= "["
     let ratio = current / total
     let filledCount = int(ratio * progbarLength)
     if filledCount > 0:
         newline &= "=".repeat(filledCount)
-    if filledCount < progbarLength:
+    if progbarLength - filledCount - 1 > 0:
         newline &= " ".repeat(progbarLength - filledCount - 1)
     newline &= &"] ({current}/{total}) {text}"
     # to avoid process switching during half-written progress bars and whatnot all terminal editing happens at the end

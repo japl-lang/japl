@@ -24,5 +24,5 @@ const timeout* = 100 # number of cycles after which a test is killed for timeout
 
 var testRunner* = "jatr"
 
-const outputStripReplaces* = [ "\[DEBUG.*\n", "[\n\r ]*$" ]
+const outputStripReplaces* = [ r"\[DEBUG.*\n", r"[\n\r ]*$" ]
 const outputStripReplaceTargets* = [ "", "" ]

@@ -23,21 +23,10 @@ import streams
 import strformat
 import testconfig
 
-proc evalTest(test: Test) =
-    test.output = test.output.tuStrip()
-    test.error = test.error.tuStrip()
-    test.expectedOutput = test.expectedOutput.tuStrip()
-    test.expectedError = test.expectedError.tuStrip()
-    if test.output != test.expectedOutput or test.error != test.expectedError:
-        test.result = TestResult.Mismatch
-    else:
-        test.result = TestResult.Success
-
-
 proc evalTests*(tests: seq[Test]) =
     for test in tests:
         if test.result == TestResult.ToEval:
-            evalTest(test)
+            test.result = if test.eval(): TestResult.Success else: TestResult.Mismatch
 
 
 proc printResults*(tests: seq[Test]): bool =

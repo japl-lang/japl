@@ -16,9 +16,11 @@
 
 import nim/nimtests
 import testobject
-import testutils
 import logutils
 import testconfig
+import testbuilder
+import testrun
+import testeval
 
 import os
 import strformat

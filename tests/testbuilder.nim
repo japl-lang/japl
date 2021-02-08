@@ -18,6 +18,8 @@ import testconfig
 
 import os
 import strutils
+import sequtils
+import strformat
 import re
 
 proc buildTest(lines: seq[string], i: var int, name: string, path: string): Test =
@@ -31,7 +33,9 @@ proc buildTest(lines: seq[string], i: var int, name: string, path: string): Test
         let line = lines[i]
         if line =~ re"^[ \t]*\[[ \t]*(.*)[ \t]*\][ \t]*$":
             let content = matches[0]
-            let parts = content.split(':').map(strip)
+            var parts: seq[string]
+            for part in content.split(':'):
+                parts.add(part.strip())
             if inside:
                 if parts[0] == "end":
                     # end inside
@@ -89,6 +93,7 @@ proc buildTestFile(path: string): seq[Test] =
         if line =~ re"\[Test:[ \t]*(.*)[ \t*]\]":
             let testname = matches[0]
             result.add buildTest(lines, i, testname, path)
+        inc i
         
 proc buildTests*(testDir: string): seq[Test] =
     for candidateObj in walkDir(testDir):
