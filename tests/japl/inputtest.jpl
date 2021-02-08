@@ -1,3 +1,22 @@
+[Test: inputtest]
+[source: mixed]
 //stdin:Hello world!
 print(readLine());
 //stdout:Hello world!
+[end]
+[end]
+
+[Test: inputtesttwo]
+
+[source: raw]
+print(readLine());
+[end]
+
+[stdin]
+Hello world!
+[end]
+
+[stdout]
+Hello world!
+[end]
+[end]

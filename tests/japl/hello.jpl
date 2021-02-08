@@ -1,4 +1,6 @@
+[Test: hello]
+[source:mixed]
 print("Hello, world.");
 //stdout:Hello, world.
-
-//stdout:
+[end]
+[end]

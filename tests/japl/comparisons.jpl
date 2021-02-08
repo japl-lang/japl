@@ -1,3 +1,5 @@
+[Test: comparisons]
+[source: mixed]
 var x = 4;
 var y = 5;
 var z = 6;
@@ -40,3 +42,5 @@ if (8 <= z)
     print("15");
 else
     print("16");//stdout:16
+[end]
+[end]

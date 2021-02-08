@@ -55,9 +55,13 @@ proc log*(level: LogLevel, msg: string) =
         echo msg
         setForegroundColor(fgDefault)
 
+type FatalError* = ref object of CatchableError
+
 proc fatal*(msg: string) =
     log(LogLevel.Fatal, msg)
-    raise newException(CatchableError, msg)
+    let e = new(FatalError)
+    e.msg = msg
+    raise e
 
 proc getTotalLog*: string =
     totalLog
@@ -67,7 +71,7 @@ type Buffer* = ref object
     previous: string
 
 proc newBuffer*: Buffer =
-    hideCursor()
+#    hideCursor()
     new(result)
 
 proc updateProgressBar*(buf: Buffer, text: string, total: int, current: int) =
@@ -89,7 +93,7 @@ proc updateProgressBar*(buf: Buffer, text: string, total: int, current: int) =
     buf.contents = newline
 
 proc clearLineAndWrite(text: string, oldsize: int) =
-    write stdout, text & "\r"
+    write stdout, "\r" & text & "\r"
 
 proc render*(buf: Buffer) =
     if verbose: #and buf.previous != buf.contents:

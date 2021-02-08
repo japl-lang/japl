@@ -1,3 +1,5 @@
+[Test: reassignment]
+[source: mixed]
 {
     var x = 5;
     var y = x;
@@ -23,3 +25,5 @@ fun resetter(x) {
 var q = 5;
 resetter(q);//stdout:7
 print(q);//stdout:5
+[end]
+[end]

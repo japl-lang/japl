@@ -1,3 +1,6 @@
+[Test: all]
+[skip]
+[source: mixed]
 // Example file to test JAPL's syntax
 
 // Mathematical expressions
@@ -137,3 +140,5 @@ mark.greet();
 "implicit start"[:5]; // From 0 to 5
 "hello" + " world"; // Strings are immutable!
 "hello" * 3; //hellohellohello
+[end]
+[end]

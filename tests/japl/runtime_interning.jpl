@@ -1,3 +1,6 @@
+[Test: runtimeinterning]
+[skip]
+[source: mixed]
 //runtime interning
 
 var f = "leafy";
@@ -11,5 +14,5 @@ print(h is j);//stdout:true
 var x = "ex";
 var y = "ey";
 print(x is y);//stdout:false
-
-
+[end]
+[end]

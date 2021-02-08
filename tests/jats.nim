@@ -36,7 +36,7 @@ type
     DebugAction {.pure.} = enum
         Interactive, Stdout
     QuitValue {.pure.} = enum
-        Success, Failure, ArgParseErr, InternalErr, Interrupt
+        Success, Failure, ArgParseErr, Unreachable, Interrupt, JatrNotFound, UncaughtException
 
 when isMainModule:
     var optparser = initOptParser(commandLineParams())
@@ -132,7 +132,7 @@ Flags:
         discard
     else:
         echo &"Unknown action {action}, please contact the devs to fix this."
-        quit int(QuitValue.InternalErr)
+        quit int(QuitValue.Unreachable)
     setVerbosity(verbose)
     setLogfiles(targetFiles)
     # start of JATS
@@ -143,10 +143,15 @@ Flags:
         runNimTests()
         var jatr = "jatr"
         var testDir = "japl"
-        if not fileExists(jatr) and fileExists("tests" / jatr):
-            log(LogLevel.Debug, &"Must be in root: prepending \"tests\" to paths")
-            jatr = "tests" / jatr
-            testDir = "tests" / testDir
+        if not fileExists(jatr):
+            if fileExists("tests" / jatr):
+                log(LogLevel.Debug, &"Must be in root: prepending \"tests\" to paths")
+                jatr = "tests" / jatr
+                testDir = "tests" / testDir
+            else:
+                echo "The tests directory couldn't be found."
+                quit int(QuitValue.JatrNotFound)
+        testRunner = jatr
         log(LogLevel.Info, &"Running JAPL tests.")
         log(LogLevel.Info, &"Building tests...")
         let tests: seq[Test] = buildTests(testDir)
@@ -169,8 +174,9 @@ Flags:
         # special options to view the entire debug log
     except:
         errorDisplay()  
-        writeLine stderr, getCurrentExceptionMsg()
-        writeStacktrace()
+        writeLine stdout, getCurrentExceptionMsg()
+        writeLine stdout, getCurrentException().getStackTrace()
+        quit(int(QuitValue.UncaughtException))
         
     finally:
         let logs = getTotalLog()

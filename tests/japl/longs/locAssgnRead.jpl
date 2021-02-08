@@ -1,3 +1,5 @@
+[Test: loc_assgn_read]
+[source: mixed]
 {
 var a0 = 9103;
 var a1 = 4565;
@@ -1501,3 +1503,5 @@ print(a722);//stdout:5380
 print(a538);//stdout:8625
 print(a809);//stdout:4506
 }
+[end]
+[end]

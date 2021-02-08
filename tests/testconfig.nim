@@ -14,15 +14,11 @@
 
 const jatsVersion* = "(dev)"
 
-# Tests that represent not-yet implemented behaviour
-const exceptions* = ["all.jpl", "for_with_function.jpl", "runtime_interning.jpl"]
-# TODO: for_with_function.jpl should already be implemented, check on it
-
 var maxAliveTests* = 16 # number of tests that can run parallel
 const testWait* = 100 # number of milliseconds per cycle
-const timeout* = 100 # number of cycles after which a test is killed for timeout
+const timeout* = 50 # number of cycles after which a test is killed for timeout
 
 var testRunner* = "jatr"
 
-const outputStripReplaces* = [ r"\[DEBUG.*\n", r"[\n\r ]*$" ]
-const outputStripReplaceTargets* = [ "", "" ]
+const outputStripReplaces* = [ r"\[DEBUG[^\n]*$" ]
+const outputStripReplaceTargets* = [ "" ]

@@ -1,4 +1,15 @@
+[Test: read_in_own_init]
+[source: mixed]
 var a = 1; { var a = a; }
-//stdout:A fatal error occurred while compiling '''', line 1, at ';' -> cannot read local variable in its own initializer
+//stderr:A fatal error occurred while compiling '''', line 1, at ';' -> cannot read local variable in its own initializer
+[end]
+[end]
 
-//stdout:
+[Test: read_in_own_init_regex]
+[source: raw]
+var a = 1; { var a = a; }
+[end]
+[stderr: re]
+[[^\-]*-> cannot read local variable in its own initializer
+[end]
+[end]

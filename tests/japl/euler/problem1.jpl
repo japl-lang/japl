@@ -1,3 +1,5 @@
+[Test: problem1]
+[source: mixed]
 // Task: find the multiples of 3 and 5 below 1000, find their sum
 
 var sum = 0;
@@ -9,3 +11,5 @@ for (var x = 3; x < 1001; x = x + 1)
     }
 }
 print(sum);//stdout:234168
+[end]
+[end]

@@ -63,7 +63,7 @@ proc compileExpectedOutput(source: string, rawkw: string, rekw: string): seq[Exp
     for line in source.split('\n'):
         if line =~ re("^.*//" & rawkw & ":[ ]?(.*)$"):
             result &= genEL(matches[0], ExpectedLineKind.Raw)
-        elif line =~ re("^.*//" & rekw & ":[ ]?(.*$"):
+        elif line =~ re("^.*//" & rekw & ":[ ]?(.*)$"):
             result &= genEL(matches[0], ExpectedLineKind.Regex)
 
 proc compileExpectedOutput(source: string): seq[ExpectedLine] =
@@ -82,7 +82,6 @@ proc parseMixed*(test: Test, source: string) =
     test.expectedOutput = compileExpectedOutput(source)
     test.expectedError = compileExpectedError(source)
     test.input = compileInput(source)
-    test.result = TestResult.Unstarted
 
 proc parseSource*(test: Test, source: string) =
     test.source &= source
@@ -100,6 +99,13 @@ proc parseStdout*(test: Test, source: string, regex: bool = false, stderr: bool 
         else:
             test.expectedOutput.add(genEL(line, kind))
 
+    if stderr:
+        while test.expectedError.len() > 0 and test.expectedError[test.expectedError.high()].content == "":
+            discard test.expectedError.pop()
+    else:
+        while test.expectedOutput.len() > 0 and test.expectedOutput[test.expectedOutput.high()].content == "":
+            discard test.expectedOutput.pop()
+
 proc parseStderr*(test: Test, source: string, regex: bool = false) =
     parseStdout(test, source, regex, true)
 
@@ -108,6 +114,7 @@ proc parsePython*(test: Test, source: string) =
 
 proc newTest*(name: string, path: string): Test =
     new(result)
+    result.result = TestResult.Unstarted
     result.path = path
     result.name = name
     result.mismatchPos = -1
@@ -160,31 +167,36 @@ proc running*(test: Test): bool =
 
 # Helpers for evaluating tests
 
-proc toStrip(input: string): string =
-    var text = input
-    for i in countup(0, outputStripReplaces.high()):
-        text = text.replace(outputStripReplaces[i], outputStripReplaceTargets[i])
+proc stdStrip(input: string): seq[string] =
+    var lines = input.split('\n')
+    var toRemove: seq[int]
+    for i in countup(0, lines.high()):
+        template line: string = lines[i]
+        let hadContent = line.len() > 0
+        for op in countup(0, outputStripReplaces.high()):
+            line = line.replace(re(outputStripReplaces[op]), outputStripReplaceTargets[op])
+        if hadContent and line.len() == 0:
+            toRemove.add(i)
+    
+    for i in toRemove:
+        lines.delete(i)
 
+    while lines.len() > 0 and lines[lines.high()] == "":
+        discard lines.pop()
+    lines
 
 proc eval*(test: Test): bool =
-    echo repr test.output.toStrip().split('\n')
-    echo repr test.expectedOutput
     let
-        outputLines = test.output.toStrip().split('\n')
-        errorLines = test.error.toStrip().split('\n')
+        outputLines = test.output.stdStrip()
+        errorLines = test.error.stdStrip()
 
     if test.expectedOutput.len() != outputLines.len():
-        if outputLines.len() - 1 == test.expectedOutput.len() and outputLines[outputLines.high()].strip() == "":
-            discard
-        else:
-            test.mismatchPos = outputLines.len()
-            return false
+        test.mismatchPos = outputLines.len()
+        return false
     if test.expectedError.len() != errorLines.len():
-        if errorLines.len() - 1 == test.expectedError.len() and errorLines[errorLines.high()].strip() == "":
-            discard
-        else:
-            test.errorMismatchPos = errorLines.len()
-            return false
+        test.errorMismatchPos = errorLines.len()
+        return false
+
     for i in countup(0, test.expectedOutput.high()):
         let line = test.expectedOutput[i]
         case line.kind:

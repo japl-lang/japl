@@ -21,21 +21,39 @@ import strutils
 import sequtils
 import strformat
 
-proc parseModalLine(line: string): tuple[modal: bool, mode: string, detail: string] =
+proc parseModalLine(line: string): tuple[modal: bool, mode: string, detail: string, comment: bool] =
+
+    # when non modal, mode becomes the line
+    # when comment is true, it must not do anything to whenever it is exported
+
     let line = line.strip()
     result.modal = false
     result.mode = ""
     result.detail = ""
+    result.comment = false
+
     if line.len() > 0 and line[0] == '[':
+        if line.len() > 1:
+            if line[1] == '[':
+                result.mode = line[1..line.high()]
+                return result 
+            elif line[1] == ';':
+                result.comment = true
+                result.modal = true
+                return result
+            elif line[1] == ']':
+                result.mode = line[2..line.high()]
+                return result
         result.modal = true
     else:
+        result.mode = line
         return result
-    
+
     var colon = false
 
     for i in countup(0, line.high()):
         let ch = line[i]
-        if ch in Letters:
+        if ch in Letters or ch in Digits or ch in {'_', '-'}:
             if colon:
                 result.detail &= ($ch).toLower()
             else:
@@ -67,22 +85,17 @@ proc buildTest(lines: seq[string], i: var int, name: string, path: string): Test
     var inside: bool = false
     var body: string
     while i < lines.len():
-        let line = lines[i]
-        let parsed = parseModalLine(line.strip())
-        let modal = parsed.modal
-        if parsed.modal:
+        let parsed = parseModalLine(lines[i].strip())
+        let line = parsed.mode
+        if parsed.modal and not parsed.comment:
             if inside:
                 if parsed.mode == "end":
                     # end inside
-                    echo "end"
                     if mode == "source" and (detail == "" or detail == "mixed"):
                         result.parseMixed(body)
-                        echo "mixed " & body
                     elif mode == "source" and detail == "raw":
-                        echo "parse source " & body
                         result.parseSource(body)
                     elif mode == "stdout" and (detail == ""):
-                        echo "stdout " & body
                         result.parseStdout(body)
                     elif mode == "stdoutre" or (mode == "stdout" and detail == "re"):
                         result.parseStdout(body, true)
@@ -106,22 +119,24 @@ proc buildTest(lines: seq[string], i: var int, name: string, path: string): Test
                     detail = ""
                     body = ""
                 else:
-                    fatal &"Invalid mode {parsed.mode} when inside a block."
+                    fatal &"Invalid mode {parsed.mode} when inside a block (currently in mode {mode})."
             else: # still if modal, but not inside
-                echo "not inside"
-                if mode == "skip":
+                if parsed.mode == "skip":
                     result.skip()
-                elif mode == "end":
+                elif parsed.mode == "end":
                     # end of test
                     return result
                 else:
-                    echo "mode " & parsed.mode
                     # start a new mode
                     inside = true
                     mode = parsed.mode
                     detail = parsed.detail
+        elif parsed.comment:
+            discard
         elif inside: # when not modal
             body &= line & "\n"
+        elif line.strip().len() == 0:
+            discard # whitespace
         else:
             # invalid
             fatal &"Invalid code inside a test: {line} in test {name} at {path}"
@@ -132,16 +147,17 @@ proc buildTestFile(path: string): seq[Test] =
     let lines = path.readFile().split('\n') 
     var i = 0
     while i < lines.len():
-        let line = lines[i].strip()
-        let parsed = line.parseModalLine()
-        if parsed.modal:
+        let parsed = lines[i].strip().parseModalLine()
+        let line = parsed.mode
+        if parsed.modal and not parsed.comment:
             if parsed.mode == "test":
                 let testname = parsed.detail
                 log(LogLevel.Debug, &"Building test {testname} at {path}")
                 result.add buildTest(lines, i, testname, path)
             else:
                 fatal &"Invalid mode at root-level {parsed.mode} at line {i} of file {path}."
-        # root can only contain "test" modes, anything else is just a comment
+        
+        # root can only contain "test" modes, anything else is just a comment (including modal and non modal comments)
         inc i
         
 proc buildTests*(testDir: string): seq[Test] =
@@ -153,6 +169,8 @@ proc buildTests*(testDir: string): seq[Test] =
         else:
             try:
                 result &= buildTestFile(candidate)
+            except FatalError:
+                discard
             except:
                 write stderr, getCurrentExceptionMsg()
                 write stderr, getCurrentException().getStacktrace()

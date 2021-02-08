@@ -1,3 +1,5 @@
+[Test: booleans]
+[source: mixed]
 print(2 or 3);//stdout:2
 print(2 and 3);//stdout:3
 print(false or true);//stdout:true
@@ -19,3 +21,5 @@ print(not 0);//stdout:true
 print(not 1);//stdout:false
 print(not 1 and not 2);//stdout:false
 print(not (1 and 0));//stdout:true
+[end]
+[end]

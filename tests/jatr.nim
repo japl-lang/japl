@@ -36,5 +36,6 @@ try:
 except:
     let error = getCurrentException()
     writeLine stderr, error.msg
+    writeLine stderr, error.getStacktrace()
     quit(1)
        
