@@ -21,6 +21,7 @@ import testconfig
 import testbuilder
 import testrun
 import testeval
+import localization
 
 import os
 import strformat
@@ -43,6 +44,7 @@ when isMainModule:
     var debugActions: seq[DebugAction]
     var targetFiles: seq[string]
     var verbose = true
+    var crash = false
 
     var quitVal = QuitValue.Success
     proc evalKey(key: string) =
@@ -55,6 +57,8 @@ when isMainModule:
             debugActions.add(DebugAction.Interactive)
         elif key == "s" or key == "silent":
             verbose = false
+        elif key == "crash":
+            crash = true
         elif key == "stdout":
             debugActions.add(DebugAction.Stdout)
         else:
@@ -133,6 +137,8 @@ Flags:
     setLogfiles(targetFiles)
     # start of JATS
     try:
+        if crash: 
+            raise newException(CatchableError, "Crash.")
         log(LogLevel.Debug, &"Welcome to JATS")
         runNimTests()
         var jatr = "jatr"
@@ -161,6 +167,11 @@ Flags:
             quitVal = QuitValue.Failure
         log(LogLevel.Debug, &"Quitting JATS.")
         # special options to view the entire debug log
+    except:
+        errorDisplay()  
+        writeLine stderr, getCurrentExceptionMsg()
+        writeStacktrace()
+        
     finally:
         let logs = getTotalLog()
         for action in debugActions:
