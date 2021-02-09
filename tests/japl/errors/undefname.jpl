@@ -1,15 +1,3 @@
-[Test: undefname]
-[source: mixed]
-var a = b;
-//stderr:An unhandled exception occurred, traceback below:
-
-//stderr:  File '''', line 1, in <module>:
-
-//stderr:ReferenceError: undefined name 'b'
-
-[end]
-[end]
-
 [Test: undefname_raw]
 [source: raw]
 var a = b;

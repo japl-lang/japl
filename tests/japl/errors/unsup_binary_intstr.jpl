@@ -1,10 +1,10 @@
 [Test: unsup_binary_instr]
-[source: mixed]
+[source: raw]
 var a = 2 + "hey";
-//stderr:An unhandled exception occurred, traceback below:
-
-//stderr:  File '''', line 1, in <module>:
-
-//stderr:TypeError: unsupported binary operator '+' for objects of type 'integer' and 'string'
+[end]
+[stderr]
+An unhandled exception occurred, traceback below:
+  File '''', line 1, in <module>:
+TypeError: unsupported binary operator '+' for objects of type 'integer' and 'string'
 [end]
 [end]

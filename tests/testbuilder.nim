@@ -89,9 +89,9 @@ proc buildTest(lines: seq[string], i: var int, name: string, path: string): Test
             if inside:
                 if parsed.mode == "end":
                     # end inside
-                    if mode == "source" and (detail == "" or detail == "mixed"):
+                    if mode == "source" and (detail == "mixed"):
                         result.parseMixed(body)
-                    elif mode == "source" and detail == "raw":
+                    elif mode == "source" and (detail == "raw" or detail == ""):
                         result.parseSource(body)
                     elif mode == "stdout" or mode == "stderr":
                         let err = (mode == "stderr")
@@ -138,6 +138,7 @@ proc buildTest(lines: seq[string], i: var int, name: string, path: string): Test
         elif inside: # when not modal
             body &= line & "\n"
         inc i
+    fatal &"Test mode unfinished (missing [end]?)."
 
 proc buildTestFile(path: string): seq[Test] =
     log(LogLevel.Debug, &"Checking {path} for tests")

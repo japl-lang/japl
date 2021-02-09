@@ -1,12 +1,3 @@
-[Test: inputtest]
-[skip]
-[source: mixed]
-//stdin:Hello world!
-print(readLine());
-//stdout:Hello world!
-[end]
-[end]
-
 [Test: inputtesttwo]
 [skip]
 [source: raw]

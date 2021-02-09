@@ -1,6 +1,0 @@
-[Test: hello]
-[source:mixed]
-print("Hello, world.");
-//stdout:Hello, world.
-[end]
-[end]
