@@ -3,7 +3,7 @@
 var a = 2 + "hey";
 //stderr:An unhandled exception occurred, traceback below:
 
-//stderr:   File '''', line 1, in <module>:
+//stderr:  File '''', line 1, in <module>:
 
 //stderr:TypeError: unsupported binary operator '+' for objects of type 'integer' and 'string'
 [end]

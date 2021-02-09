@@ -54,7 +54,7 @@ proc printResults*(tests: seq[Test]): bool =
                 inc killed
             else:
                 log(LogLevel.Error, &"Probably a testing suite bug: test {test.path} has result {test.result}. Refer to testeval.nim/printResults.")
-    let finalLevel = if fail == 0 and crash == 0: LogLevel.Info else: LogLevel.Error
+    let finalLevel = if fail == 0 and crash == 0 and killed == 0: LogLevel.Info else: LogLevel.Error
     log(finalLevel, &"{tests.len()} tests: {success} succeeded, {skipped} skipped, {fail} failed, {killed} killed, {crash} crashed.")
     result = fail == 0 and crash == 0
 

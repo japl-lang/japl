@@ -1,4 +1,5 @@
 [Test: inputtest]
+[skip]
 [source: mixed]
 //stdin:Hello world!
 print(readLine());
@@ -7,7 +8,7 @@ print(readLine());
 [end]
 
 [Test: inputtesttwo]
-
+[skip]
 [source: raw]
 print(readLine());
 [end]

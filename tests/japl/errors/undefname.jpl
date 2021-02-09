@@ -3,7 +3,7 @@
 var a = b;
 //stderr:An unhandled exception occurred, traceback below:
 
-//stderr:   File '''', line 1, in <module>:
+//stderr:  File '''', line 1, in <module>:
 
 //stderr:ReferenceError: undefined name 'b'
 
@@ -16,7 +16,7 @@ var a = b;
 [end]
 [stderr]
 An unhandled exception occurred, traceback below:
-[]  File '''', line 1, in <module>:
+  File '''', line 1, in <module>:
 ReferenceError: undefined name 'b'
 [end]
 [end]

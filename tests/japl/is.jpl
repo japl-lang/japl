@@ -1,4 +1,5 @@
 [Test: is]
+[skip]
 [source:mixed]
 var x = 4;
 var y = x;

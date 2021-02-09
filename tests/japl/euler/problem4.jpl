@@ -1,4 +1,5 @@
 [Test: problem4]
+[skip]
 [source: mixed]
 // Find the largest palindrome that is a product of two 3 digit numbers
 

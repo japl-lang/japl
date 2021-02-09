@@ -26,7 +26,7 @@ proc parseModalLine(line: string): tuple[modal: bool, mode: string, detail: stri
     # when non modal, mode becomes the line
     # when comment is true, it must not do anything to whenever it is exported
 
-    let line = line.strip()
+    let line = line
     result.modal = false
     result.mode = ""
     result.detail = ""
@@ -40,9 +40,6 @@ proc parseModalLine(line: string): tuple[modal: bool, mode: string, detail: stri
             elif line[1] == ';':
                 result.comment = true
                 result.modal = true
-                return result
-            elif line[1] == ']':
-                result.mode = line[2..line.high()]
                 return result
         result.modal = true
     else:
@@ -84,8 +81,9 @@ proc buildTest(lines: seq[string], i: var int, name: string, path: string): Test
     var detail: string
     var inside: bool = false
     var body: string
+    var modeline: int = -1
     while i < lines.len():
-        let parsed = parseModalLine(lines[i].strip())
+        let parsed = parseModalLine(lines[i])
         let line = parsed.mode
         if parsed.modal and not parsed.comment:
             if inside:
@@ -95,31 +93,34 @@ proc buildTest(lines: seq[string], i: var int, name: string, path: string): Test
                         result.parseMixed(body)
                     elif mode == "source" and detail == "raw":
                         result.parseSource(body)
-                    elif mode == "stdout" and (detail == ""):
-                        result.parseStdout(body)
-                    elif mode == "stdoutre" or (mode == "stdout" and detail == "re"):
-                        result.parseStdout(body, true)
-                    elif mode == "stderr" and (detail == ""):
-                        result.parseStderr(body)
-                    elif mode == "stderrre" or (mode == "stderr" and detail == "re"):
-                        result.parseStderr(body, true)
+                    elif mode == "stdout" or mode == "stderr":
+                        let err = (mode == "stderr")
+                        if detail == "":
+                            result.parseStdout(body, err = err)
+                        elif detail == "re":
+                            result.parseStdout(body, re = true, err = err)
+                        elif detail == "nw":
+                            result.parseStdout(body, nw = true, err = err)
+                        elif detail == "nwre":
+                            result.parseStdout(body, nw = true, re = true, err = err)
+                        else:
+                            fatal &"Invalid mode detail {detail} for mode {mode} in test {name} at line {modeline} in {path}. Valid are re, nw and nwre."
                     elif detail != "":
-                        fatal &"Invalid mode detail {detail} for mode {mode} in test {name} at {path}."
+                        fatal &"Invalid mode detail {detail} for mode {mode} in test {name} at line {modeline} in {path}."
                     # non-modedetail modes below:
                     elif mode == "stdin":
                         result.parseStdin(body)
                     elif mode == "python":
                         result.parsePython(body)
-                    elif mode == "comment":
-                        discard # just a comment
                     else:
-                        fatal &"Invalid mode {mode} for test {name} at {path}."
+                        fatal &"Invalid mode {mode} for test {name} at line {modeline} in {path}."
                     inside = false
                     mode = ""
                     detail = ""
                     body = ""
+                    modeline = -1
                 else:
-                    fatal &"Invalid mode {parsed.mode} when inside a block (currently in mode {mode})."
+                    fatal &"Invalid mode {parsed.mode} when inside a block (currently in mode {mode}) at line {i} in {path}."
             else: # still if modal, but not inside
                 if parsed.mode == "skip":
                     result.skip()
@@ -131,15 +132,11 @@ proc buildTest(lines: seq[string], i: var int, name: string, path: string): Test
                     inside = true
                     mode = parsed.mode
                     detail = parsed.detail
+                    modeline = i
         elif parsed.comment:
             discard
         elif inside: # when not modal
             body &= line & "\n"
-        elif line.strip().len() == 0:
-            discard # whitespace
-        else:
-            # invalid
-            fatal &"Invalid code inside a test: {line} in test {name} at {path}"
         inc i
 
 proc buildTestFile(path: string): seq[Test] =
@@ -147,7 +144,7 @@ proc buildTestFile(path: string): seq[Test] =
     let lines = path.readFile().split('\n') 
     var i = 0
     while i < lines.len():
-        let parsed = lines[i].strip().parseModalLine()
+        let parsed = lines[i].parseModalLine()
         let line = parsed.mode
         if parsed.modal and not parsed.comment:
             if parsed.mode == "test":
