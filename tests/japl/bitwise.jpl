@@ -1,3 +1,5 @@
+[Test: bitwise]
+[source: mixed]
 print(~5 | 5);//stdout:-1
 print(1 | 2);//stdout:3
 print(1 & 2);//stdout:0
@@ -7,3 +9,5 @@ print(32 | 64);//stdout:96
 print(96 & 32);//stdout:32
 print(~0);//stdout:-1
 print(~356);//stdout:-357
+[end]
+[end]

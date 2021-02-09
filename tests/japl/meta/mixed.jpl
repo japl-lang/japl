@@ -1,0 +1,19 @@
+[test: mixed]
+[source: mixed]
+print("Hello", readLine());
+//stdout:Hello world
+//stdin:world
+
+print("aaaaaa");
+//stdoutre:a*
+
+printErr("Hello", readLine());
+//stderr:Hello error
+//stdin:error
+
+printErr("bbbbbb");
+//stderrre:b*
+[end]
+[end]
+
+

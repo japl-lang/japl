@@ -1,5 +1,9 @@
+[Test: nan]
+[source: raw]
 print((5/0)*0);
+[end]
+[stdout]
+nan
+[end]
+[end]
 
-//stdout:nan
-
-//stdout:

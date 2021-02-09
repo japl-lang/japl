@@ -1,3 +1,13 @@
-//stdin:Hello world!
+[Test: inputtesttwo]
+[source: raw]
 print(readLine());
-//stdout:Hello world!
+[end]
+
+[stdin]
+Hello world!
+[end]
+
+[stdout]
+Hello world!
+[end]
+[end]

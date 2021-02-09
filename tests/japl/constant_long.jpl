@@ -1,3 +1,5 @@
+[Test: constant_long]
+[source: mixed]
 // Test for constants
 
 var v_1 = 1;
@@ -128,3 +130,5 @@ var v_125 = 1;
 var v_126 = 1;
 var v_127 = 1;
 var v_128 = 1;
+[end]
+[end]

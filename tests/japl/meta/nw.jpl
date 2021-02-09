@@ -1,0 +1,24 @@
+[Test: nw]
+[source]
+print("hey");
+print("second line");
+printErr("hey there");
+print("abcde");
+printErr("12345");
+printErr("0123456789.");
+[end]
+[stdout: nw]
+  hey  
+	second line
+[end]
+[stdout: nwre]
+	[a-z]*  
+[end]
+[stderr: nw]
+  hey there
+[end]
+[stderr: nwre]
+[[0-9]*
+	[0-9]*.
+[end]
+[end]

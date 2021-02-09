@@ -12,28 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+const jatsVersion* = "(dev)"
 
-# Just Another Test Runner for running JAPL tests
-# a testrunner process
+var maxAliveTests* = 16 # number of tests that can run parallel
+const testWait* = 100 # number of milliseconds per cycle
+const timeout* = 50 # number of cycles after which a test is killed for timeout
 
-import ../src/vm
+var testRunner* = "jatr"
 
-
-var btvm = initVM()
-    
-try:
-    var source: string
-    while true:
-        let ch = stdin.readChar()
-        if ch == char(4):
-            break
-        else:
-            source &= ch
-    discard btvm.interpret(source, "")
-    quit(0)
-except:
-    let error = getCurrentException()
-    writeLine stderr, error.msg
-    writeLine stderr, error.getStacktrace()
-    quit(1)
-       
+const outputIgnore* = [ "^DEBUG.*$" ]

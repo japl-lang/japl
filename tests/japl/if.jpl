@@ -1,3 +1,5 @@
+[Test: if]
+[source: mixed]
 var x = 5;
 if (x > 2)
 {
@@ -26,3 +28,5 @@ if (2 == x)
     print("2");
 else
     print("not 2");//stdout:not 2
+[end]
+[end]

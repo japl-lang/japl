@@ -1,3 +1,5 @@
+[Test: shadowing]
+[source: mixed]
 //similar to vars.jpl, but more focused on shadowing
 
 // simple shadowing
@@ -74,3 +76,5 @@ eat();//stdout:nom nom nom
     print(eat);//stdout:5
 }
 eat();//stdout:nom nom nom
+[end]
+[end]

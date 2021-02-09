@@ -1,3 +1,5 @@
+[Test: strings]
+[source: mixed]
 var left = "left";
 var right = "right";
 var directions = left + " " + right;
@@ -10,3 +12,5 @@ left = left + " side";
 print(left);//stdout:left side
 right = "side: " + right;
 print(right);//stdout:side: right
+[end]
+[end]

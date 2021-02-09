@@ -1,8 +1,10 @@
+[Test: undefname_raw]
+[source: raw]
 var a = b;
-//stdout:An unhandled exception occurred, traceback below:
-
-//stdout:   File '''', line 1, in <module>:
-
-//stdout:ReferenceError: undefined name 'b'
-
-//stdout:
+[end]
+[stderr]
+An unhandled exception occurred, traceback below:
+  File '''', line 1, in <module>:
+ReferenceError: undefined name 'b'
+[end]
+[end]

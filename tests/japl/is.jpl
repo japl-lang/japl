@@ -1,3 +1,6 @@
+[Test: is]
+[skip]
+[source:mixed]
 var x = 4;
 var y = x;
 
@@ -19,4 +22,5 @@ print((l is z) is l);//stdout:true
 
 var k;
 print(k is nil);//stdout:true
-
+[end]
+[end]

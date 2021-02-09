@@ -28,14 +28,10 @@ import strformat
 import parseutils
 import strutils
 
-
-
-proc natPrint*(args: seq[ptr Obj]): tuple[kind: retNative, result: ptr Obj] =
-    ## Native function print
-    ## Prints an object representation
-    ## to stdout. If more than one argument
-    ## is passed, they will be printed separated
-    ## by a space
+template join(args: seq[ptr Obj]): string =
+    ## A template that returns the string
+    ## representation of all args separated
+    ## by a space.
     var res = ""
     for i in countup(0, args.high()):
         let arg = args[i]
@@ -43,12 +39,29 @@ proc natPrint*(args: seq[ptr Obj]): tuple[kind: retNative, result: ptr Obj] =
             res = res & arg.stringify() & " "
         else:
             res = res & arg.stringify()
-    echo res
+    res
+
+proc natPrint*(args: seq[ptr Obj]): tuple[kind: retNative, result: ptr Obj] =
+    ## Native function print
+    ## Prints an object representation
+    ## to stdout. If more than one argument
+    ## is passed, they will be printed separated
+    ## by a space
     # Note: we return nil and not asNil() because
     # the VM will later use its own cached pointer
     # to nil
+    echo join(args)
     return (kind: retNative.Nil, result: nil)
 
+proc natPrintErr*(args: seq[ptr Obj]): tuple[kind:
+  retNative, result: ptr Obj] =
+    ## Native function printErr
+    ## Prints an object representation
+    ## to stderr. If more than one argument
+    ## is passed, they will be printed separated
+    ## by a space
+    writeLine stderr, join(args)
+    return (kind: retNative.Nil, result: nil)
 
 proc natReadline*(args: seq[ptr Obj]): tuple[kind: retNative, result: ptr Obj] =
     ## Native function readline

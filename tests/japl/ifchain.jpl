@@ -1,3 +1,5 @@
+[Test: ifchain]
+[source: mixed]
 fun printInt(x) {
     if (x == 1)
         print("one");
@@ -20,3 +22,5 @@ x = 7;
 printInt(x);
 x = 1;
 printInt(x);//stdout:one
+[end]
+[end]

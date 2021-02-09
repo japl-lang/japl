@@ -715,6 +715,7 @@ proc initStdlib*(vm: VM) =
         when DEBUG_TRACE_VM:
             echo "DEBUG - VM: Initializing stdlib"
         vm.defineGlobal("print", newNative("print", natPrint, -1))
+        vm.defineGlobal("printErr", newNative("printErr", natPrintErr, -1))
         vm.defineGlobal("clock", newNative("clock", natClock, 0))
         vm.defineGlobal("round", newNative("round", natRound, -1))
         vm.defineGlobal("toInt", newNative("toInt", natToInt, 1))
