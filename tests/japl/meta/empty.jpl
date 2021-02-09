@@ -1,0 +1,19 @@
+
+[; This is a comment
+
+This is a comment as well.
+
+[[ This is a comment too
+
+[test]
+
+This is a comment as well.
+An empty test should not crash, but it should pass.
+[; more comments
+[[ even more comments
+
+Also note, a test without a name should not crash
+the test builder, but it should be a test with
+the name "".
+
+[end]

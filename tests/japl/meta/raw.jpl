@@ -1,0 +1,25 @@
+[Test: raw]
+[source: raw]
+print("Hi", readLine());
+print("aaaaaaa");
+printErr("Bye", readLine());
+printErr("bbbbbbb");
+//stdout:This is not a part of the expected output
+[end]
+[stdin]
+person
+very important person
+[end]
+[stdout]
+Hi person
+[end]
+[stdout: re]
+a*
+[end]
+[stderr]
+Bye very important person
+[end]
+[stderr: re]
+b*
+[end]
+[end]

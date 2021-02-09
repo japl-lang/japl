@@ -25,6 +25,12 @@ It can stay in this state during parsing, can leave
 it by entering another mode and can
 return to it, by leaving any mode it has entered.
 
+## Test files
+
+Must be utf-8 (for now only ascii was tested).
+Must not contain a BOM. Line endings must be a single 
+`\n`. Please configure your editor to support this.
+
 ## Syntax
 
 ### Mode syntax
