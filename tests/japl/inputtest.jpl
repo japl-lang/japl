@@ -1,5 +1,4 @@
 [Test: inputtesttwo]
-[skip]
 [source: raw]
 print(readLine());
 [end]

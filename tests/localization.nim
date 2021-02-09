@@ -22,10 +22,11 @@ when language == 1:
   const bb* = "VXd1IFdlIG1hZGUgYSBmKmNreSB3dWNreSEhIEEgd2l0dGxlIGYqY2tvIGJvaW5nbyE="
   const cc* = "VGhlIGNvZGUgbW9ua2V5cyBhdCBvdXIgaGVhZHF1YXJ0ZXJzIGFyZSB3b3JraW5nIFZFV1kgSEFXRCB0byBmaXggdGhpcyEK"
 
-proc errorDisplay* =
+proc getCurrentExceptionMessage*: string =
     when language == 1:
         echo decode aa
         echo decode bb
         echo decode cc
+        return getCurrentExceptionMsg()
     else:
         echo "Unsupported language."
