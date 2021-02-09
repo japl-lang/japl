@@ -237,7 +237,7 @@ if __name__ == "__main__":
         parser.add_argument("--verbose", help="Prints debug information to stdout", action="store_true", default=os.getenv("JAPL_VERBOSE"))
         parser.add_argument("--flags", help="Optional flags to be passed to the nim compiler. Must be a comma-separated list of name:value (without spaces)", default=os.getenv("JAPL_FLAGS"))
         parser.add_argument("--options", help="Set compile-time options and constants, pass a comma-separated list of name:value (without spaces)."
-        "Note that if a config.nim file exists in the destination directory, that will override any setting defined here unless --override-config is used", default=os.getenv("JAPL_OPTIONS"))
+        " Note that if a config.nim file already exists in the destination directory, that will override any setting defined here unless --override-config is used", default=os.getenv("JAPL_OPTIONS"))
         parser.add_argument("--override-config", help="Overrides the setting of an already existing config.nim file in the destination directory", action="store_true", default=os.getenv("JAPL_OVERRIDE_CONFIG"))
         parser.add_argument("--skip-tests", help="Skips running the JAPL test suite, useful for debug builds", action="store_true", default=os.getenv("JAPL_SKIP_TESTS"))
         parser.add_argument("--install", help="Tries to move the compiled binary to PATH (this is always disabled on windows)", action="store_true", default=os.environ.get("JAPL_INSTALL"))
