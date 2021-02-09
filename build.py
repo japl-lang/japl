@@ -86,6 +86,7 @@ def run_command(command: str, mode: str = "Popen", **kwargs):
     return code, stderr and stdout
     """
 
+    logging.debug(f"Running '{command}'")
     if mode == "Popen":
         process = Popen(shlex.split(command, posix=os.name != "nt"), **kwargs)
         stdout, stderr = process.communicate()
@@ -165,7 +166,6 @@ def build(path: str, flags: Optional[Dict[str, str]] = {}, options: Optional[Dic
     logging.debug(f"Compiling '{main_path}'")
     nim_flags = " ".join(f"-{name}:{value}" if len(name) == 1 else f"--{name}:{value}" for name, value in flags.items())
     command = "nim {flags} compile {path}".format(flags=nim_flags, path=main_path)
-    logging.debug(f"Running '{command}'")
     logging.info("Compiling JAPL")
     start = time()
     _, stderr, status = run_command(command, stdout=DEVNULL, stderr=PIPE)
@@ -187,7 +187,7 @@ def build(path: str, flags: Optional[Dict[str, str]] = {}, options: Optional[Dic
             if status != 0:
                 logging.error(f"Command '{command}' exited with non-0 exit code {status}, output below:\n{stderr.decode()}")
             else:
-                command = f"nim compile {tests_path}"
+                command = f"nim compile --opt:speed {tests_path}"
                 _, stderr, status = run_command(command, stdout=DEVNULL, stderr=PIPE)
                 if status != 0:
                     logging.error(f"Command '{command}' exited with non-0 exit code {status}, output below:\n{stderr.decode()}")

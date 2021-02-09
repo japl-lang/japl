@@ -14,24 +14,21 @@
 
 import testobject
 import logutils
-import testconfig
 
 import os
 import strutils
-import sequtils
 import strformat
+
 
 proc parseModalLine(line: string): tuple[modal: bool, mode: string, detail: string, comment: bool] =
 
     # when non modal, mode becomes the line
     # when comment is true, it must not do anything to whenever it is exported
-
     let line = line
     result.modal = false
     result.mode = ""
     result.detail = ""
     result.comment = false
-
     if line.len() > 0 and line[0] == '[':
         if line.len() > 1:
             if line[1] == '[':
@@ -45,9 +42,7 @@ proc parseModalLine(line: string): tuple[modal: bool, mode: string, detail: stri
     else:
         result.mode = line
         return result
-
     var colon = false
-
     for i in countup(0, line.high()):
         let ch = line[i]
         if ch in Letters or ch in Digits or ch in {'_', '-'}:
@@ -72,6 +67,7 @@ proc parseModalLine(line: string): tuple[modal: bool, mode: string, detail: stri
             fatal &"Illegal character in <{line}>: {ch}."
     if line[line.high()] != ']':
         fatal &"Line <{line}> must be closed off by ']'."    
+
 
 proc buildTest(lines: seq[string], i: var int, name: string, path: string): Test =
     result = newTest(name, path)
@@ -140,13 +136,13 @@ proc buildTest(lines: seq[string], i: var int, name: string, path: string): Test
         inc i
     fatal &"Test mode unfinished (missing [end]?)."
 
+
 proc buildTestFile(path: string): seq[Test] =
     log(LogLevel.Debug, &"Checking {path} for tests")
     let lines = path.readFile().split('\n') 
     var i = 0
     while i < lines.len():
         let parsed = lines[i].parseModalLine()
-        let line = parsed.mode
         if parsed.modal and not parsed.comment:
             if parsed.mode == "test":
                 let testname = parsed.detail
@@ -157,7 +153,8 @@ proc buildTestFile(path: string): seq[Test] =
         
         # root can only contain "test" modes, anything else is just a comment (including modal and non modal comments)
         inc i
-        
+
+
 proc buildTests*(testDir: string): seq[Test] =
     for candidateObj in walkDir(testDir):
         let candidate = candidateObj.path

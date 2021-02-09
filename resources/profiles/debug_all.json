@@ -8,7 +8,6 @@
         },
  "verbose": true,
  "override_config": true,
- "skip_tests": true,
  "install": true,
  "ignore_binary": true,
  "options": {
