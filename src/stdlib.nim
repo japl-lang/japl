@@ -73,7 +73,7 @@ proc natReadline*(args: seq[ptr Obj]): tuple[kind: retNative, result: ptr Obj] =
     elif args.len() > 0 and not args[0].isStr():
         return (kind: retNative.Exception, result: newTypeError(&"The prompt must be of type 'string', not '{args[0].typeName()}'"))
     if args.len() > 0:
-      stdout.write(args[0].toStr())
+       stdout.write(args[0].toStr())
     return (kind: retNative.Object, result: stdin.readLine().asStr())
 
 
