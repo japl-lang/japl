@@ -68,11 +68,12 @@ proc natReadline*(args: seq[ptr Obj]): tuple[kind: retNative, result: ptr Obj] =
     ## Reads a line from stdin and returns
     ## it as a string, optionally writing
     ## a given prompt to stdout
-    if len(args) > 1:
+    if args.len() > 1:
         return (kind: retNative.Exception, result: newTypeError(&"Function 'readLine' takes 0 to 1 arguments, got {len(args)}"))
-    elif not args[0].isStr():
+    elif args.len() > 0 and not args[0].isStr():
         return (kind: retNative.Exception, result: newTypeError(&"The prompt must be of type 'string', not '{args[0].typeName()}'"))
-    stdout.write(args[0].toStr())
+    if args.len() > 0:
+      stdout.write(args[0].toStr())
     return (kind: retNative.Object, result: stdin.readLine().asStr())
 
 
