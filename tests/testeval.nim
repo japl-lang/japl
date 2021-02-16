@@ -24,12 +24,18 @@ import strformat
 import testconfig
 
 proc evalTests*(tests: seq[Test]) =
+    ## Goes through every test in tests and evaluates all finished
+    ## tests to success or mismatch
     for test in tests:
         if test.result == TestResult.ToEval:
             test.result = if test.eval(): TestResult.Success else: TestResult.Mismatch
 
 
 proc printResults*(tests: seq[Test]): bool =
+    ## Goes through every test in tests and prints the number of good/
+    ## skipped/failed/crashed/killed tests to the screen. It also debug
+    ## logs all failed test details and crash messages. It returns 
+    ## true if no tests {failed | crashed | got killed}.
     var
         skipped = 0
         success = 0

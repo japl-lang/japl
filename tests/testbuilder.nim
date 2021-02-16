@@ -19,9 +19,14 @@ import os
 import strutils
 import strformat
 
+## A rudimentary test builder. Converts test directories to test
+## sequences.
 
 proc parseModalLine(line: string): tuple[modal: bool, mode: string, detail: string, comment: bool] =
-
+    ## parses one line. If it's a line that's a mode (in format [modename: detail] it returns modal: true, else modal: false.
+    ## mode contains the content of the line, if it's modal the mode name
+    ## detail contains the content of the detail of the modename. If empty or non modal ""
+    ## if comment is true, the returned value has to be ignored
     # when non modal, mode becomes the line
     # when comment is true, it must not do anything to whenever it is exported
     let line = line
