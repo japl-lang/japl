@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Test runner supervisor/manager
+## Test runner supervisor/manager
 
 import testobject
 import logutils
@@ -22,10 +22,13 @@ import strformat
 import os
 
 proc runTest(test: Test) =
+    ## Starts running a test
     log(LogLevel.Debug, &"Starting test {test.path}.")
     test.start()
 
 proc tryFinishTest(test: Test): bool =
+    ## Attempts to finish a test and returns true if it finished.
+    ## False otherwise.
     if test.running():
         return false
     test.finish()
@@ -33,16 +36,21 @@ proc tryFinishTest(test: Test): bool =
     return true
 
 proc killTest(test: Test) =
+    ## Kills the test, logs kill reason as taking too long
     if test.running():
         test.kill()
         log(LogLevel.Error, &"Test {test.path} was killed for taking too long.")
 
 proc killTests*(tests: seq[Test]) =
+    ## kills all running tests in tests sequence
     for test in tests:
         if test.running():
             test.kill()
 
-proc runTests*(tests: seq[Test], runner: string) =
+proc runTests*(tests: seq[Test]) =
+    ## Runs all tests tests in tests, manages the maximum alive tests
+    ## and launching of tests parallel. Also writes progress to the
+    ## screen
     var
         aliveTests = 0
         currentTest = 0

@@ -30,6 +30,7 @@ proc parseModalLine(line: string): tuple[modal: bool, mode: string, detail: stri
     # when non modal, mode becomes the line
     # when comment is true, it must not do anything to whenever it is exported
     let line = line
+    # initialize result
     result.modal = false
     result.mode = ""
     result.detail = ""
@@ -37,25 +38,32 @@ proc parseModalLine(line: string): tuple[modal: bool, mode: string, detail: stri
     if line.len() > 0 and line[0] == '[':
         if line.len() > 1:
             if line[1] == '[':
+                # escaped early return
                 result.mode = line[1..line.high()]
                 return result 
             elif line[1] == ';':
+                # comment early return
                 result.comment = true
                 result.modal = true
                 return result
         result.modal = true
+    # not modal line early return
     else:
         result.mode = line
         return result
-    var colon = false
+
+    # normal modal line:
+    var colon = false # if there has been a colon already
     for i in countup(0, line.high()):
         let ch = line[i]
         if ch in Letters or ch in Digits or ch in {'_', '-'}:
+            # legal characters
             if colon:
                 result.detail &= ($ch).toLower()
             else:
                 result.mode &= ($ch).toLower()
         elif ch == ':':
+            # colon
             if not colon:
                 colon = true
             else:
@@ -63,18 +71,22 @@ proc parseModalLine(line: string): tuple[modal: bool, mode: string, detail: stri
         elif ch in Whitespace:
             discard
         elif ch == ']':
+            # closing can only come at the end
             if i != line.high():
                 fatal &"] is only allowed to close the line <{line}>."
         elif ch == '[':
+            # can only start with it
             if i > 0:
                 fatal &"[ is only allowed to open the modal line <{line}>."
         else:
             fatal &"Illegal character in <{line}>: {ch}."
+    # must be closed by it
     if line[line.high()] != ']':
         fatal &"Line <{line}> must be closed off by ']'."    
 
 
 proc buildTest(lines: seq[string], i: var int, name: string, path: string): Test =
+    ## Builds a single test (starting with index i in lines, while i is modified)
     result = newTest(name, path)
     # since this is a very simple parser, some state can reduce code length
     inc i # to discard the first "test" mode
@@ -143,6 +155,7 @@ proc buildTest(lines: seq[string], i: var int, name: string, path: string): Test
 
 
 proc buildTestFile(path: string): seq[Test] =
+    ## Builds a test file consisting of multiple tests
     log(LogLevel.Debug, &"Checking {path} for tests")
     let lines = path.readFile().split('\n') 
     var i = 0
@@ -161,6 +174,7 @@ proc buildTestFile(path: string): seq[Test] =
 
 
 proc buildTests*(testDir: string): seq[Test] =
+    ## Builds all test within the directory testDir
     for candidateObj in walkDir(testDir):
         let candidate = candidateObj.path
         if dirExists(candidate):

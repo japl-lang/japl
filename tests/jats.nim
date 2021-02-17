@@ -196,7 +196,7 @@ Flags:
         setControlCHook(ctrlc)
         log(LogLevel.Info, &"Running tests...")
         # run tests (see testrun.nim)
-        tests.runTests(jatr)
+        tests.runTests()
         log(LogLevel.Debug, &"Tests ran.")
         log(LogLevel.Debug, &"Evaluating tests...")
         # evaluate tests (see testeval.nim)
