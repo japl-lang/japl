@@ -52,6 +52,7 @@ type
         objects*: ptr ArrayList[ptr Obj]
         file*: ptr String
         interned*: Table[string, ptr Obj]
+        afterReturn: bool
 
     Local* = ref object   # A local variable
        name*: Token
@@ -976,6 +977,7 @@ proc returnStatement(self: Compiler) =
     ## for them
     if self.context == SCRIPT:
         self.compileError("'return' outside function")
+    self.afterReturn = true
     if self.parser.match(TokenType.SEMICOLON):   # Empty return
         self.emitByte(OpCode.Nil)
         self.emitByte(OpCode.Return)
@@ -1011,6 +1013,9 @@ proc statement(self: Compiler) =
 
 proc declaration(self: Compiler) =
     ## Parses declarations
+    if self.afterReturn:
+        self.compileError("dead code after return statement")
+        self.parser.tokens.append(Token(kind: TokenType.EOF, lexeme: ""))
     if self.parser.match(FUN):
         self.funDeclaration()
     elif self.parser.match(VAR):
@@ -1164,6 +1169,7 @@ proc initCompiler*(context: FunctionType, enclosing: Compiler = nil, parser: Par
     result.parser.file = result.file
     result.locals.add(Local(depth: 0, name: Token(kind: EOF, lexeme: "")))
     inc(result.localCount)
+    result.afterReturn = false
     case context:
         of FunctionType.Func:
             result.function = result.markObject(newFunction(enclosing.parser.previous().lexeme, newChunk()))
