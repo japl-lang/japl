@@ -22,7 +22,7 @@ import strformat
 import tables
 
 import multibyte
-import lexer 
+import lexer
 import meta/opcode
 import meta/token
 import meta/looptype
@@ -162,7 +162,7 @@ proc synchronize(self: Parser) =
             return
         case self.peek().kind:
             of TokenType.CLASS, TokenType.FUN, TokenType.VAR,
-                TokenType.FOR, TokenType.IF, TokenType.WHILE, 
+                TokenType.FOR, TokenType.IF, TokenType.WHILE,
                 TokenType.RETURN:   # We found a statement boundary, so the parser bails out
                 return
             else:
@@ -911,21 +911,18 @@ proc parseFunction(self: Compiler, funType: FunctionType) =
     self.emitBytes(self.makeConstant(fun))
 
 
-proc parseLambda(self: Compiler, canAssign: bool) = 
+proc parseLambda(self: Compiler, canAssign: bool) =
     ## Parses lambda expressions of the form => (params) {code}
     self.parseFunction(FunctionType.LAMBDA)
 
 
-proc funDeclaration(self: Compiler, named: bool = true) =
+proc funDeclaration(self: Compiler) =
     ## Parses function declarations and declares
     ## them in the current scope
-    if named:
-        var funName = self.parseVariable("expecting function name")
-        self.markInitialized()
-        self.parseFunction(FunctionType.FUNC)
-        self.defineVariable(funName)
-    else:
-        self.parseFunction(FunctionType.LAMBDA)
+    var funName = self.parseVariable("expecting function name")
+    self.markInitialized()
+    self.parseFunction(FunctionType.FUNC)
+    self.defineVariable(funName)
 
 
 proc argumentList(self: Compiler): tuple[pos: uint8, kw: uint8] =
