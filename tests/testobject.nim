@@ -40,6 +40,10 @@ type
         source*: string
         path*: string
         name*: string
+        important*: bool # if set to true, the stdout/stderr and extra debug
+                         # will get printed when finished
+        m_skipped*: bool # metadata, whether the skipped mode is in the file
+                         # NOT WHETHER THE TEST IS ACTUALLY SKIPPED
         # generated after building
         expectedOutput*: seq[ExpectedLine]
         expectedError*: seq[ExpectedLine]
@@ -122,6 +126,8 @@ proc newTest*(name: string, path: string): Test =
     result.name = name
     result.mismatchPos = -1
     result.errorMismatchPos = -1
+    result.important = false
+    result.m_skipped = false
 
 proc skip*(test: Test) =
     test.result = TestResult.Skip

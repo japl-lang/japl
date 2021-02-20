@@ -35,20 +35,24 @@ type LogLevel* {.pure.} = enum
     ## All the different possible log levels
     Debug, # always written to file only (large outputs, such as the entire output of the failing test or stacktrace)
     Info, # important information about the progress of the test suite
+    Enumeration, # a white output for the enumerate option
     Error, # failing tests (printed with yellow)
     Fatal # always printed with red, halts the entire suite (test parsing errors, printed with red)
 
 # log config: which log levels to show, show in silent mode and save to the
 # detailed debug logs
-const echoedLogs = {LogLevel.Info, LogLevel.Error, LogLevel.Fatal}
-const echoedLogsSilent = {LogLevel.Fatal} # will be echoed even if test suite is silent
-const savedLogs = {LogLevel.Debug, LogLevel.Info, LogLevel.Error, LogLevel.Fatal}
+const echoedLogs = {LogLevel.Info, LogLevel.Error, LogLevel.Fatal, 
+                    LogLevel.Enumeration}
+const echoedLogsSilent = {LogLevel.Fatal, LogLevel.Enumeration} # will be echoed even if test suite is silent
+const savedLogs = {LogLevel.Debug, LogLevel.Info, LogLevel.Error, 
+                   LogLevel.Fatal, LogLevel.Enumeration}
 
 # aesthetic config:
 # progress bar length
 const progbarLength = 25
 # log level colors
 const logColors = [LogLevel.Debug: fgDefault, LogLevel.Info: fgGreen, 
+                   LogLevel.Enumeration: fgDefault,
                    LogLevel.Error: fgYellow, LogLevel.Fatal: fgRed]
 
 # global vars for the proc log

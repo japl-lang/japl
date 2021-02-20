@@ -54,6 +54,7 @@ when isMainModule:
     var targetFiles: seq[string]
     var verbose = true
     var quitVal = QuitValue.Success
+    var testDir = "japl"
 
     proc evalKey(key: string) =
         ## Modifies the globals that define what JATS does based on the 
@@ -69,6 +70,10 @@ when isMainModule:
             verbose = false
         elif key == "stdout":
             debugActions.add(DebugAction.Stdout)
+        elif key == "f" or key == "force":
+            force = true
+        elif key == "e" or key == "enumerate":
+            enumerate = true
         else:
             echo &"Unknown flag: {key}"
             action = Action.Help
@@ -86,6 +91,24 @@ when isMainModule:
                 maxAliveTests = parseInt(val)
             else:
                 echo "Can't parse non-integer option passed to -j/--jobs."
+                action = Action.Help
+                quitVal = QuitValue.ArgParseErr
+        elif key == "t" or key == "test" or key == "tests":
+            testDir = val
+        elif key == "timeout":
+            try:
+                var timeoutSeconds = parseFloat(val)
+                # a round is 100 ms, so let's not get close to that
+                if timeoutSeconds < 0.3:
+                    timeoutSeconds = 0.3
+                # I don't want anything not nicely convertible to int, 
+                # so how about cut it off at 10 hours. Open an issue
+                # if that's not enough... or just tweak it you lunatic
+                if timeoutSeconds > 36000.0:
+                    timeoutSeconds = 36000.0
+                timeout = (timeoutSeconds * 10).int
+            except ValueError:
+                echo "Can't parse invalid timeout value " & val
                 action = Action.Help
                 quitVal = QuitValue.ArgParseErr
         else:
@@ -119,15 +142,18 @@ when isMainModule:
         echo """
 JATS - Just Another Test Suite
 
-Usage:
-jats 
-Runs the tests
-Flags:
+Usage: ./jats <flags>
+Debug output flags:
 -i (or --interactive) displays all debug info
 -o:<filename> (or --output:<filename>) saves debug info to a file
 -s (or --silent) will disable all output (except --stdout)
 --stdout will put all debug info to stdout
+-e (or --enumerate) will list all tests that fail, crash or get killed
+Test behavior flags:
 -j:<parallel test count> (or --jobs:<parallel test count>) to specify number of tests to run parallel
+-t:<test file or dir> (or --test:<path> or --tests:<path>) to specify where tests are
+-f (or --force) will run skipped tests
+Miscellaneous flags:
 -h (or --help) displays this help message
 -v (or --version) displays the version number of JATS
 """
@@ -167,17 +193,23 @@ Flags:
         # the second half of the test suite defined in ~japl/tests/japl
         # Find ~japl/tests/japl and the test runner JATR
         var jatr = "jatr"
-        var testDir = "japl"
         if not fileExists(jatr):
             if fileExists("tests" / jatr):
                 log(LogLevel.Debug, 
-                    &"Must be in root: prepending \"tests\" to paths")
+                    &"Must be in root: prepending \"tests\" to jatr path")
                 jatr = "tests" / jatr
-                testDir = "tests" / testDir
             else:
                 # only those two dirs are realistically useful for now,
-                echo "The tests directory couldn't be found."
+                echo "The test runner was not found."
                 quit int(QuitValue.JatrNotFound)
+
+        if not dirExists(testDir) and not fileExists(testDir):
+          if dirExists("tests" / testDir) or fileExists("tests" / testDir):
+            log(LogLevel.Debug, "Prepending \"tests\" to test path")
+            testDir = "tests" / testDir
+          else:
+            echo "The test dir/file was not found."
+            quit int(QuitValue.JatrNotFound)
 
         # set the global var which specifies the path to the test runner
         testRunner = jatr

@@ -14,6 +14,7 @@
 
 import testobject
 import logutils
+import testconfig
 
 import os
 import strutils
@@ -136,7 +137,9 @@ proc buildTest(lines: seq[string], i: var int, name: string, path: string): Test
                     fatal &"Invalid mode {parsed.mode} when inside a block (currently in mode {mode}) at line {i} in {path}."
             else: # still if modal, but not inside
                 if parsed.mode == "skip":
-                    result.skip()
+                    result.m_skipped = true
+                    if not force:
+                        result.skip()
                 elif parsed.mode == "end":
                     # end of test
                     return result
@@ -175,6 +178,15 @@ proc buildTestFile(path: string): seq[Test] =
 
 proc buildTests*(testDir: string): seq[Test] =
     ## Builds all test within the directory testDir
+    ## if testDir is a file, only build that one file
+    if not dirExists(testDir):
+        if fileExists(testDir):
+            result &= buildTestFile(testDir)
+            for test in result:
+                test.important = true
+        else:
+            fatal "test dir/file doesn't exist"
+
     for candidateObj in walkDir(testDir):
         let candidate = candidateObj.path
         if dirExists(candidate):
