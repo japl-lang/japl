@@ -22,7 +22,7 @@ import strformat
 import tables
 
 import multibyte
-import lexer 
+import lexer
 import meta/opcode
 import meta/token
 import meta/looptype
@@ -52,6 +52,7 @@ type
         objects*: ptr ArrayList[ptr Obj]
         file*: ptr String
         interned*: Table[string, ptr Obj]
+        afterReturn: bool
 
     Local* = ref object   # A local variable
        name*: Token
@@ -162,7 +163,7 @@ proc synchronize(self: Parser) =
             return
         case self.peek().kind:
             of TokenType.CLASS, TokenType.FUN, TokenType.VAR,
-                TokenType.FOR, TokenType.IF, TokenType.WHILE, 
+                TokenType.FOR, TokenType.IF, TokenType.WHILE,
                 TokenType.RETURN:   # We found a statement boundary, so the parser bails out
                 return
             else:
@@ -911,21 +912,18 @@ proc parseFunction(self: Compiler, funType: FunctionType) =
     self.emitBytes(self.makeConstant(fun))
 
 
-proc parseLambda(self: Compiler, canAssign: bool) = 
+proc parseLambda(self: Compiler, canAssign: bool) =
     ## Parses lambda expressions of the form => (params) {code}
     self.parseFunction(FunctionType.LAMBDA)
 
 
-proc funDeclaration(self: Compiler, named: bool = true) =
+proc funDeclaration(self: Compiler) =
     ## Parses function declarations and declares
     ## them in the current scope
-    if named:
-        var funName = self.parseVariable("expecting function name")
-        self.markInitialized()
-        self.parseFunction(FunctionType.FUNC)
-        self.defineVariable(funName)
-    else:
-        self.parseFunction(FunctionType.LAMBDA)
+    var funName = self.parseVariable("expecting function name")
+    self.markInitialized()
+    self.parseFunction(FunctionType.FUNC)
+    self.defineVariable(funName)
 
 
 proc argumentList(self: Compiler): tuple[pos: uint8, kw: uint8] =
@@ -979,6 +977,7 @@ proc returnStatement(self: Compiler) =
     ## for them
     if self.context == SCRIPT:
         self.compileError("'return' outside function")
+    self.afterReturn = true
     if self.parser.match(TokenType.SEMICOLON):   # Empty return
         self.emitByte(OpCode.Nil)
         self.emitByte(OpCode.Return)
@@ -1014,6 +1013,9 @@ proc statement(self: Compiler) =
 
 proc declaration(self: Compiler) =
     ## Parses declarations
+    if self.afterReturn:
+        self.compileError("dead code after return statement")
+        self.parser.tokens.append(Token(kind: TokenType.EOF, lexeme: ""))
     if self.parser.match(FUN):
         self.funDeclaration()
     elif self.parser.match(VAR):
@@ -1167,6 +1169,7 @@ proc initCompiler*(context: FunctionType, enclosing: Compiler = nil, parser: Par
     result.parser.file = result.file
     result.locals.add(Local(depth: 0, name: Token(kind: EOF, lexeme: "")))
     inc(result.localCount)
+    result.afterReturn = false
     case context:
         of FunctionType.Func:
             result.function = result.markObject(newFunction(enclosing.parser.previous().lexeme, newChunk()))
