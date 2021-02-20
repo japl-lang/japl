@@ -16,8 +16,11 @@ const jatsVersion* = "(dev)"
 
 var maxAliveTests* = 16 # number of tests that can run parallel
 const testWait* = 100 # number of milliseconds per cycle
-const timeout* = 50 # number of cycles after which a test is killed for timeout
+var timeout* = 50 # number of cycles after which a test is killed for timeout
 
 var testRunner* = "jatr"
+var force*: bool = false # if skipped tests get executed
+var enumerate*: bool = false # if true, all failed/crashed and killed tests
+                             # are enumerated to stdout
 
 const outputIgnore* = [ "^DEBUG.*$" ]

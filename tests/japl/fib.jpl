@@ -5,15 +5,15 @@ fun fib(n) {
         return n;
     return fib(n-2) + fib(n-1);
 }
-print(fib(1));//stdout:1
-print(fib(2));//stdout:1
-print(fib(3));//stdout:2
-print(fib(4));//stdout:3
-print(fib(5));//stdout:5
-print(fib(6));//stdout:8
-print(fib(7));//stdout:13
-print(fib(8));//stdout:21
-print(fib(9));//stdout:3
+print(fib(1));
+print(fib(2));
+print(fib(3));
+print(fib(4));
+print(fib(5));
+print(fib(6));
+print(fib(7));
+print(fib(8));
+print(fib(9));
 [end]
 [stdout]
 1

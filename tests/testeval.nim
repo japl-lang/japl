@@ -24,12 +24,18 @@ import strformat
 import testconfig
 
 proc evalTests*(tests: seq[Test]) =
+    ## Goes through every test in tests and evaluates all finished
+    ## tests to success or mismatch
     for test in tests:
         if test.result == TestResult.ToEval:
             test.result = if test.eval(): TestResult.Success else: TestResult.Mismatch
 
 
 proc printResults*(tests: seq[Test]): bool =
+    ## Goes through every test in tests and prints the number of good/
+    ## skipped/failed/crashed/killed tests to the screen. It also debug
+    ## logs all failed test details and crash messages. It returns 
+    ## true if no tests {failed | crashed | got killed}.
     var
         skipped = 0
         success = 0
@@ -37,18 +43,31 @@ proc printResults*(tests: seq[Test]): bool =
         crash = 0
         killed = 0
     for test in tests:
-        log(LogLevel.Debug, &"Test {test.name}@{test.path} result: {test.result}")
+        var level = LogLevel.Debug
+        var detailLevel = LogLevel.Debug
+
+        if test.important:
+            level = LogLevel.Info
+            detailLevel = LogLevel.Info
+        if (test.result in {TestResult.Crash, TestResult.Mismatch, TestResult.Killed} and enumerate): 
+            level = LogLevel.Enumeration
+
+
+        log(level, &"Test {test.name}@{test.path} result: {test.result}")
+
         case test.result:
             of TestResult.Skip:
                 inc skipped
             of TestResult.Mismatch:
                 inc fail
-                log(LogLevel.Debug, &"[{test.name}@{test.path}\nstdout:\n{test.output}\nstderr:\n{test.error}\nexpected stdout:\n{test.expectedOutput}\nexpected stderr:\n{test.expectedError}\n]")
-                log(LogLevel.Debug, &"\nMismatch pos for stdout: {test.mismatchPos}\nMismatch pos for stderr: {test.errorMismatchPos}")
+                log(detailLevel, &"[{test.name}@{test.path}\nstdout:\n{test.output}\nstderr:\n{test.error}\nexpected stdout:\n{test.expectedOutput}\nexpected stderr:\n{test.expectedError}\n]")
+                log(detailLevel, &"\nMismatch pos for stdout: {test.mismatchPos}\nMismatch pos for stderr: {test.errorMismatchPos}")
             of TestResult.Crash:
                 inc crash
-                log(LogLevel.Debug, &"{test.name}@{test.path} \ncrash:\n{test.error}")
+                log(detailLevel, &"{test.name}@{test.path} \ncrash:\n{test.error}")
             of TestResult.Success:
+                if test.m_skipped:
+                    log(LogLevel.Info, &"Test {test.name}@{test.path} succeeded, despite being marked to be skipped.")
                 inc success
             of TestResult.Killed:
                 inc killed
