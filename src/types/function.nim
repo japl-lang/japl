@@ -1,6 +1,7 @@
 import baseObject
 import ../meta/opcode
 import japlString
+import arraylist
 
 
 type
@@ -19,7 +20,7 @@ type
         name*: ptr String
         arity*: int    # The number of required parameters
         optionals*: int   # The number of optional parameters
-        defaults*: seq[string]
+        defaults*: ptr ArrayList[ptr String]
         chunk*: Chunk   # The function's body
 
 
@@ -28,7 +29,6 @@ proc newFunction*(name: string = "", chunk: Chunk, arity: int = 0): ptr Function
     ## bytecode chunk and arity. If the name is an empty string
     ## (the default), the function will be an
     ## anonymous code object
-    # TODO: Add lambdas
     # TODO: Add support for optional parameters
     result = allocateObj(Function, ObjectType.Function)
     if name.len > 1:
@@ -38,12 +38,12 @@ proc newFunction*(name: string = "", chunk: Chunk, arity: int = 0): ptr Function
     result.arity = arity
     result.chunk = chunk
     result.optionals = 0  # TODO
+    result.defaults = newArrayList[ptr String]()
 
 
 proc newLambda*(chunk: Chunk, arity: int = 0): ptr Function =
     ## Allocates a new lambda object (anonymous function) with the given
     ## bytecode chunk and arity
-    # TODO: Add lambdas
     # TODO: Add support for optional parameters
     result = allocateObj(Function, ObjectType.Function)
     result.name = "<lambda function>".asStr()

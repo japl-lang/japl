@@ -19,7 +19,7 @@ import ../types/baseObject
 import ../types/arraylist
 
 type
-    Chunk* = ref object
+    Chunk* = object
         ## A piece of bytecode.
         ## Consts represents the constants table the code is referring to
         ## Code is the compiled bytecode
@@ -72,7 +72,7 @@ type
         As
 
 
-    
+
 const simpleInstructions* = {OpCode.Return, OpCode.Add, OpCode.Multiply,
                              OpCode.Divide, OpCode.Subtract,
                              OpCode.Mod, OpCode.Pow, OpCode.Nil,
@@ -112,5 +112,3 @@ proc addConstant*(self: Chunk, constant: ptr Obj): array[3, uint8] =
     self.consts.append(constant)
     let index = self.consts.high()
     result = cast[array[3, uint8]](index)
-
-  

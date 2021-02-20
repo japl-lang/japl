@@ -896,7 +896,7 @@ proc parseFunction(self: Compiler, funType: FunctionType) =
                 self.function.arity -= 1
                 self.function.optionals += 1
                 self.expression()
-                self.function.defaults.add(self.parser.previous.lexeme)
+                self.function.defaults.append(self.parser.previous.lexeme.asStr())
                 defaultFollows = true
             elif defaultFollows:
                 self.compileError("non-default argument follows default argument")
@@ -1013,9 +1013,10 @@ proc statement(self: Compiler) =
 
 proc declaration(self: Compiler) =
     ## Parses declarations
-    if self.afterReturn:
-        self.compileError("dead code after return statement")
-        self.parser.tokens.append(Token(kind: TokenType.EOF, lexeme: ""))
+    # TODO -> Fix this
+#    if self.afterReturn:
+ #       self.compileError("dead code after return statement")
+  #      self.parser.tokens.append(Token(kind: TokenType.EOF, lexeme: ""))
     if self.parser.match(FUN):
         self.funDeclaration()
     elif self.parser.match(VAR):
