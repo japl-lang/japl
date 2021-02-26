@@ -1,0 +1,32 @@
+# Automatically pushes the README to the website repo
+
+name: Deploy website
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Configure git credentials
+        uses: OleksiyRudenko/gha-git-credentials@v2
+        with:
+          email: github-action@users.noreply.github.com
+          name: GitHub Action
+          actor: github.actor
+          token: secrets.PUSH_TOKEN
+      - name: Push README to japl-lang.github.io
+        run: |
+          git clone https://github.com/japl-lang/japl-lang.github.io
+          cd japl-lang.github.io
+          cp ../README.md .
+          git add README.md
+          git commit -m "Actions: Update README"
+          git push
+          
