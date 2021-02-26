@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Configure git credentials
-        uses: OleksiyRudenko/gha-git-credentials@v2.1.0
+        uses: OleksiyRudenko/gha-git-credentials@v2-latest
         with:
           global: true
           email: github-action@users.noreply.github.com
