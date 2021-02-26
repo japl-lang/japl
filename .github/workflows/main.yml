@@ -19,7 +19,7 @@ jobs:
           # We test using a reasonably modern Python version
           python-version: 3.8.0
           architecture: x64
-      - uses: japl-lang/japl@v2
+      - uses: actions/checkout@v2
       - name: Run production-mode tests
         run: ./build.py --profile resources/profiles/production.json
       - name: Run developmet tests
