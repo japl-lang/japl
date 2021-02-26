@@ -58,7 +58,7 @@ const RESERVED = to_table({
                 "continue": TokenType.CONTINUE, "inf": TokenType.INF,
                 "nan": TokenType.NAN, "is": TokenType.IS,
                 "not": TokenType.NEG, "as": TokenType.AS,
-                "lambda": TokenType.LAMBDA})
+                "lambda": TokenType.LAMBDA, "isnot": TokenType.ISNOT})
 type
     Lexer* = ref object
         source*: string

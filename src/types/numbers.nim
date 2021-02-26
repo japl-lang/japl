@@ -133,50 +133,50 @@ proc eq*(self, other: ptr Infinity): bool =
     result = self.isNegative == other.isNegative
 
 
-proc lt*(self: ptr Infinity, other: ptr Obj): bool =
+proc lt*(self: ptr Infinity, other: ptr Obj): tuple[result: bool, obj: ptr Obj] =
     case other.kind: 
         of ObjectType.Integer:
             let other = cast[ptr Integer](other)
-            if self.isNegative and other.intValue > 0:
-                result = true
+            if self.isNegative:
+                result = (result: true, obj: other)
             else:
-                result = false
+                result = (result: false, obj: nil)
         of ObjectType.Float:
             let other = cast[ptr Float](other)
-            if self.isNegative and other.floatValue > 0.0:
-                result = true
+            if self.isNegative:
+                result = (result: true, obj: other)
             else:
-                result = false
+                result = (result: false, obj: nil)
         of ObjectType.Infinity:
             let other = cast[ptr Infinity](other)
             if other.isNegative and not self.isNegative:
-                result = false
+                result = (result: true, obj: other)
             else:
-                result = false
+                result = (result: false, obj: nil)
         else:
             raise newException(NotImplementedError, "")
 
 
-proc gt*(self: ptr Infinity, other: ptr Obj): bool =
+proc gt*(self: ptr Infinity, other: ptr Obj): tuple[result: bool, obj: ptr Obj] =
     case other.kind: 
         of ObjectType.Integer:
             let other = cast[ptr Integer](other)
-            if self.isNegative and other.intValue > 0:
-                result = false
+            if self.isNegative:
+                result = (result: false, obj: nil)
             else:
-                result = true
+                result = (result: true, obj: other)
         of ObjectType.Float:
             let other = cast[ptr Float](other)
-            if self.isNegative and other.floatValue > 0.0:
-                result = false
+            if self.isNegative:
+                result = (result: false, obj: nil)
             else:
-                result = true
+                result = (result: true, obj: other)
         of ObjectType.Infinity:
             let other = cast[ptr Infinity](other)
             if other.isNegative and not self.isNegative:
-                result = true
+                result = (result: false, obj: nil)
             else:
-                result = false
+                result = (result: true, obj: other)
         else:
             raise newException(NotImplementedError, "")
 
@@ -216,7 +216,7 @@ proc stringify*(self: ptr Float): string =
 
 
 proc isFalsey*(self: ptr Float): bool =
-    result = self.floatValue == 0.0
+    result = false
 
 
 proc hash*(self: ptr Float): uint64 =
@@ -243,7 +243,7 @@ proc stringify*(self: ptr Integer): string =
 
 
 proc isFalsey*(self: ptr Integer): bool =
-    result = self.intValue == 0
+    result = false
 
 
 proc eq*(self, other: ptr Integer): bool =
@@ -259,66 +259,90 @@ proc hash*(self: ptr Integer): uint64 =
     result = uint64 self.intValue
 
 
-proc lt*(self: ptr Integer, other: ptr Obj): bool =
+proc lt*(self: ptr Integer, other: ptr Obj): tuple[result: bool, obj: ptr Obj] =
     case other.kind: 
         of ObjectType.Integer:
-            result = self.intValue < cast[ptr Integer](other).intValue
+            if self.intValue < cast[ptr Integer](other).intValue:
+                result = (result: true, obj: other)
+            else:
+                result = (result: false, obj: nil)
         of ObjectType.Float:
-            result = (float self.intValue) < cast[ptr Float](other).floatValue
+            if (float self.intValue) < cast[ptr Float](other).floatValue:
+                result = (result: true, obj: other)
+            else:
+                result = (result: false, obj: nil)
         of ObjectType.Infinity:
             let other = cast[ptr Infinity](other)
             if other.isNegative:
-                result = false
+                result = (result: true, obj: other)
             else:
-                result = true
+                result = (result: false, obj: nil)
         else:
             raise newException(NotImplementedError, "")
 
 
-proc lt*(self: ptr Float, other: ptr Obj): bool =
+proc lt*(self: ptr Float, other: ptr Obj): tuple[result: bool, obj: ptr Obj] =
     case other.kind: 
         of ObjectType.Integer:
-            result = self.floatValue < (float cast[ptr Integer](other).intValue)
+            if self.floatValue < (float cast[ptr Integer](other).intValue):
+                result = (result: true, obj: other)
+            else:
+                result = (result: false, obj: nil)
         of ObjectType.Float:
-            result = self.floatValue < cast[ptr Float](other).floatValue
+            if self.floatValue < cast[ptr Float](other).floatValue:
+                result = (result: true, obj: other)
+            else:
+                result = (result: false, obj: nil)
         of ObjectType.Infinity:
             let other = cast[ptr Infinity](other)
             if other.isNegative:
-                result = false
+                result = (result: true, obj: other)
             else:
-                result = true
+                result = (result: false, obj: nil)
         else:
             raise newException(NotImplementedError, "")
 
 
-proc gt*(self: ptr Integer, other: ptr Obj): bool =
+proc gt*(self: ptr Integer, other: ptr Obj): tuple[result: bool, obj: ptr Obj] =
     case other.kind: 
         of ObjectType.Integer:
-            result = self.intValue > cast[ptr Integer](other).intValue
+            if self.intValue > cast[ptr Integer](other).intValue:
+                result = (result: true, obj: other)
+            else:
+                result = (result: false, obj: nil)
         of ObjectType.Float:
-            result = (float self.intValue) > cast[ptr Float](other).floatValue
+            if (float self.intValue) > cast[ptr Float](other).floatValue:
+                result = (result: true, obj: other)
+            else:
+                result = (result: false, obj: nil)
         of ObjectType.Infinity:
             let other = cast[ptr Infinity](other)
             if other.isNegative:
-                result = true
+                result = (result: true, obj: other)
             else:
-                result = false
+                result = (result: false, obj: nil)
         else:
             raise newException(NotImplementedError, "")
 
 
-proc gt*(self: ptr Float, other: ptr Obj): bool =
+proc gt*(self: ptr Float, other: ptr Obj): tuple[result: bool, obj: ptr Obj] =
     case other.kind: 
         of ObjectType.Integer:
-            result = self.floatValue > (float cast[ptr Integer](other).intValue)
+            if self.floatValue > (float cast[ptr Integer](other).intValue):
+                result = (result: true, obj: other)
+            else:
+                result = (result: false, obj: nil)
         of ObjectType.Float:
-            result = self.floatValue > cast[ptr Float](other).floatValue
+            if self.floatValue > cast[ptr Float](other).floatValue:
+                result = (result: true, obj: other)
+            else:
+                result = (result: false, obj: nil)
         of ObjectType.Infinity:
             let other = cast[ptr Infinity](other)
             if other.isNegative:
-                result = true
+                result = (result: true, obj: other)
             else:
-                result = false
+                result = (result: false, obj: nil)
         else:
             raise newException(NotImplementedError, "")
 

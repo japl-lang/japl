@@ -196,7 +196,7 @@ def build(path: str, flags: Optional[Dict[str, str]] = {}, options: Optional[Dic
                     logging.debug("Running tests")
                     start = time()
                     # TODO: Find a better way of running the test suite
-                    process = run_command(f"{tests_path}", mode="run", shell=True, stderr=PIPE)
+                    process = run_command(f"{tests_path} {'--stdout' if verbose else ''}", mode="run", shell=True, stderr=PIPE)
                     if status != 0:
                         logging.error(f"Command '{command}' exited with non-0 exit code {status}, output below:\n{stderr.decode()}")
                     else:
