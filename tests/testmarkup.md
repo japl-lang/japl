@@ -36,16 +36,18 @@ Must not contain a BOM. Line endings must be a single
 ### Mode syntax
 
 The modes are constructed from modelines,
-which are lines starting with the character '['.
+which are lines starting with the character '[', or alternatively
+they can also start with the sequence "//[".
 Modelines also have to be closed by a ']' character
 on the end of this line. These lines may not contain
-whitespace before the opening '[' nor after then ending
+whitespace before the opening '[' or "//[" nor after then ending
 ']' characters. Inside the brackets, letters (case
 insensitive), numbers, underscores and dashes form\
 a name describing what the modeline does.
 
 ```
 [ name ]
+//[ name ]
 ```
 
 Optionally, an argument may be passed, which is 
@@ -53,6 +55,7 @@ separated by a colon.
 
 ```
 [ name : detail ]
+//[name: detail]
 ```
 
 Whitespace inside the brackets is ignored (even inside
@@ -209,3 +212,10 @@ Hello there
 
 Coming soon.
 
+# Best practices
+
+Tests should be written so that they are valid jpl code. The test title
+and modes surrounding source code should be prefixed with `//`. Stdin/stdout 
+and other raw non-jpl sources should be inside `/* */` blocks. Single line
+commands such as skips should be either prefixed with `//` or inside a `/* */`
+block.
