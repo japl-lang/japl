@@ -21,6 +21,6 @@ jobs:
           architecture: x64
       - uses: actions/checkout@v2
       - name: Run production-mode tests
-        run: ./build.py --profile resources/profiles/production.json
+        run: ./build.py --profile resources/profiles/production.json src
       - name: Run developmet tests
-        run: ./build.py --profile resources/profiles/production.json
+        run: ./build.py --profile resources/profiles/production.json src
