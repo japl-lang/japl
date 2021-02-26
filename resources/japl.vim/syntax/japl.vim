@@ -1,4 +1,4 @@
-syntax keyword japlTodos TODO XXX FIXME NOTE
+syntax keyword japlTodos TODO XXX FIXME NOTE TEST
 
 syntax keyword japlKeywords
 	\ if
