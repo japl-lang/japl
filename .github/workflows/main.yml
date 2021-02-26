@@ -19,6 +19,10 @@ jobs:
           # We test using a reasonably modern Python version
           python-version: 3.8.0
           architecture: x64
+      - name: Setup Nim environment
+        uses: jiro4989/setup-nim-action@v1.1.4
+        with:
+          nim-version: stable
       - uses: actions/checkout@v2
       - name: Run production-mode tests
         run: ./build.py --profile resources/profiles/production.json src
