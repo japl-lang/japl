@@ -10,17 +10,18 @@ on:
   workflow_dispatch:
 
 jobs:
-  tests:
+  push_readme:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v2.1.0
       - name: Configure git credentials
         uses: OleksiyRudenko/gha-git-credentials@v2
         with:
+          global: true
           email: github-action@users.noreply.github.com
           name: GitHub Action
           actor: github.actor
-          token: secrets.PUSH_TOKEN
+          token: '${{ secrets.GITHUB_TOKEN }}'
       - name: Push README to japl-lang.github.io
         run: |
           git clone https://github.com/japl-lang/japl-lang.github.io
