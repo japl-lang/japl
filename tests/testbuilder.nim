@@ -30,8 +30,8 @@ proc parseModalLine(line: string): tuple[modal: bool, mode: string, detail: stri
     ## if comment is true, the returned value has to be ignored
     # when non modal, mode becomes the line
     # when comment is true, it must not do anything to whenever it is exported
-    let line = line
     # initialize result
+    var start = 0
     result.modal = false
     result.mode = ""
     result.detail = ""
@@ -48,14 +48,21 @@ proc parseModalLine(line: string): tuple[modal: bool, mode: string, detail: stri
                 result.modal = true
                 return result
         result.modal = true
+        start = 1
     # not modal line early return
+    elif line.len() >= 3 and line[0..2] == "//[":
+        if line.len() > 3:
+            result.modal = true
+            start = 3
+        else:
+            fatal "Invalid line //[, no mode defined."
     else:
         result.mode = line
         return result
 
     # normal modal line:
     var colon = false # if there has been a colon already
-    for i in countup(0, line.high()):
+    for i in countup(start, line.high()):
         let ch = line[i]
         if ch in Letters or ch in Digits or ch in {'_', '-'}:
             # legal characters
