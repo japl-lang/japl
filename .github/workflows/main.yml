@@ -24,6 +24,11 @@ jobs:
         with:
           nim-version: stable
       - uses: actions/checkout@v2
+      - name: Setup dependencies
+        run: |
+          git clone https://github.com/japl-lang/jale --branch 0.1.0
+          cd jale
+          nimble install
       - name: Run production-mode tests
         run: ./build.py --profile resources/profiles/production.json src
       - name: Run developmet tests
