@@ -321,6 +321,7 @@ if __name__ == "__main__":
               args.verbose):
             logging.debug("Build tool exited successfully")
         else:
-            
+            logging.debug("Build tool exited with error")
+            exit(1)
     except KeyboardInterrupt:
         logging.info("Interrupted by the user")
