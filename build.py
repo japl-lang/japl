@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-
+ 
 # Copyright 2020 Mattia Giambirtone
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -148,7 +148,7 @@ def build(path: str, flags: Optional[Dict[str, str]] = {}, options: Optional[Dic
     listing = "\n- {} = {}"
     if not os.path.exists(path):
         logging.error(f"Input path '{path}' does not exist")
-        return
+        return False
     if os.path.isfile(config_path) and not override:
         logging.warning(f"A config file exists at '{config_path}', keeping it")
     else:
@@ -159,7 +159,7 @@ def build(path: str, flags: Optional[Dict[str, str]] = {}, options: Optional[Dic
                 build_config.write(CONFIG_TEMPLATE.format(**options))
         except Exception as fatal:
             logging.error(f"A fatal unhandled exception occurred -> {type(fatal).__name__}: {fatal}")
-            return
+            return False
         else:
             logging.debug(f"Config file has been generated, compiling with options as follows: {''.join(listing.format(k, v) for k, v in options.items())}")
     logging.debug(f"Nim compiler options: {''.join(listing.format(k, v) for k, v in flags.items())}")
@@ -186,22 +186,22 @@ def build(path: str, flags: Optional[Dict[str, str]] = {}, options: Optional[Dic
             _, stderr, status = run_command(command, stdout=DEVNULL, stderr=PIPE)
             if status != 0:
                 logging.error(f"Command '{command}' exited with non-0 exit code {status}, output below:\n{stderr.decode()}")
-            else:
-                command = f"nim compile --opt:speed {tests_path}"
-                _, stderr, status = run_command(command, stdout=DEVNULL, stderr=PIPE)
-                if status != 0:
-                    logging.error(f"Command '{command}' exited with non-0 exit code {status}, output below:\n{stderr.decode()}")
-                else:
-                    logging.debug(f"Test suite compilation completed in {time() - start:.2f} seconds")
-                    logging.debug("Running tests")
-                    start = time()
-                    # TODO: Find a better way of running the test suite
-                    process = run_command(f"{tests_path}", mode="run", shell=True, stderr=PIPE)
-                    if status != 0:
-                        logging.error(f"Command '{command}' exited with non-0 exit code {status}, output below:\n{stderr.decode()}")
-                    else:
-                        logging.debug(f"Test suite ran in {time() - start:.2f} seconds")
-                    logging.info("Test suite completed!")
+                return False
+            command = f"nim compile --opt:speed {tests_path}"
+            _, stderr, status = run_command(command, stdout=DEVNULL, stderr=PIPE)
+            if status != 0:
+                logging.error(f"Command '{command}' exited with non-0 exit code {status}, output below:\n{stderr.decode()}")
+                return False
+            logging.debug(f"Test suite compilation completed in {time() - start:.2f} seconds")
+            logging.debug("Running tests")
+            start = time()
+            # TODO: Find a better way of running the test suite
+            process = run_command(f"{tests_path} {'--stdout' if verbose else ''}", mode="run", shell=True, stderr=PIPE)
+            if status != 0:
+                logging.error(f"Command '{command}' exited with non-0 exit code {status}, output below:\n{stderr.decode()}")
+                return False
+            logging.debug(f"Test suite ran in {time() - start:.2f} seconds")
+            logging.info("Test suite completed!")
         if args.install:
             if os.name == "nt":
                 logging.warning("Sorry, but automatically installing JAPL is not yet supported on windows")
@@ -220,14 +220,15 @@ def build(path: str, flags: Optional[Dict[str, str]] = {}, options: Optional[Dic
                         logging.debug(f"Path '{path}' is not writable, attempting next entry in PATH")
                     except Exception as fatal:
                         logging.error(f"A fatal unhandled exception occurred -> {type(fatal).__name__}: {fatal}")
-                    else:
-                        logging.debug(f"JAPL installed at '{path}', setting executable permissions")
-                        # TODO: Use external oschmod library once we support windows!
-                        try:
-                            os.chmod(install_path, os.stat(install_path).st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-                        except Exception as fatal:
-                            logging.error(f"A fatal unhandled exception occurred -> {type(fatal).__name__}: {fatal}")
-                        break
+                        return False
+                    logging.debug(f"JAPL installed at '{path}', setting executable permissions")
+                    # TODO: Use external oschmod library once we support windows!
+                    try:
+                        os.chmod(install_path, os.stat(install_path).st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+                    except Exception as fatal:
+                        logging.error(f"A fatal unhandled exception occurred -> {type(fatal).__name__}: {fatal}")
+                    break
+        return True
 
 
 if __name__ == "__main__":
@@ -310,14 +311,17 @@ if __name__ == "__main__":
                 exit()
             else:
                 logging.info(f"Using profile '{args.profile}'")
-        build(args.path,
+        if build(args.path,
               flags,
               options,
               args.override_config,
               args.skip_tests,
               args.install,
               args.ignore_binary,
-              args.verbose)
-        logging.debug("Build tool exited")
+              args.verbose):
+            logging.debug("Build tool exited successfully")
+        else:
+            logging.debug("Build tool exited with error")
+            exit(1)
     except KeyboardInterrupt:
         logging.info("Interrupted by the user")

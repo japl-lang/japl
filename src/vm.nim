@@ -505,8 +505,13 @@ proc run(self: VM): InterpretResult =
                 # Binary less (<)
                 var right = self.pop()
                 var left = self.pop()
+                var comp: tuple[result: bool, obj: ptr Obj]
                 try:
-                    self.push(self.getBoolean(left.lt(right)))
+                    comp = left.lt(right)
+                    if system.`==`(comp.obj, nil):
+                        self.push(self.getBoolean(comp.result))
+                    else:
+                        self.push(comp.obj)
                 except NotImplementedError:
                     self.error(newTypeError(&"unsupported binary operator '<' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
@@ -514,18 +519,55 @@ proc run(self: VM): InterpretResult =
                 # Binary greater (>)
                 var right = self.pop()
                 var left = self.pop()
+                var comp: tuple[result: bool, obj: ptr Obj]
                 try:
-                    self.push(self.getBoolean(left.gt(right)))
+                    comp = left.gt(right)
+                    if system.`==`(comp.obj, nil):
+                        self.push(self.getBoolean(comp.result))
+                    else:
+                        self.push(comp.obj)
+                except NotImplementedError:
+                    self.error(newTypeError(&"unsupported binary operator '>' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
+                    return RuntimeError
+            of OpCode.LessOrEqual:
+                var right = self.pop()
+                var left = self.pop()
+                var comp: tuple[result: bool, obj: ptr Obj]
+                try:
+                    comp = left.lt(right)
+                    if not comp.result and left == right:
+                        comp.result = true
+                    if system.`==`(comp.obj, nil):
+                        self.push(self.getBoolean(comp.result))
+                    else:
+                        self.push(comp.obj)
+                except NotImplementedError:
+                    self.error(newTypeError(&"unsupported binary operator '<' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
+                    return RuntimeError
+            of OpCode.GreaterOrEqual:
+                var right = self.pop()
+                var left = self.pop()
+                var comp: tuple[result: bool, obj: ptr Obj]
+                try:
+                    comp = left.gt(right)
+                    if not comp.result and left == right:
+                        comp.result = true
+                    if system.`==`(comp.obj, nil):
+                        self.push(self.getBoolean(comp.result))
+                    else:
+                        self.push(comp.obj)
                 except NotImplementedError:
                     self.error(newTypeError(&"unsupported binary operator '>' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
             of OpCode.Is:
                 # Implements object identity (i.e. same pointer)
                 # This is implemented internally for obvious
-                # reasons and works on any pair of objects
+                # reasons and works on any pair of objects, which
+                # is why we call nim's system.== operator and NOT
+                # our custom one
                 var right = self.pop()
                 var left = self.pop()
-                self.push(self.getBoolean(left == right))
+                self.push(self.getBoolean(system.`==`(left, right)))
             of OpCode.As:
                 # Implements type casting (TODO: Only allow classes)
                 var right = self.pop()
@@ -629,6 +671,7 @@ proc run(self: VM): InterpretResult =
                 # Handles returning values from the callee to the caller
                 # and sets up the stack to proceed with execution
                 var retResult = self.pop()
+                # Pops the function's frame
                 discard self.frames.pop()
                 if self.frames.len() == 0:
                     discard self.pop()

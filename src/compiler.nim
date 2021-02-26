@@ -312,11 +312,11 @@ proc binary(self: Compiler, canAssign: bool) =
         of TokenType.GT:
             self.emitByte(OpCode.Greater)
         of TokenType.GE:
-            self.emitBytes(OpCode.Less, OpCode.Not)
+            self.emitByte(OpCode.GreaterOrEqual)
         of TokenType.LT:
             self.emitByte(OpCode.Less)
         of TokenType.LE:
-            self.emitBytes(OpCode.Greater, OpCode.Not)
+            self.emitByte(OpCode.LessOrEqual)
         of TokenType.CARET:
            self.emitByte(OpCode.Xor)
         of TokenType.SHL:
@@ -329,6 +329,8 @@ proc binary(self: Compiler, canAssign: bool) =
             self.emitByte(OpCode.Band)
         of TokenType.IS:
             self.emitByte(OpCode.Is)
+        of TokenType.ISNOT:
+            self.emitBytes(OpCode.Is, Opcode.Not)
         of TokenType.AS:
             self.emitByte(OpCode.As)
         else:
@@ -991,7 +993,7 @@ proc statement(self: Compiler) =
     ## Parses statements
     if self.parser.match(TokenType.FOR):
         self.forStatement()
-    elif self.parser.match(IF):
+    elif self.parser.match(TokenType.IF):
         self.ifStatement()
     elif self.parser.match(TokenType.WHILE):
         self.whileStatement()
@@ -1102,7 +1104,8 @@ var rules: array[TokenType, ParseRule] = [
     makeRule(unary, nil, Precedence.None), # TILDE
     makeRule(nil, binary, Precedence.Is),   # IS
     makeRule(nil, binary, Precedence.As),   # AS
-    makeRule(parseLambda, nil, Precedence.None)  # LAMBDA
+    makeRule(parseLambda, nil, Precedence.None), # LAMBDA
+    makeRule(nil, binary, Precedence.Is),   # ISNOT
 
 ]
 

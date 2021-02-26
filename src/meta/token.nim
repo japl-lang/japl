@@ -29,7 +29,8 @@ type
     WHILE, DEL, BREAK, EOF,
     COLON, CONTINUE, CARET,
     SHL, SHR, NAN, INF, BAND,
-    BOR, TILDE, IS, AS, LAMBDA
+    BOR, TILDE, IS, AS, LAMBDA,
+    ISNOT
   Token* = object
     kind*: TokenType
     lexeme*: string

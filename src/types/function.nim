@@ -31,7 +31,7 @@ proc newFunction*(name: string = "", chunk: Chunk, arity: int = 0): ptr Function
     ## anonymous code object
     # TODO: Add support for optional parameters
     result = allocateObj(Function, ObjectType.Function)
-    if name.len > 1:
+    if name.len >= 1:
         result.name = name.asStr()
     else:
         result.name = nil

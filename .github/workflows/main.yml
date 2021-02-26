@@ -1,0 +1,26 @@
+# Automatically runs tests
+
+name: Run tests
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Python
+        uses: actions/setup-python@v2.2.1
+        with:
+          # We test using a reasonably modern Python version
+          python-version: 3.8.0
+          architecture: x64
+      - uses: actions/checkout@v2
+      - name: Run production-mode tests
+        run: ./build.py --profile resources/profiles/production.json
+      - name: Run developmet tests
+        run: ./build.py --profile resources/profiles/production.json

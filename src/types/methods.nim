@@ -391,7 +391,7 @@ proc binaryNot*(self: ptr Obj): returnType =
             raise newException(NotImplementedError, "")
 
 
-proc lt*(self: ptr Obj, other: ptr Obj): bool = 
+proc lt*(self: ptr Obj, other: ptr Obj): tuple[result: bool, obj: ptr Obj] = 
     ## Returns the result of self < other or
     ## raises an error if the operation
     ## is unsupported
@@ -406,7 +406,7 @@ proc lt*(self: ptr Obj, other: ptr Obj): bool =
             raise newException(NotImplementedError, "")
 
 
-proc gt*(self: ptr Obj, other: ptr Obj): bool = 
+proc gt*(self: ptr Obj, other: ptr Obj): tuple[result: bool, obj: ptr Obj] = 
     ## Returns the result of self > other or
     ## raises an error if the operation
     ## is unsupported

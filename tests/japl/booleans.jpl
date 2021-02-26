@@ -9,17 +9,17 @@ print(false and 3 or 4);//stdout:4
 print(true and 3 or 4);//stdout:3
 print(true and 2);//stdout:2
 print(false or 5);//stdout:5
-print(0 or 4);//stdout:4
-print(0 and true);//stdout:0
+print(nil or 4);//stdout:4
+print(0 or true);//stdout:0
 print("" and true);//stdout:''
 print("" or true);//stdout:true
 print(1 or 2 or 3 or 4);//stdout:1
 print(1 and 2 and 3 and 4);//stdout:4
 print(1 and 2 or 3 and 4);//stdout:2
 print(1 and false or 3 and 4);//stdout:4
-print(not 0);//stdout:true
+print(not false);//stdout:true
 print(not 1);//stdout:false
 print(not 1 and not 2);//stdout:false
-print(not (1 and 0));//stdout:true
+print(not (1 and false));//stdout:true
 [end]
 [end]
