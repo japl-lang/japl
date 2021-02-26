@@ -95,6 +95,14 @@ git clone https://github.com/japl-lang/japl
 
 ### Running the build script
 
+NOTE: as of now, you will need version 0.1.0 of the nimble package `jale` installed:
+
+```bash
+git clone https://github.com/japl-lang/jale --branch 0.1.0
+cd jale
+nimble install
+```
+
 As a next step, you need to run JABT (YES, Just Another Build Tool). This will generate the required configuration files, compile the JAPL runtime and run tests (unless `--skip-tests` is used). There are some settings that can be tweaked with command-line options (or environment variables), for more information, run `python3 build.py --help`.
 
 To compile the JAPL runtime, you'll first need to move into the project's directory you cloned before, so run `cd japl`, then `python3 build.py ./src` and wait for it to complete. You should now find an executable named `japl` (or `japl.exe` on windows) inside the `src` folder.
