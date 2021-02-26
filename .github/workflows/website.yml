@@ -13,9 +13,9 @@ jobs:
   push_readme:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2.1.0
+      - uses: actions/checkout@v2
       - name: Configure git credentials
-        uses: OleksiyRudenko/gha-git-credentials@v2
+        uses: OleksiyRudenko/gha-git-credentials@v2.1.0
         with:
           global: true
           email: github-action@users.noreply.github.com
