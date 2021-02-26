@@ -25,6 +25,18 @@ import types/japlNil
 import types/typeutils
 import types/methods
 
+import jale/editor
+import jale/templates
+import jale/plugin/defaults
+import jale/plugin/history
+import jale/plugin/editor_history
+
+proc getLineEditor: LineEditor =
+    result = newLineEditor()
+    result.prompt = "=> "
+    result.populateDefaults() # setup default keybindings
+    let hist = result.plugHistory() # create history object
+    result.bindHistory(hist) # set default history keybindings
 
 proc repl(bytecodeVM: VM) =
     var bytecodeVM = bytecodeVM
@@ -34,18 +46,12 @@ proc repl(bytecodeVM: VM) =
     let nimDetails = &"[Nim {NimVersion} on {hostOs} ({hostCPU})]"
     echo nimDetails
     var source = ""
-    while true:
-        try:
-            stdout.write("=> ")
-            source = stdin.readLine()
-        except IOError:
-            echo ""
-            bytecodeVM.freeVM()
-            break
-        except KeyboardInterrupt:
-            echo ""
-            bytecodeVM.freeVM()
-            break
+    let lineEditor = getLineEditor()
+    var keep = true
+    lineEditor.bindEvent(jeQuit):
+        keep = false
+    while keep:
+        source = lineEditor.read()
         if source == "//clear" or source == "// clear":
             echo "\x1Bc" & JAPL_VERSION_STRING
             echo nimDetails
@@ -60,6 +66,7 @@ proc repl(bytecodeVM: VM) =
             if not bytecodeVM.lastPop.isNil():
                 echo stringify(bytecodeVM.lastPop)
                 bytecodeVM.lastPop = cast[ptr Nil](bytecodeVM.cached[2])
+    bytecodeVM.freeVM()
 
 
 proc main(file: var string = "", fromString: bool = false, interactive: bool = false) =
