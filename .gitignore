@@ -41,6 +41,8 @@ jats
 *.deps
 *.dot
 
-# Development scripts
 
-setenv.sh
+# Python bytecode cache
+__pycache__
+*.pyc
+
