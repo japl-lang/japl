@@ -31,12 +31,14 @@ import jale/plugin/defaults
 import jale/plugin/history
 import jale/plugin/editor_history
 
+
 proc getLineEditor: LineEditor =
     result = newLineEditor()
     result.prompt = "=> "
-    result.populateDefaults() # setup default keybindings
-    let hist = result.plugHistory() # create history object
-    result.bindHistory(hist) # set default history keybindings
+    result.populateDefaults()  # setup default keybindings
+    let hist = result.plugHistory()  # create history object
+    result.bindHistory(hist)  # set default history keybindings
+
 
 proc repl(bytecodeVM: VM) =
     var bytecodeVM = bytecodeVM
@@ -58,8 +60,6 @@ proc repl(bytecodeVM: VM) =
             continue
         elif source == "//exit" or source == "// exit":
             echo "Goodbye!"
-            echo JAPL_VERSION_STRING
-            echo nimDetails
             break
         elif source != "":
             discard bytecodeVM.interpret(source, "stdin")
