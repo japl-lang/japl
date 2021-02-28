@@ -220,14 +220,14 @@ def build(path: str, flags: Optional[Dict[str, str]] = {}, options: Optional[Dic
                         logging.debug(f"Path '{path}' is not writable, attempting next entry in PATH")
                     except Exception as fatal:
                         logging.error(f"A fatal unhandled exception occurred -> {type(fatal).__name__}: {fatal}")
-                        return False
-                    logging.debug(f"JAPL installed at '{path}', setting executable permissions")
-                    # TODO: Use external oschmod library once we support windows!
-                    try:
-                        os.chmod(install_path, os.stat(install_path).st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-                    except Exception as fatal:
-                        logging.error(f"A fatal unhandled exception occurred -> {type(fatal).__name__}: {fatal}")
-                    break
+                    else:
+                        logging.debug(f"JAPL installed at '{path}', setting executable permissions")
+                        # TODO: Use external oschmod library once we support windows!
+                        try:
+                            os.chmod(install_path, os.stat(install_path).st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+                        except Exception as fatal:
+                            logging.error(f"A fatal unhandled exception occurred -> {type(fatal).__name__}: {fatal}")
+                        break
         return True
 
 

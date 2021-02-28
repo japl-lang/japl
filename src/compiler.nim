@@ -310,6 +310,11 @@ proc binary(self: Compiler, canAssign: bool) =
         of TokenType.DEQ:
             self.emitByte(OpCode.Equal)
         of TokenType.GT:
+            # To allow for chaining of greater/less comparisons in the future (without doing
+            # weird stuff such as allowing false with the greater/less than operators)
+            # we need to move their logic in another function. This will
+            # also allow for a sort of short-circuiting control flow like
+            # for logical ands and ors, because why not?
             self.emitByte(OpCode.Greater)
         of TokenType.GE:
             self.emitByte(OpCode.GreaterOrEqual)
