@@ -21,6 +21,7 @@ import ../types/methods
 import ../types/arraylist
 import strformat
 import terminal
+import ../multibyte
 
 proc printName(name: string) =
     setForegroundColor(fgGreen)
@@ -62,11 +63,9 @@ proc constantInstruction(name: string, chunk: Chunk, offset: int): int =
 
 proc jumpInstruction(name: string, chunk: Chunk, offset: int): int =
     var jumpArray: array[2, uint8] = [chunk.code[offset + 1], chunk.code[offset + 2]]
-    var jump: int
-    copyMem(jump.addr, jumpArray.addr, sizeof(uint16))
     write stdout, &"DEBUG - VM:\tInstruction -> "
     printName(name)
-    write stdout, &"\nDEBUG - VM:\tJump size -> {jump}"
+    write stdout, &"\nDEBUG - VM:\tJump size -> {jumpArray.fromDouble()} ( = {$jumpArray[0]}, {$jumpArray[1]})"
     nl()
     return offset + 3
 

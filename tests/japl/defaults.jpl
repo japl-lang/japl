@@ -1,0 +1,11 @@
+//[Test: defaults]
+//[skip]
+//[source:mixed]
+var a = 3;
+fun test(b = a) {
+  print (b);
+}
+a = 9;
+test();//stdout:3
+//[end]
+//[end]

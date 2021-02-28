@@ -38,6 +38,7 @@ import types/typeutils
 import types/function
 import types/native
 import types/arraylist
+import multibyte
 # We always import it to
 # avoid the compiler complaining
 # about functions not existing
@@ -281,9 +282,7 @@ proc readBytes(self: CallFrame): int =
 proc readShort(self: CallFrame): uint16 =
     ## Reads a 16 bit number from the
     ## given frame's chunk
-    let arr = [self.readByte(), self.readByte()]
-    copyMem(result.addr, unsafeAddr(arr), sizeof(uint16))
-
+    fromDouble([self.readByte(), self.readByte()])
 
 proc readConstant(self: CallFrame): ptr Obj =
     ## Reads a constant from the given
