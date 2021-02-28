@@ -152,6 +152,7 @@ Debug output flags:
 Test behavior flags:
 -j:<parallel test count> (or --jobs:<parallel test count>) to specify number of tests to run parallel
 -t:<test file or dir> (or --test:<path> or --tests:<path>) to specify where tests are
+--timeout <timeout in seconds> to specify when to kill tests
 -f (or --force) will run skipped tests
 Miscellaneous flags:
 -h (or --help) displays this help message
