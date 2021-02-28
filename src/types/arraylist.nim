@@ -84,7 +84,7 @@ proc `[]`*[T](self: ptr ArrayList[T], slice: Hslice[int, int]): ptr ArrayList[T]
     ## of the slice
     if self.length == 0:
         raise newException(IndexDefect, "ArrayList index out of bounds")
-    if slice.a notin 0..self.length - 1 or slice.b notin 0..self.length - 1:
+    if slice.a notin 0..self.length - 1 or slice.b notin 0..self.length:
         raise newException(IndexDefect, "ArrayList index out of bounds")
     result = newArrayList[T]()
     for i in countup(slice.a, slice.b - 1):

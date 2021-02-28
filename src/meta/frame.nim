@@ -37,7 +37,7 @@ proc clear*(self: CallFrame): int =
         inc result
 
 proc getView*(self: CallFrame): ptr ArrayList[ptr Obj] =
-    result = self.stack[self.slot..self.stack.high()]
+    result = self.stack[self.slot..self.stack.len()]
 
 
 proc len*(self: CallFrame): int =

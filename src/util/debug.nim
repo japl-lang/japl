@@ -20,17 +20,29 @@ import ../types/baseObject
 import ../types/methods
 import ../types/arraylist
 import strformat
+import terminal
 
+proc printName(name: string) =
+    setForegroundColor(fgGreen)
+    write stdout, name
+    setForegroundColor(fgDefault)
 
+proc nl =
+    write stdout, "\n"
 
 proc simpleInstruction(name: string, index: int): int =
-    echo &"DEBUG - VM:\tInstruction -> {name}"
+    write stdout, &"DEBUG - VM:\tInstruction -> "
+    printName(name)
+    nl()
     return index + 1
 
 
 proc byteInstruction(name: string, chunk: Chunk, offset: int): int =
     var slot = chunk.code[offset + 1]
-    echo &"DEBUG - VM:\tInstruction -> {name}, points to slot {slot}"
+    write stdout, &"DEBUG - VM:\tInstruction -> "
+    printName(name)
+    write stdout, &", points to slot {slot}"
+    nl()
     return offset + 2
 
 
@@ -39,7 +51,10 @@ proc constantInstruction(name: string, chunk: Chunk, offset: int): int =
     var constantArray: array[3, uint8] = [chunk.code[offset + 1], chunk.code[offset + 2], chunk.code[offset + 3]]
     var constant: int
     copyMem(constant.addr, constantArray.addr, sizeof(constantArray))
-    echo &"DEBUG - VM:\tInstruction -> {name}, points to slot {constant}"
+    write stdout, &"DEBUG - VM:\tInstruction -> "
+    printName(name)
+    write stdout, &", points to slot {constant}"
+    nl()
     let obj = chunk.consts[constant]
     echo &"DEBUG - VM:\tOperand -> {stringify(obj)}\nDEBUG - VM:\tValue kind -> {obj.kind}"
     return offset + 4
@@ -49,7 +64,10 @@ proc jumpInstruction(name: string, chunk: Chunk, offset: int): int =
     var jumpArray: array[2, uint8] = [chunk.code[offset + 1], chunk.code[offset + 2]]
     var jump: int
     copyMem(jump.addr, jumpArray.addr, sizeof(uint16))
-    echo &"DEBUG - VM:\tInstruction -> {name}\nDEBUG - VM:\tJump size -> {jump}"
+    write stdout, &"DEBUG - VM:\tInstruction -> "
+    printName(name)
+    write stdout, &"\nDEBUG - VM:\tJump size -> {jump}"
+    nl()
     return offset + 3
 
 
