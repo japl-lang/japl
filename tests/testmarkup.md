@@ -147,13 +147,13 @@ added to add lines to the expected stdout/stderr or
 the stdin of the test using the legacy test format.
 
 They are defined by the sequences `//stdout:`, 
-`//stderr:`, `//stdin:`, `//stdoutre:` and 
-`//stderrre:`. Every character after the colon and
+`//stderr:`, `//stdin:`, `//matchout:` and 
+`//matcherr:`. Every character after the colon and
 before the end of the line is appended to the respective
 field of the test. `stdout` adds a raw line to be
-matched to the expected stdout of the test. `stdoutre`
+matched to the expected stdout of the test. `matchout`
 adds a regex to match a line of the stdout of the test.
-`stderr` and `stderrre` are the stderr equivalents.
+`stderr` and `matcherr` are the stderr equivalents.
 `stdin` adds a line to the stdin that the JAPL source
 can read from.
 

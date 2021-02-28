@@ -1,5 +1,7 @@
+/*
 [Test: callchain]
-[source: mixed]
+*/
+//[source: mixed]
 fun add2(x)
 {
     return x + 2;
@@ -14,8 +16,10 @@ fun mul2(x)
 }
 
 print(add2(sub2(mul2(sub2(5)))));
-//5-2=3
-//3*2=6
-//stdout:6
+//[end]
+/*
+[stdout]
+6
 [end]
 [end]
+*/

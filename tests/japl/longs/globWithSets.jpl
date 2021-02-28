@@ -1,5 +1,5 @@
-[Test: glob_with_sets]
-[source: mixed]
+//[Test: glob_with_sets]
+//[source: mixed]
 var a0 = 829;
 var a1 = 6820;
 var a2 = 114;
@@ -5238,5 +5238,5 @@ print(a87);//stdout:1282
 print(a445);//stdout:1726
 print(a790);//stdout:1140
 print(a961);//stdout:1708
-[end]
-[end]
+//[end]
+//[end]

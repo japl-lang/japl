@@ -1,8 +1,8 @@
-[Test: read_in_own_init_regex]
-[source: raw]
+//[Test: read_in_own_init_regex]
+//[source: raw]
 var a = 1; { var a = a; }
 [end]
 [stderr: re]
 [[^\-]*-> cannot read local variable in its own initializer
-[end]
-[end]
+//[end]
+//[end]

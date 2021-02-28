@@ -194,8 +194,7 @@ proc buildTests*(testDir: string): seq[Test] =
         else:
             fatal "test dir/file doesn't exist"
 
-    for candidateObj in walkDir(testDir):
-        let candidate = candidateObj.path
+    for kind, candidate in walkDir(testDir):
         if dirExists(candidate):
             log(LogLevel.Debug, &"Descending into dir {candidate}")
             result &= buildTests(candidate)

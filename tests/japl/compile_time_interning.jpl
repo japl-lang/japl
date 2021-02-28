@@ -1,5 +1,5 @@
-[Test: compile_time_intern]
-[source: mixed]
+//[Test: compile_time_intern]
+//[source: mixed]
 //compile time interning
 
 var a = "hello";
@@ -11,6 +11,6 @@ print(a is b);//stdout:true
 var x = "ex";
 var y = "ey";
 print(x is y);//stdout:false
-[end]
-[end]
+//[end]
+//[end]
 

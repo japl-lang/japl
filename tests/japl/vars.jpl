@@ -1,5 +1,5 @@
-[Test: vars]
-[source: mixed]
+//[Test: vars]
+//[source: mixed]
 var x = 1;
 var y = 2;
 print(x);//stdout:1
@@ -30,5 +30,5 @@ longName = "hello";
 print(longName); //stdout:hello
 longName = longName + " world";
 print(longName); //stdout:hello world
-[end]
-[end]
+//[end]
+//[end]

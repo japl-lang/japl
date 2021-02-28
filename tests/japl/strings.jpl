@@ -1,5 +1,5 @@
-[Test: strings]
-[source: mixed]
+//[Test: strings]
+//[source: mixed]
 var left = "left";
 var right = "right";
 var directions = left + " " + right;
@@ -12,5 +12,15 @@ left = left + " side";
 print(left);//stdout:left side
 right = "side: " + right;
 print(right);//stdout:side: right
-[end]
-[end]
+//[end]
+//[end]
+//[Test: string slicing]
+//[skip]
+//[source: mixed]
+var longstring = "a very long string that will be sliced";
+var part = longstring[0:5];
+print(part);//stdout:a ver
+var part2 = longstring[0..4];
+print(part2);//stdout:a ver
+//[end]
+//[end]

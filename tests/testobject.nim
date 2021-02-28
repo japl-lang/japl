@@ -71,10 +71,10 @@ proc compileExpectedOutput(source: string, rawkw: string, rekw: string): seq[Exp
             result &= genEL(matches[0], ExpectedLineKind.Regex)
 
 proc compileExpectedOutput(source: string): seq[ExpectedLine] =
-    compileExpectedOutput(source, "stdout", "stdoutre")
+    compileExpectedOutput(source, "stdout", "matchout")
 
 proc compileExpectedError(source: string): seq[ExpectedLine] =
-  compileExpectedOutput(source, "stderr", "stderrre")
+  compileExpectedOutput(source, "stderr", "matcherr")
 
 proc compileInput(source: string): string =
     for line in source.split('\n'):

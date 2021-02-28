@@ -1,7 +1,8 @@
-[test: skipped]
-[skip]
-
+//[test: skipped]
+//[skip]
+/*
 [stdout]
 Hello this text won't be matched.
 [end]
-[end]
+*/
+//[end]

@@ -1,19 +1,21 @@
+/*
 [test: mixed]
-[source: mixed]
+*/
+//[source: mixed]
 print("Hello", readLine());
 //stdout:Hello world
 //stdin:world
 
 print("aaaaaa");
-//stdoutre:a*
+//matchout:a*
 
 printErr("Hello", readLine());
 //stderr:Hello error
 //stdin:error
 
 printErr("bbbbbb");
-//stderrre:b*
-[end]
-[end]
+//matcherr:b*
+//[end]
+//[end]
 
 

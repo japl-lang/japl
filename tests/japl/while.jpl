@@ -1,5 +1,5 @@
-[Test: while]
-[source: mixed]
+//[Test: while]
+//[source: mixed]
 var x = 5;
 while (x > 0)
 {
@@ -20,5 +20,5 @@ while (x < 10)
     string = string + "A";
 }
 print(string);//stdout:hAAAAAAAAAA
-[end]
-[end]
+//[end]
+//[end]
