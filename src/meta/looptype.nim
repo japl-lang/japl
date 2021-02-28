@@ -21,3 +21,4 @@ type Loop* = ref object
     alive*: bool
     body*: int
     loopEnd*: int
+    breaks*: seq[int]

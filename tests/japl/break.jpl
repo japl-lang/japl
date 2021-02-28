@@ -1,0 +1,23 @@
+//[Test: breaks]
+//[source:mixed]
+var x = 5;
+while (true) {
+  var a = 1;
+  x = x - a;
+  if (x < 0) {
+    break;
+  }
+  print(x);
+}
+//[end]
+/*
+[stdout]
+4
+3
+2
+1
+0
+[end]
+[end]
+*/
+

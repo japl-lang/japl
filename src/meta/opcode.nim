@@ -83,7 +83,9 @@ const simpleInstructions* = {OpCode.Return, OpCode.Add, OpCode.Multiply,
                              OpCode.Xor, OpCode.Not, OpCode.Equal,
                              OpCode.Greater, OpCode.Less, OpCode.GetItem,
                              OpCode.Slice, OpCode.Pop, OpCode.Negate,
-                             OpCode.Is, OpCode.As, GreaterOrEqual, LessOrEqual}
+                             OpCode.Is, OpCode.As, OpCode.GreaterOrEqual,
+                             OpCode.LessOrEqual, OpCode.Bor, OpCode.Band,
+                             OpCode.Bnot}
 const constantInstructions* = {OpCode.Constant, OpCode.DefineGlobal,
                                OpCode.GetGlobal, OpCode.SetGlobal,
                                OpCode.DeleteGlobal}

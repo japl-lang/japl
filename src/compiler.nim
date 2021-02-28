@@ -747,14 +747,15 @@ proc endLooping(self: Compiler) =
     if self.loop.loopEnd != -1:
         self.patchJump(self.loop.loopEnd)
         self.emitByte(OpCode.Pop)
-    var i = self.loop.body
-    while i < self.currentChunk.code.len:
-        if self.currentChunk.code[i] == uint OpCode.Break:
-            self.currentChunk.code[i] = uint8 OpCode.Jump
-            self.patchJump(i + 1)
-            i += 3
-        else:
-            i += 1
+
+    for brk in self.loop.breaks:
+        when DEBUG_TRACE_COMPILER:
+            setForegroundColor(fgYellow)
+            write stdout, &"DEBUG - Compiler: patching break at {brk}\n"
+            setForegroundColor(fgDefault)
+        self.currentChunk.code[brk] = OpCode.Jump.uint8
+        self.patchJump(brk + 1)
+        
     self.loop = self.loop.outer
 
 
@@ -843,6 +844,7 @@ proc parseBreak(self: Compiler) =
             self.emitByte(OpCode.Pop)
             i -= 1
         discard self.emitJump(OpCode.Break)
+        self.loop.breaks.add(self.currentChunk.code.len() - 3)
 
 
 proc parseAnd(self: Compiler, canAssign: bool) =
