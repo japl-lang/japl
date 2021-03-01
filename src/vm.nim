@@ -38,11 +38,15 @@ import types/typeutils
 import types/function
 import types/native
 import types/arraylist
+import multibyte
 # We always import it to
 # avoid the compiler complaining
 # about functions not existing
 # in production builds
 import util/debug
+
+when DEBUG_TRACE_VM:
+  import terminal
 
 
 type
@@ -278,9 +282,7 @@ proc readBytes(self: CallFrame): int =
 proc readShort(self: CallFrame): uint16 =
     ## Reads a 16 bit number from the
     ## given frame's chunk
-    let arr = [self.readByte(), self.readByte()]
-    copyMem(result.addr, unsafeAddr(arr), sizeof(uint16))
-
+    fromDouble([self.readByte(), self.readByte()])
 
 proc readConstant(self: CallFrame): ptr Obj =
     ## Reads a constant from the given
@@ -292,44 +294,49 @@ proc readConstant(self: CallFrame): ptr Obj =
 
 
 
-proc showRuntime*(self: VM, frame: CallFrame, iteration: uint64) = 
-    ## Shows debug information about the current
-    ## state of the virtual machine
-    let view = frame.getView()
-    stdout.write("DEBUG - VM: General information\n")
-    stdout.write(&"DEBUG - VM:\tIteration -> {iteration}\nDEBUG - VM:\tStack -> [")
-    for i, v in self.stack:
-        stdout.write(stringify(v))
-        if i < self.stack.high():
-            stdout.write(", ")
-    stdout.write("]\nDEBUG - VM: \tGlobals -> {")
-    for i, (k, v) in enumerate(self.globals.pairs()):
-        stdout.write(&"'{k}': {stringify(v)}")
-        if i < self.globals.len() - 1:
-            stdout.write(", ")
-    stdout.write("}\nDEBUG - VM: Frame information\n")
-    stdout.write("DEBUG - VM:\tType -> ")
-    if frame.function.name == nil:
-        stdout.write("main\n")
-    else:
-        stdout.write(&"function, '{frame.function.name.stringify()}'\n")
-    echo &"DEBUG - VM:\tCount -> {self.frames.len()}"
-    echo &"DEBUG - VM:\tLength -> {view.len}"
-    stdout.write("DEBUG - VM:\tTable -> ")
-    stdout.write("[")
-    for i, e in frame.function.chunk.consts:
-        stdout.write(stringify(e))
-        if i < len(frame.function.chunk.consts) - 1:
-            stdout.write(", ")
-    stdout.write("]\nDEBUG - VM:\tStack view -> ")
-    stdout.write("[")
-    for i, e in view:
-        stdout.write(stringify(e))
-        if i < len(view) - 1:
-            stdout.write(", ")
-    stdout.write("]\n")
-    echo "DEBUG - VM: Current instruction"
-    discard disassembleInstruction(frame.function.chunk, frame.ip - 1)
+when DEBUG_TRACE_VM:
+    proc showRuntime*(self: VM, frame: CallFrame, iteration: uint64) = 
+        ## Shows debug information about the current
+        ## state of the virtual machine
+
+        let view = frame.getView()
+        setForegroundColor(fgYellow)
+        stdout.write("DEBUG - VM: General information\n")
+        stdout.write(&"DEBUG - VM:\tIteration -> {iteration}\n")
+        setForegroundColor(fgDefault)
+        stdout.write("DEBUG - VM:\tStack -> [")
+        for i, v in self.stack:
+            stdout.write(stringify(v))
+            if i < self.stack.high():
+                stdout.write(", ")
+        stdout.write("]\nDEBUG - VM: \tGlobals -> {")
+        for i, (k, v) in enumerate(self.globals.pairs()):
+            stdout.write(&"'{k}': {stringify(v)}")
+            if i < self.globals.len() - 1:
+                stdout.write(", ")
+        stdout.write("}\nDEBUG - VM: Frame information\n")
+        stdout.write("DEBUG - VM:\tType -> ")
+        if frame.function.name == nil:
+            stdout.write("main\n")
+        else:
+            stdout.write(&"function, '{frame.function.name.stringify()}'\n")
+        echo &"DEBUG - VM:\tCount -> {self.frames.len()}"
+        echo &"DEBUG - VM:\tLength -> {view.len}"
+        stdout.write("DEBUG - VM:\tTable -> ")
+        stdout.write("[")
+        for i, e in frame.function.chunk.consts:
+            stdout.write(stringify(e))
+            if i < len(frame.function.chunk.consts) - 1:
+                stdout.write(", ")
+        stdout.write("]\nDEBUG - VM:\tStack view -> ")
+        stdout.write("[")
+        for i, e in view:
+            stdout.write(stringify(e))
+            if i < len(view) - 1:
+                stdout.write(", ")
+        stdout.write("]\n")
+        echo "DEBUG - VM: Current instruction"
+        discard disassembleInstruction(frame.function.chunk, frame.ip - 1)
 
 
 proc run(self: VM): InterpretResult =

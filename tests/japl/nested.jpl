@@ -1,0 +1,13 @@
+//[Test: nested multiline comments]
+//[source: raw]
+/* first
+/* second
+/* third
+/* fourth
+*/
+*/
+*/
+*/
+
+//[end]
+//[end]

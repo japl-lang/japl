@@ -1,5 +1,5 @@
-[Test: glob_assgn_read]
-[source: mixed]
+//[Test: glob_assgn_read]
+//[source: mixed]
 var a0 = 451;
 var a1 = 5098;
 var a2 = 469;
@@ -1501,5 +1501,5 @@ print(a151);//stdout:4839
 print(a975);//stdout:7651
 print(a7);//stdout:2979
 print(a661);//stdout:8235
-[end]
-[end]
+//[end]
+//[end]

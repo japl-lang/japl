@@ -1,5 +1,5 @@
-[Test: problem2]
-[source: mixed]
+//[Test: problem2]
+//[source: mixed]
 // Sum of even valued fibonacci numbers that don't exceed 4M
 
 var a = 1;
@@ -16,5 +16,5 @@ while (a < 4000000)
     b = c;
 }
 print(sum);//stdout:4613732
-[end]
-[end]
+//[end]
+//[end]

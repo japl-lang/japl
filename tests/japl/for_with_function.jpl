@@ -1,6 +1,6 @@
-[Test: forwithfunction]
-[skip]
-[source: mixed]
+//[Test: forwithfunction]
+//[skip]
+//[source: mixed]
 var y = 0; //a global to keep track of state
 //does not need closures for this to work yet
 
@@ -84,5 +84,5 @@ for (var i = 0; i != -1; i = next(i))
 // y = 9
 //stdout:10
 // y = 10
-[end]
-[end]
+//[end]
+//[end]

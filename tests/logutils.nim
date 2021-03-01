@@ -107,6 +107,7 @@ type Buffer* = ref object
     ## Represents an updateable line on the terminal
     contents: string
     previous: string
+    termwidth: int
 
 proc newBuffer*: Buffer =
     ## Creates a Buffer, hides the cursor
@@ -131,6 +132,8 @@ proc updateProgressBar*(buf: Buffer, text: string, total: int, current: int) =
     let w = terminalWidth()
     if w > newline.len():
         newline &= " ".repeat(w - newline.len() - 1)
+    else:
+        newline = newline[0..w-2]
     buf.contents = newline
 
 proc clearLineAndWrite(text: string, oldsize: int) =

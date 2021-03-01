@@ -1,8 +1,10 @@
+/*
 [Test: inputtesttwo]
-[source: raw]
+*/
+//[source: raw]
 print(readLine());
-[end]
-
+//[end]
+/*
 [stdin]
 Hello world!
 [end]
@@ -11,3 +13,4 @@ Hello world!
 Hello world!
 [end]
 [end]
+*/

@@ -1,15 +1,17 @@
-[Test: hellojapl]
-[source: mixed]
+//[Test: hellojapl]
+//[source: mixed]
 print("Hello, JAPL.");
 //stdout:Hello, JAPL.
-[end]
-[end]
+//[end]
+//[end]
 
-[Test: hello_second_way]
-[source: raw]
+//[Test: hello_second_way]
+//[source: raw]
 print("Hello, JAPL.");
-[end]
+//[end]
+/*
 [stdout]
 Hello, JAPL.
 [end]
-[end]
+*/
+//[end]

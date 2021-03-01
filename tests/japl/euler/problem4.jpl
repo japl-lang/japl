@@ -1,6 +1,6 @@
-[Test: problem4]
-[skip]
-[source: mixed]
+//[Test: problem4]
+//[skip]
+//[source: mixed]
 // Find the largest palindrome that is a product of two 3 digit numbers
 
 fun isPalindrome(n)
@@ -66,5 +66,5 @@ for (var i = 100; i < 1000; i = i + 1)
     }
 }
 print(largest);
-[end]
-[end]
+//[end]
+//[end]

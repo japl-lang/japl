@@ -1,12 +1,13 @@
-[Test: nw]
-[source]
+//[Test: nw]
+//[source]
 print("hey");
 print("second line");
 printErr("hey there");
 print("abcde");
 printErr("12345");
 printErr("0123456789.");
-[end]
+//[end]
+/*
 [stdout: nw]
   hey  
 	second line
@@ -21,4 +22,5 @@ printErr("0123456789.");
 [[0-9]*
 	[0-9]*.
 [end]
-[end]
+*/
+//[end]

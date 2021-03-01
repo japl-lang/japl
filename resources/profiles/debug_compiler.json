@@ -2,8 +2,7 @@
 // from nim itself (the nim compiler options are identical to those of
 // production.json)
 {"flags": {
-        "gc": "none",
-        "d": "danger"
+        "gc": "none"
         },
  "verbose": true,
  "override_config": true,

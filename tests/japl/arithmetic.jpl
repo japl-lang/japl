@@ -1,5 +1,5 @@
-[Test: arithmetic]
-[source: mixed]
+//[Test: arithmetic]
+//[source: mixed]
 //int arithmetic
 
 print(7+5); //stdout:12
@@ -34,5 +34,5 @@ print(64/-64);//stdout:-1.0
 print(8/0);//stdout:inf
 print(8/-0);//stdout:inf
 print(-8/0);//stdout:-inf
-[end]
-[end]
+//[end]
+//[end]

@@ -1,9 +1,11 @@
-[Test: nan]
-[source: raw]
+//[Test: nan]
+//[source: raw]
 print((5/0)*0);
-[end]
+//[end]
+/*
 [stdout]
 nan
 [end]
-[end]
+*/
+//[end]
 

@@ -1,11 +1,12 @@
-[Test: raw]
-[source: raw]
+//[Test: raw]
+//[source: raw]
 print("Hi", readLine());
 print("aaaaaaa");
 printErr("Bye", readLine());
 printErr("bbbbbbb");
 //stdout:This is not a part of the expected output
-[end]
+//[end]
+/*
 [stdin]
 person
 very important person
@@ -23,3 +24,4 @@ Bye very important person
 b*
 [end]
 [end]
+*/

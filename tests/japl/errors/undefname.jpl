@@ -1,10 +1,12 @@
-[Test: undefname_raw]
-[source: raw]
+//[Test: undefname_raw]
+//[source: raw]
 var a = b;
-[end]
+//[end]
+/*
 [stderr]
 An unhandled exception occurred, traceback below:
   File '''', line 1, in <module>:
 ReferenceError: undefined name 'b'
 [end]
-[end]
+*/
+//[end]

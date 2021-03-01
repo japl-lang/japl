@@ -1,0 +1,13 @@
+//[Test: functions without parentheses]
+//[source: mixed]
+fun sayhi {
+  print("hi");
+}
+fun saybye {
+  print("bye");
+}
+
+sayhi();//stdout:hi
+saybye();//stdout:bye
+//[end]
+//[end]

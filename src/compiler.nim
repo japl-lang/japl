@@ -36,6 +36,8 @@ import config
 when isMainModule:
     import util/debug
 import types/methods
+when DEBUG_TRACE_COMPILER:
+    import terminal
 
 
 type
@@ -212,7 +214,11 @@ proc emitByte(self: Compiler, byt: OpCode|uint8) =
     ## Emits a single bytecode instruction and writes it
     ## to the current chunk being compiled
     when DEBUG_TRACE_COMPILER:
-        echo "DEBUG - Compiler: Emitting " & $byt & " (uint8 value of " & $(uint8 byt) & ")"
+        write stdout, &"DEBUG - Compiler: Emitting {$byt} (uint8 value of  {$(uint8 byt)}"
+        if byt.int() <= OpCode.high().int():
+          write stdout, &"; opcode value of {$byt.OpCode}"
+        write stdout, ")\n"
+          
     self.currentChunk.writeChunk(uint8 byt, self.parser.previous.line)
 
 
@@ -652,6 +658,10 @@ proc emitJump(self: Compiler, opcode: OpCode): int =
     self.emitByte(opcode)
     self.emitByte(0xff)
     self.emitByte(0xff)
+    when DEBUG_TRACE_COMPILER:
+        setForegroundColor(fgYellow)
+        write stdout, &"DEBUG - Compiler: emit jump @ {self.currentChunk.code.len-2}\n"
+        setForegroundColor(fgDefault)
     return self.currentChunk.code.len - 2
 
 
@@ -669,14 +679,23 @@ proc patchJump(self: Compiler, offset: int) =
     ## be jumped over, so the size of the if/else conditions
     ## or loops is limited (hopefully 65 thousands and change
     ## instructions are enough for everyone)
+
+    when DEBUG_TRACE_COMPILER:
+        setForegroundColor(fgYellow)
+        write stdout, &"DEBUG - Compiler: patching jump @ {offset}"
     let jump = self.currentChunk.code.len - offset - 2
     if jump > (int uint16.high):
+        when DEBUG_TRACE_COMPILER:
+            setForegroundColor(fgDefault)
+            write stdout, "\n"
         self.compileError("too much code to jump over")
     else:
         let casted = toDouble(jump)
         self.currentChunk.code[offset] = casted[0]
         self.currentChunk.code[offset + 1] = casted[1]
-
+        when DEBUG_TRACE_COMPILER:
+            write stdout, &" points to {casted[0]}, {casted[1]} = {jump}\n"
+            setForegroundColor(fgDefault)
 
 proc ifStatement(self: Compiler) =
     ## Parses if statements in a C-style fashion
@@ -703,14 +722,22 @@ proc ifStatement(self: Compiler) =
 
 proc emitLoop(self: Compiler, start: int) =
     ## Creates a loop and emits related instructions.
+    when DEBUG_TRACE_COMPILER:
+        setForegroundColor(fgYellow)
+        write stdout, &"DEBUG - Compiler: emitting loop at start {start} "
     self.emitByte(OpCode.Loop)
     var offset = self.currentChunk.code.len - start + 2
     if offset > (int uint16.high):
+        when DEBUG_TRACE_COMPILER:
+            setForegroundColor(fgDefault)
+            write stdout, "\n"
         self.compileError("loop body is too large")
     else:
         let offsetBytes = toDouble(offset)
         self.emitByte(offsetBytes[0])
         self.emitByte(offsetBytes[1])
+        when DEBUG_TRACE_COMPILER:
+            write stdout, &"pointing to {offsetBytes[0]}, {offsetBytes[1]} = {offset}\n"
 
 
 proc endLooping(self: Compiler) =
@@ -720,14 +747,15 @@ proc endLooping(self: Compiler) =
     if self.loop.loopEnd != -1:
         self.patchJump(self.loop.loopEnd)
         self.emitByte(OpCode.Pop)
-    var i = self.loop.body
-    while i < self.currentChunk.code.len:
-        if self.currentChunk.code[i] == uint OpCode.Break:
-            self.currentChunk.code[i] = uint8 OpCode.Jump
-            self.patchJump(i + 1)
-            i += 3
-        else:
-            i += 1
+
+    for brk in self.loop.breaks:
+        when DEBUG_TRACE_COMPILER:
+            setForegroundColor(fgYellow)
+            write stdout, &"DEBUG - Compiler: patching break at {brk}\n"
+            setForegroundColor(fgDefault)
+        self.currentChunk.code[brk] = OpCode.Jump.uint8
+        self.patchJump(brk + 1)
+        
     self.loop = self.loop.outer
 
 
@@ -816,6 +844,7 @@ proc parseBreak(self: Compiler) =
             self.emitByte(OpCode.Pop)
             i -= 1
         discard self.emitJump(OpCode.Break)
+        self.loop.breaks.add(self.currentChunk.code.len() - 3)
 
 
 proc parseAnd(self: Compiler, canAssign: bool) =

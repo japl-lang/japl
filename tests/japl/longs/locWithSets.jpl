@@ -1,5 +1,5 @@
-[Test: loc_with_sets]
-[source: mixed]
+//[Test: loc_with_sets]
+//[source: mixed]
 {
 var a0 = 8313;
 var a1 = 3509;
@@ -5186,5 +5186,5 @@ print(a380);//stdout:2145
 print(a125);//stdout:4280
 print(a55);//stdout:6992
 }
-[end]
-[end]
+//[end]
+//[end]
