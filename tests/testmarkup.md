@@ -42,7 +42,7 @@ Modelines also have to be closed by a ']' character
 on the end of this line. These lines may not contain
 whitespace before the opening '[' or "//[" nor after then ending
 ']' characters. Inside the brackets, letters (case
-insensitive), numbers, underscores and dashes form\
+insensitive), numbers, underscores and dashes form
 a name describing what the modeline does.
 
 ```
@@ -138,7 +138,7 @@ There are two kinds of source modes, raw and mixed.
 Mixed source mode can be entered if the detail `mixed`
 is specified. Raw source mode can be entered if the
 detail `raw` is specified. When no detail is specified,
-raw source mode is entered.
+raw source mode is assumed.
 
 In raw source mode, all lines in the mode are
 appended as they are to the JAPL source. In mixed

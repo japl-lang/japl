@@ -29,10 +29,11 @@ import ../config
 import ../memory
 import ../meta/opcode
 import arraylist
-when DEBUG_TRACE_ALLOCATION:
-    import strformat
+import exception
 
+import strformat
 import parseutils
+import strutils
 
 
 proc typeName*(self: ptr Obj): string =
@@ -433,10 +434,16 @@ proc objAs*(self: ptr Obj, other: ObjectType): returnType =
         of ObjectType.Integer:
             case self.kind:
                 of ObjectType.String:
+                    var str = cast[ptr String](self).toStr()
+                    for c in str:
+                        if not c.isDigit():
+                            result.kind = returnTypes.Exception
+                            result.result = newTypeError(&"invalid literal for int: '{str}'")
+                            return
                     var intVal: int
-                    discard parseInt(cast[ptr String](self).toStr(), intVal)
+                    discard parseInt(str, intVal)
                     result.result = intVal.asInt()
-                of ObjectType.Float:
+                of ObjectType.Float:                               
                     var floatVal: float64
                     discard (parseFloat(cast[ptr Float](self).stringify(), floatVal))
                     result.result = int(floatVal).asInt()
@@ -447,6 +454,22 @@ proc objAs*(self: ptr Obj, other: ObjectType): returnType =
         of ObjectType.Float:
             case self.kind:
                 of ObjectType.String:
+                    var str = cast[ptr String](self).toStr()
+                    var seenDot = false
+                    for c in str:
+                        if not c.isDigit():
+                            if c == '.':
+                                if seenDot:
+                                    result.kind = returnTypes.Exception
+                                    result.result = newTypeError(&"invalid literal for float: '{str}'")
+                                    return
+                                else:
+                                    seenDot = true
+                                    continue
+                            else:
+                                result.kind = returnTypes.Exception
+                                result.result = newTypeError(&"invalid literal for float: '{str}'")
+                                return
                     var floatVal: float64
                     discard parseFloat(cast[ptr String](self).toStr(), floatVal)
                     result.result = floatVal.asFloat()
