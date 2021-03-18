@@ -28,6 +28,7 @@ import strformat
 import parseutils
 import strutils
 
+
 template join(args: seq[ptr Obj]): string =
     ## A template that returns the string
     ## representation of all args separated
@@ -41,6 +42,7 @@ template join(args: seq[ptr Obj]): string =
             res = res & arg.stringify()
     res
 
+
 proc natPrint*(args: seq[ptr Obj]): tuple[kind: retNative, result: ptr Obj] =
     ## Native function print
     ## Prints an object representation
@@ -53,6 +55,7 @@ proc natPrint*(args: seq[ptr Obj]): tuple[kind: retNative, result: ptr Obj] =
     echo join(args)
     return (kind: retNative.Nil, result: nil)
 
+
 proc natPrintErr*(args: seq[ptr Obj]): tuple[kind:
   retNative, result: ptr Obj] =
     ## Native function printErr
@@ -62,6 +65,7 @@ proc natPrintErr*(args: seq[ptr Obj]): tuple[kind:
     ## by a space
     writeLine stderr, join(args)
     return (kind: retNative.Nil, result: nil)
+
 
 proc natReadline*(args: seq[ptr Obj]): tuple[kind: retNative, result: ptr Obj] =
     ## Native function readline

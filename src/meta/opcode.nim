@@ -16,7 +16,7 @@
 ## A chunk is a piece of bytecode together with its constants
 
 import ../types/baseObject
-import ../types/arraylist
+import ../types/arrayList
 
 type
     Chunk* = object

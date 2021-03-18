@@ -28,7 +28,7 @@ import typeutils
 import ../config
 import ../memory
 import ../meta/opcode
-import arraylist
+import arrayList
 import exception
 
 import strformat

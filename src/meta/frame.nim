@@ -18,7 +18,7 @@
 
 import ../types/function
 import ../types/baseObject
-import ../types/arraylist
+import ../types/arrayList
 {.experimental: "implicitDeref".}
 
 

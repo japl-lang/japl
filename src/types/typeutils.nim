@@ -48,7 +48,7 @@ proc isCallable*(obj: ptr Obj): bool =
     result = obj.kind in {ObjectType.Function, ObjectType.Class, ObjectType.Native}
 
 
-proc isNil*(obj: ptr Obj): bool =
+proc isJaplNil*(obj: ptr Obj): bool =
     ## Returns true if the given obj
     ## is a JAPL nil object
     result = obj.kind == ObjectType.Nil

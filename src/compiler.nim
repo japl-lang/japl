@@ -31,7 +31,7 @@ import types/function
 import types/numbers
 import types/japlString
 import types/iterable
-import types/arraylist
+import types/arrayList
 import config
 when isMainModule:
     import util/debug

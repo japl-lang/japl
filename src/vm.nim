@@ -18,8 +18,6 @@
 
 ## Standard library imports
 import strformat
-import tables
-import std/enumerate
 ## Our modules
 import config
 when not SKIP_STDLIB_INIT:
@@ -37,16 +35,16 @@ import types/methods
 import types/typeutils
 import types/function
 import types/native
-import types/arraylist
+import types/arrayList
+import types/hashMap
 import multibyte
 # We always import it to
 # avoid the compiler complaining
 # about functions not existing
 # in production builds
-import util/debug
-
 when DEBUG_TRACE_VM:
-  import terminal
+    import util/debug
+    import terminal
 
 
 type
@@ -57,7 +55,7 @@ type
         Ok,
         CompileError,
         RuntimeError
-    VM* = ref object
+    VM* = object
         ## A wrapper around the virtual machine
         ## functionality. Using custom heap allocated
         ## types for everything might sound excessive,
@@ -69,7 +67,7 @@ type
         frames*: ptr ArrayList[CallFrame]
         stack*: ptr ArrayList[ptr Obj]
         objects*: ptr ArrayList[ptr Obj]
-        globals*: Table[string, ptr Obj]   # TODO: Custom hashmap
+        globals*: ptr HashMap[string, ptr Obj]
         cached*: array[6, ptr Obj]
         file*: ptr String
 
@@ -81,7 +79,7 @@ func handleInterrupt() {.noconv.} =
     raise newException(KeyboardInterrupt, "Ctrl+C")
 
 
-proc initStack*(self: VM) =
+proc initStack*(self: var VM) =
     ## Initializes the VM's stack, frame stack
     ## and objects arraylist
     when DEBUG_TRACE_VM:
@@ -190,7 +188,7 @@ proc peek*(self: VM, distance: int): ptr Obj =
     return self.stack[self.stack.high() - distance]
 
 
-proc call(self: VM, function: ptr Function, argCount: int): bool =
+proc call(self: var VM, function: ptr Function, argCount: int): bool =
     ## Sets up the call frame and performs error checking
     ## when calling callables
     if argCount < function.arity:
@@ -211,7 +209,7 @@ proc call(self: VM, function: ptr Function, argCount: int): bool =
     return true
 
 
-proc call(self: VM, native: ptr Native, argCount: int): bool =
+proc call(self: var VM, native: ptr Native, argCount: int): bool =
     ## Does the same as self.call, but with native functions
     if argCount != native.arity and native.arity != -1:
         self.error(newTypeError(&"function '{stringify(native.name)}' takes {native.arity} argument(s), got {argCount}"))
@@ -245,7 +243,7 @@ proc call(self: VM, native: ptr Native, argCount: int): bool =
     return true
 
 
-proc callObject(self: VM, callee: ptr Obj, argCount: uint8): bool =
+proc callObject(self: var VM, callee: ptr Obj, argCount: uint8): bool =
     ## Wrapper around call() to do type checking
     if callee.isCallable():
         case callee.kind:
@@ -260,7 +258,7 @@ proc callObject(self: VM, callee: ptr Obj, argCount: uint8): bool =
         return false
 
 
-proc defineGlobal*(self: VM, name: string, value: ptr Obj) =
+proc defineGlobal*(self: var VM, name: string, value: ptr Obj) =
     ## Adds a key-value couple to the VM's global scope
     self.globals[name] = value
 
@@ -300,46 +298,77 @@ when DEBUG_TRACE_VM:
         ## state of the virtual machine
 
         let view = frame.getView()
-        setForegroundColor(fgYellow)
+        setForegroundColor(fgMagenta)
+        if iteration > 1:
+            echo ""  # To separate different iterations
         stdout.write("DEBUG - VM: General information\n")
-        stdout.write(&"DEBUG - VM:\tIteration -> {iteration}\n")
-        setForegroundColor(fgDefault)
-        stdout.write("DEBUG - VM:\tStack -> [")
+        setForegroundColor(fgGreen)
+        stdout.write(&"DEBUG - VM:\tIteration -> ")
+        setForegroundColor(fgYellow)
+        stdout.write(&"{iteration}\n")
+        setForegroundColor(fgGreen)
+        stdout.write("DEBUG - VM:\tStack -> ")
+        setForegroundColor(fgYellow)
+        stdout.write("[")
         for i, v in self.stack:
             stdout.write(stringify(v))
             if i < self.stack.high():
                 stdout.write(", ")
-        stdout.write("]\nDEBUG - VM: \tGlobals -> {")
-        for i, (k, v) in enumerate(self.globals.pairs()):
+        stdout.write("]")
+        setForegroundColor(fgGreen)
+        stdout.write("\nDEBUG - VM: \tGlobals -> ")
+        setForegroundColor(fgYellow)
+        stdout.write("{")
+        var i = 0
+        for k, v in self.globals.pairs():
             stdout.write(&"'{k}': {stringify(v)}")
             if i < self.globals.len() - 1:
                 stdout.write(", ")
-        stdout.write("}\nDEBUG - VM: Frame information\n")
+            i += 1
+        stdout.write("}")
+        setForegroundColor(fgMagenta)
+        stdout.write("\nDEBUG - VM: Frame information\n")
+        setForegroundColor(fgGreen)
         stdout.write("DEBUG - VM:\tType -> ")
+        setForegroundColor(fgYellow)
         if frame.function.name == nil:
             stdout.write("main\n")
         else:
             stdout.write(&"function, '{frame.function.name.stringify()}'\n")
-        echo &"DEBUG - VM:\tCount -> {self.frames.len()}"
-        echo &"DEBUG - VM:\tLength -> {view.len}"
+        setForegroundColor(fgGreen)
+        stdout.write(&"DEBUG - VM:\tCount -> ")
+        setForegroundColor(fgYellow)
+        stdout.write(&"{self.frames.len()}\n")
+        setForegroundColor(fgGreen)
+        stdout.write(&"DEBUG - VM:\tLength -> ")
+        setForegroundColor(fgYellow)
+        stdout.write(&"{view.len}\n")
+        setForegroundColor(fgGreen)
         stdout.write("DEBUG - VM:\tTable -> ")
+        setForegroundColor(fgYellow)
         stdout.write("[")
         for i, e in frame.function.chunk.consts:
             stdout.write(stringify(e))
             if i < len(frame.function.chunk.consts) - 1:
                 stdout.write(", ")
-        stdout.write("]\nDEBUG - VM:\tStack view -> ")
+        stdout.write("]")
+        setForegroundColor(fgGreen)
+        stdout.write("\nDEBUG - VM:\tStack view -> ")
+        setForegroundColor(fgYellow)
         stdout.write("[")
         for i, e in view:
             stdout.write(stringify(e))
             if i < len(view) - 1:
                 stdout.write(", ")
         stdout.write("]\n")
+        setForegroundColor(fgMagenta)
         echo "DEBUG - VM: Current instruction"
+        setForegroundColor(fgGreen)
         discard disassembleInstruction(frame.function.chunk, frame.ip - 1)
+        setForegroundColor(fgDefault)
 
 
-proc run(self: VM): InterpretResult =
+proc run(self: var VM): InterpretResult =
     ## Chews trough bytecode instructions executing
     ## them one at a time: this is the runtime's
     ## main loop
@@ -487,9 +516,6 @@ proc run(self: VM): InterpretResult =
                     self.error(newTypeError(&"unsupported binary operator '**' for objects of type '{left.typeName()}' and '{right.typeName()}'"))
                     return RuntimeError
             of OpCode.True:
-                ## TODO: Make sure that even operations that can yield
-                ## preallocated types, but do not have access to the VM,
-                ## yield these cached types
                 self.push(cast[ptr Bool](self.getBoolean(true)))
             of OpCode.False:
                 self.push(cast[ptr Bool](self.getBoolean(false)))
@@ -571,7 +597,7 @@ proc run(self: VM): InterpretResult =
                 # This is implemented internally for obvious
                 # reasons and works on any pair of objects, which
                 # is why we call nim's system.== operator and NOT
-                # our custom one
+                # our custom one's
                 var right = self.pop()
                 var left = self.pop()
                 self.push(self.getBoolean(system.`==`(left, right)))
@@ -727,7 +753,7 @@ proc freeVM*(self: VM) =
     
 
 
-proc initCache(self: VM) = 
+proc initCache(self: var VM) = 
     ## Initializes the static cache for singletons
     ## such as true and false
 
@@ -754,7 +780,7 @@ proc initCache(self: VM) =
     self.cached[4] = nInf.asObj()
 
 
-proc initStdlib*(vm: VM) =
+proc initStdlib*(vm: var VM) =
     ## Initializes the VM's standard library by defining builtin
     ## functions that do not require imports. An arity of -1
     ## means that the function is variadic (or that it can
@@ -784,7 +810,7 @@ proc initVM*(): VM =
     ## and internal data structures
     when DEBUG_TRACE_VM:
         echo &"DEBUG - VM: Initializing the virtual machine, {JAPL_VERSION_STRING}"
-    result = VM(globals: initTable[string, ptr Obj]())
+    result = VM(globals: newHashMap[string, ptr Obj]())
     result.initStack()
     result.initCache()
     result.initStdlib()
@@ -795,7 +821,7 @@ proc initVM*(): VM =
 
 
 
-proc interpret*(self: VM, source: string, file: string): InterpretResult =
+proc interpret*(self: var VM, source: string, file: string): InterpretResult =
     ## Interprets a source string containing JAPL code
     when DEBUG_TRACE_VM:
         echo &"DEBUG - VM: Preparing to run '{file}'"

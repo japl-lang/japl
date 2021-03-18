@@ -46,3 +46,5 @@ proc hash*(self: ptr Nil): uint64 =
 proc eq*(self, other: ptr Nil): bool =
     result = true
 
+
+

@@ -13,6 +13,12 @@
 # limitations under the License.
 
 
+# This module implements a very simple (yet hella fast!) associative array.
+# Although this module is *meant* to be used for JAPL only, the implementation
+# allows for any nim type to be stored in it thanks to the options module. You
+# could literally replace nim's tables implementation with this and get identical
+# behavior (well, assuming the GC doesn't fuck you up, which it probably will)
+
 
 import ../memory
 import ../config
@@ -20,28 +26,40 @@ import baseObject
 import methods
 import iterable
 
-
-import lenientops
+# We import just the *BARE* minimum for this bad boy to work,
+# since we want as little interference from nim's own GC
+# as possible. This code might need slight modifications to work
+# outside of the JAPL runtime
 import options
 import hashes
-import strformat
 
 
 
 type
-    Entry*[K, V] = object
-        ## Low-level object to store key/value pairs
-        key*: Option[K]
-        value*: Option[V]
-        tombstone*: bool
+    Entry[K, V] = object
+        ## Low-level object to store key/value pairs.
+        ## Using an extra value for marking the entry as
+        ## a tombstone instead of something like detecting
+        ## tombstones as entries with null keys but full values
+        ## may seem wasteful. The thing is, though, that since
+        ## we want to implement sets on top of this hashmap and 
+        ## the implementation of a set is *literally* a dictionary
+        ## with empty values and keys as the elements, this would 
+        ## confuse our findEntry method and would force us to override
+        ## it to account for a different behavior.
+        ## Using a third field takes up more space, but saves us
+        ## from the hassle of rewriting code 
+        key: Option[K]
+        value: Option[V]
+        tombstone: bool
     HashMap*[K, V] = object of Iterable
         ## An associative array with O(1) lookup time,
         ## similar to nim's Table type, but using raw
         ## memory to be more compatible with JAPL's runtime
         ## memory management
-        entries*: ptr UncheckedArray[ptr Entry[K, V]]
+        entries: ptr UncheckedArray[ptr Entry[K, V]]
         # This attribute counts *only* non-deleted entries
-        actual_length*: int
+        actual_length: int
 
 
 proc newHashMap*[K, V](): ptr HashMap[K, V] =
@@ -67,16 +85,19 @@ proc findEntry[K, V](self: ptr UncheckedArray[ptr Entry[K, V]], key: K, capacity
     ## array, returns a pointer to an entry
     var capacity = uint64(capacity)
     var idx = uint64(key.hash()) mod capacity
-    var tombstone: ptr Entry[K, V] = nil
     while true:
         result = self[idx]
-        if result.key.isNone() and result.key.isSome():
-            # We found a tombstone
-            tombstone = result
-        elif result.key.isNone() or result.key.get() == key:
-            if tombstone != nil:
-                result = tombstone
-                result.tombstone = true
+        if result.key.isNone() or result.tombstone:
+            # If we got here, we either found an
+            # empty bucket or a tombstone. In both cases,
+            # we're done so we just make sure to reset
+            # the tombstone field of the entry and just
+            # exit the loop
+            break
+        elif result.key.get() == key:
+            # This if will never error out because if
+            # an entry is a tombstone, its values are
+            # also nullified
             break
         # If none of these conditions match, we have a collision!
         # This means we can just move on to the next slot in our probe
@@ -84,7 +105,7 @@ proc findEntry[K, V](self: ptr UncheckedArray[ptr Entry[K, V]], key: K, capacity
         # mechanism works makes the empty slot invariant easy to 
         # maintain since we increase the underlying array's size 
         # before we are actually full
-        idx += 1 mod capacity
+        idx = (idx + 1) mod capacity
 
 
 proc adjustCapacity[K, V](self: ptr HashMap[K, V]) =
@@ -92,18 +113,20 @@ proc adjustCapacity[K, V](self: ptr HashMap[K, V]) =
     ## for more entries. Low-level method, not recommended
     var newCapacity = growCapacity(self.capacity)
     var entries = allocate(UncheckedArray[ptr Entry[K, V]], Entry[K, V], newCapacity)
+    var oldEntry: ptr Entry[K, V]
+    var newEntry: ptr Entry[K, V]
     self.length = 0
-    var temp: ptr Entry[K, V]
     for x in countup(0, newCapacity - 1):
         entries[x] = allocate(Entry[K, V], Entry[K, V], 1)
-        temp = entries[x]
-        temp.key = none(K)
-        temp.value = none(V)
-        temp.tombstone = false
-    for x in countdown(self.capacity - 1, 0):
-        temp = self.entries[x]
-        if temp.key.isSome():
-            entries[x] = temp
+        entries[x].tombstone = false
+        entries[x].key = none(K)
+        entries[x].value = none(V)
+    for x in countup(0, self.capacity - 1):
+        oldEntry = self.entries[x]
+        if oldEntry.key.isSome():
+            newEntry = entries.findEntry(oldEntry.key.get(), newCapacity)
+            newEntry.key = oldEntry.key
+            newEntry.value = oldEntry.value
             self.length += 1
     discard freeArray(UncheckedArray[ptr Entry[K, V]], self.entries, self.capacity)
     self.entries = entries
@@ -112,7 +135,11 @@ proc adjustCapacity[K, V](self: ptr HashMap[K, V]) =
 
 proc setEntry[K, V](self: ptr HashMap[K, V], key: K, value: V): bool =
     ## Low-level method to set/replace an entry with a value
-    if self.length + 1 > self.capacity * MAP_LOAD_FACTOR:
+    
+    # This seems a bit stupid, but since we want as little interference
+    # from nim's runtime as possible, instead of using the lenientops
+    # module we just convert all integers to float and yolo it
+    if float64(self.length + 1) >= float64(self.capacity) * MAP_LOAD_FACTOR:
         # Since we always need at least some empty slots
         # for our probe sequences to work properly, we
         # always resize our underlying array before we're full.
@@ -127,13 +154,16 @@ proc setEntry[K, V](self: ptr HashMap[K, V], key: K, value: V): bool =
         self.length += 1
     entry.key = some(key)
     entry.value = some(value)
+    # Now we can make the new entry an actual full bucket
+    # and remove the tombstone flag
+    entry.tombstone = false
 
 
 proc `[]`*[K, V](self: ptr HashMap[K, V], key: K): V = 
     ## Retrieves a value by key
     var entry = findEntry(self.entries, key, self.capacity)
-    if entry.key.isNone():
-        raise newException(KeyError, &"Key not found: {key}")
+    if entry.key.isNone() or entry.tombstone:
+        raise newException(KeyError, "Key not found: " & $key)
     result = entry.value.get()
 
 
@@ -149,37 +179,41 @@ proc del*[K, V](self: ptr HashMap[K, V], key: K) =
         raise newException(KeyError, &"delete from empty hashmap")
     var entry = findEntry(self.entries, key, self.capacity)
     if entry.key.isSome():
-        ## We don't reset the value of the
-        ## 'value' attribute because that 
-        ## makes us understand that this
-        ## entry is a tombstone and not
-        ## a truly full bucket
         self.actual_length -= 1
-        entry.key = none(K)
+        entry.tombstone = true
     else:
-        raise newException(KeyError, &"Key not found: {key}")
+        raise newException(KeyError, "Key not found: " & $key)
 
 
 proc contains*[K, V](self: ptr HashMap[K, V], key: K): bool =
     ## Checks if key is in the hashmap
-    var entry = findEntry(self.entries, key, self.capacity)
-    if entry.key.isSome():
+    let entry = findEntry(self.entries, key, self.capacity)
+    if entry.key.isSome() and not entry.tombstone:
         result = true
     else:
         result = false
 
 
 iterator keys*[K, V](self: ptr HashMap[K, V]): K = 
-    ## Yields all the keys in the hashmap
+    ## Yields all the keys in the hashmap. This
+    ## is the lowest-level iterator we have and it's
+    ## the only one actually dealing with pointers
+    ## and all that good stuff. All other iterators
+    ## are based on this
     var entry: ptr Entry[K, V]
     for i in countup(0, self.capacity - 1):
         entry = self.entries[i]
-        if entry.key.isSome():
+        if entry.key.isSome() and not entry.tombstone:
             yield entry.key.get()
 
 
 iterator values*[K, V](self: ptr HashMap[K, V]): V = 
-    ## Yields all the values in the hashmap
+    ## Yields all the values in the hashmap.
+    ## This could *technically* be slightly more 
+    ## efficient if we just iterated over our
+    ## entries directly, but if we can't take
+    ## advantage of our constant lookup time
+    ## then what's the point? :)
     for key in self.keys():
         yield self[key]
 
@@ -215,16 +249,3 @@ proc `$`*[K, V](self: ptr HashMap[K, V]): string =
 
 proc typeName*[K, V](self: ptr HashMap[K, V]): string = 
     result = "dict"
-
-
-var d = newHashMap[int, int]()
-d[1] = 55
-d[2] = 876
-d[3] = 7890
-d[4] = 55
-d[5] = 435
-d[6] = 567
-d[7] = 21334   ## Adjust capacity (75% full)
-d[8] = 9768
-d[9] = 235
-echo d

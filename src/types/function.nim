@@ -1,7 +1,7 @@
 import baseObject
 import ../meta/opcode
 import japlString
-import arraylist
+import arrayList
 
 
 type

@@ -18,18 +18,20 @@
 import ../meta/opcode
 import ../types/baseObject
 import ../types/methods
-import ../types/arraylist
+import ../types/arrayList
 import strformat
 import terminal
 import ../multibyte
 
+
 proc printName(name: string) =
-    setForegroundColor(fgGreen)
+    setForegroundColor(fgRed)
     write stdout, name
-    setForegroundColor(fgDefault)
+    setForegroundColor(fgGreen)
 
 proc nl =
     write stdout, "\n"
+
 
 proc simpleInstruction(name: string, index: int): int =
     write stdout, &"DEBUG - VM:\tInstruction -> "
@@ -54,10 +56,19 @@ proc constantInstruction(name: string, chunk: Chunk, offset: int): int =
     copyMem(constant.addr, constantArray.addr, sizeof(constantArray))
     write stdout, &"DEBUG - VM:\tInstruction -> "
     printName(name)
-    write stdout, &", points to slot {constant}"
+    write stdout, &", points to slot "
+    setForegroundColor(fgYellow)
+    write stdout, &"{constant}"
     nl()
     let obj = chunk.consts[constant]
-    echo &"DEBUG - VM:\tOperand -> {stringify(obj)}\nDEBUG - VM:\tValue kind -> {obj.kind}"
+    setForegroundColor(fgGreen)
+    stdout.write(&"DEBUG - VM:\tOperand -> ") 
+    setForegroundColor(fgYellow)
+    stdout.write(&"{stringify(obj)}")
+    setForegroundColor(fgGreen)
+    stdout.write("\nDEBUG - VM:\tValue kind -> ")
+    setForegroundColor(fgYellow)
+    stdout.write(&"{obj.kind}\n")
     return offset + 4
 
 
@@ -72,7 +83,15 @@ proc jumpInstruction(name: string, chunk: Chunk, offset: int): int =
 
 proc disassembleInstruction*(chunk: Chunk, offset: int): int =
     ## Takes one bytecode instruction and prints it
-    echo &"DEBUG - VM:\tOffset: {offset}\nDEBUG - VM:\tLine: {chunk.lines[offset]}"
+    setForegroundColor(fgGreen)
+    stdout.write(&"DEBUG - VM:\tOffset: ")
+    setForegroundColor(fgYellow)
+    stdout.write(&"{offset}")
+    setForegroundColor(fgGreen)
+    stdout.write("\nDEBUG - VM:\tLine: ")
+    setForegroundColor(fgYellow)
+    stdout.write(&"{chunk.lines[offset]}\n")
+    setForegroundColor(fgGreen)
     var opcode = OpCode(chunk.code[offset])
     case opcode:
         of simpleInstructions:

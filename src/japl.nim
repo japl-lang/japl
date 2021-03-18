@@ -18,6 +18,7 @@
 import strformat
 import parseopt
 import os
+import options
 
 import config
 import vm
@@ -28,7 +29,6 @@ import types/methods
 import jale/editor
 import jale/templates
 import jale/plugin/defaults
-import jale/plugin/history
 import jale/plugin/editor_history
 
 
@@ -40,10 +40,12 @@ proc getLineEditor: LineEditor =
     result.bindHistory(hist)  # set default history keybindings
 
 
-proc repl(bytecodeVM: VM) =
-    var bytecodeVM = bytecodeVM
-    if bytecodeVM == nil:
+proc repl(vmObj: Option[VM]) =
+    var bytecodeVM = VM()
+    if vmObj.isNone():
         bytecodeVM = initVM()
+    else:
+        bytecodeVM = vmObj.get()
     echo JAPL_VERSION_STRING
     let nimDetails = &"[Nim {NimVersion} on {hostOs} ({hostCPU})]"
     echo nimDetails
@@ -72,7 +74,7 @@ proc repl(bytecodeVM: VM) =
 proc main(file: var string = "", fromString: bool = false, interactive: bool = false) =
     var source: string
     if file == "" and not fromString:
-        repl(nil)
+        repl(none(VM))
         return   # We exit after the REPL has ran
     if not fromString:
         var sourceFile: File
@@ -91,7 +93,7 @@ proc main(file: var string = "", fromString: bool = false, interactive: bool = f
     var bytecodeVM = initVM()
     discard bytecodeVM.interpret(source, file)
     if interactive:
-        repl(bytecodeVM)
+        repl(some(bytecodeVM))
     bytecodeVM.freeVM()
 
 
