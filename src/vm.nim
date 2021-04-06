@@ -38,10 +38,6 @@ import types/native
 import types/arrayList
 import types/hashMap
 import multibyte
-# We always import it to
-# avoid the compiler complaining
-# about functions not existing
-# in production builds
 when DEBUG_TRACE_VM:
     import util/debug
     import terminal
@@ -89,7 +85,7 @@ proc initStack*(self: var VM) =
     self.frames = newArrayList[CallFrame]()
 
 
-proc resetStack*(self: VM) = 
+proc resetStack*(self: VM) =
     ## Resets the VM's stack to a blank state
     while self.stack.len() >= 1:
         discard self.stack.pop()
@@ -282,6 +278,7 @@ proc readShort(self: CallFrame): uint16 =
     ## given frame's chunk
     fromDouble([self.readByte(), self.readByte()])
 
+
 proc readConstant(self: CallFrame): ptr Obj =
     ## Reads a constant from the given
     ## frame's constant table
@@ -293,7 +290,7 @@ proc readConstant(self: CallFrame): ptr Obj =
 
 
 when DEBUG_TRACE_VM:
-    proc showRuntime*(self: VM, frame: CallFrame, iteration: uint64) = 
+    proc showRuntime*(self: VM, frame: CallFrame, iteration: uint64) =
         ## Shows debug information about the current
         ## state of the virtual machine
 
@@ -597,7 +594,7 @@ proc run(self: var VM): InterpretResult =
                 # This is implemented internally for obvious
                 # reasons and works on any pair of objects, which
                 # is why we call nim's system.== operator and NOT
-                # our custom one's
+                # our custom one
                 var right = self.pop()
                 var left = self.pop()
                 self.push(self.getBoolean(system.`==`(left, right)))
@@ -670,7 +667,7 @@ proc run(self: var VM): InterpretResult =
                 # Changes the value of an already defined local variable
                 frame[frame.readBytes()] = self.peek(0)
             of OpCode.DeleteLocal:
-                # Deletes a global variable
+                # Deletes a local variable
                 # TODO: Inspect potential issues with the GC
                 frame.delete(frame.readBytes())
             of OpCode.Pop:
@@ -750,22 +747,21 @@ proc freeVM*(self: VM) =
         if self.objects.len > 0:
             echo &"DEBUG - VM: Warning, {self.objects.len} objects were not freed"
         echo "DEBUG - VM: The virtual machine has shut down"
-    
 
 
-proc initCache(self: var VM) = 
+proc initCache(self: var VM) =
     ## Initializes the static cache for singletons
     ## such as true and false
 
     # TODO -> Make sure that every operation
     # concerning singletons ALWAYS returns
-    # these cached objects in order to 
+    # these cached objects in order to
     # implement proper object identity
     # in a quicker way than it is done
     # for equality
     when DEBUG_TRACE_VM:
         echo "DEBUG - VM: Initializing singletons cache"
-    self.cached = 
+    self.cached =
             [
             true.asBool().asObj(),
             false.asBool().asObj(),
