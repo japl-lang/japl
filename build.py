@@ -248,7 +248,7 @@ if __name__ == "__main__":
         parser.add_argument("--install", help="Tries to move the compiled binary to PATH (this is always disabled on windows)", action="store_true", default=os.environ.get("JAPL_INSTALL"))
         parser.add_argument("--ignore-binary", help="Ignores an already existing 'jpl' binary in any installation directory and overwrites it, use (with care!) with --install", action="store_true", default=os.getenv("JAPL_IGNORE_BINARY"))
         parser.add_argument("--profile", help="The path to a json file specifying build options and arguments. Overrides ANY other option!", default=os.environ.get("JAPL_PROFILE"))
-        parser.add_argument("--timeout", help="The max. amount of seconds each test in the test suite is allowed to run before being killed for taking too long, defaults to 10 seconds", default=os.environ.get("JAPL_TIMEOUT"), type=int)
+        parser.add_argument("--timeout", help="The max. amount of seconds each test in the test suite is allowed to run before being killed for taking too long, defaults to 10 seconds", default=os.environ.get("JAPL_TIMEOUT", 10), type=int)
         args = parser.parse_args()
         flags = {
                 "gc": "refc",
