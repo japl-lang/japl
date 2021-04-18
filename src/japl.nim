@@ -65,7 +65,7 @@ proc repl(vmObj: Option[VM]) =
             break
         elif source != "":
             discard bytecodeVM.interpret(source, "stdin")
-            if not bytecodeVM.lastPop.isNil():
+            if not bytecodeVM.lastPop.isJaplNil():
                 echo stringify(bytecodeVM.lastPop)
                 bytecodeVM.lastPop = cast[ptr Nil](bytecodeVM.cached[2])
     bytecodeVM.freeVM()

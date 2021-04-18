@@ -99,12 +99,12 @@ def run_command(command: str, mode: str = "Popen", **kwargs):
 def build(path: str, flags: Optional[Dict[str, str]] = {}, options: Optional[Dict[str, bool]] = {},
           override: Optional[bool] = False, skip_tests: Optional[bool] = False,
           install: Optional[bool] = False, ignore_binary: Optional[bool] = False,
-          verbose: Optional[bool] = False):
+          verbose: Optional[bool] = False, tests_timeout: Optional[int] = 10):
     """
     Builds the JAPL runtime.
 
     This function generates the required configuration
-    according to the user's choice, runs tests and 
+    according to the user's choice, runs tests and
     performs installation when possible.
 
     :param path: The path to JAPL's main source directory
@@ -140,6 +140,10 @@ def build(path: str, flags: Optional[Dict[str, str]] = {}, options: Optional[Dic
     :param verbose: This parameter tells the test suite to use verbose logs,
     defaults to False
     :type verbose: bool, optional
+    :param tests_timeout: The max. amount of seconds each test in the test
+    suite is allowed to run before being killed for taking too long, defaults
+    to 10 seconds
+    :type tests_timeout: int, optional
     """
 
 
@@ -196,7 +200,7 @@ def build(path: str, flags: Optional[Dict[str, str]] = {}, options: Optional[Dic
             logging.debug("Running tests")
             start = time()
             # TODO: Find a better way of running the test suite
-            process = run_command(f"{tests_path} {'--stdout' if verbose else ''}", mode="run", shell=True, stderr=PIPE)
+            process = run_command(f"{tests_path} {'--stdout' if verbose else ''} --timeout={tests_timeout}", mode="run", shell=True, stderr=PIPE)
             if status != 0:
                 logging.error(f"Command '{command}' exited with non-0 exit code {status}, output below:\n{stderr.decode()}")
                 return False
@@ -244,6 +248,7 @@ if __name__ == "__main__":
         parser.add_argument("--install", help="Tries to move the compiled binary to PATH (this is always disabled on windows)", action="store_true", default=os.environ.get("JAPL_INSTALL"))
         parser.add_argument("--ignore-binary", help="Ignores an already existing 'jpl' binary in any installation directory and overwrites it, use (with care!) with --install", action="store_true", default=os.getenv("JAPL_IGNORE_BINARY"))
         parser.add_argument("--profile", help="The path to a json file specifying build options and arguments. Overrides ANY other option!", default=os.environ.get("JAPL_PROFILE"))
+        parser.add_argument("--timeout", help="The max. amount of seconds each test in the test suite is allowed to run before being killed for taking too long, defaults to 10 seconds", default=os.environ.get("JAPL_TIMEOUT"), type=int)
         args = parser.parse_args()
         flags = {
                 "gc": "refc",
@@ -258,7 +263,7 @@ if __name__ == "__main__":
             "array_grow_factor": "2",
             "frames_max": "800",
         }
-        # We support environment variables!
+        # We support environment variables for build options too!
         for key, value in options.items():
             if var := os.getenv(f"JAPL_{key.upper()}"):
                 options[key] = var
@@ -266,7 +271,7 @@ if __name__ == "__main__":
                             datefmt="%T",
                             level=logging.DEBUG if args.verbose else logging.INFO
                             )
-        logging.info("Just Another Build Tool, version 0.3.4")
+        logging.info("Just Another Build Tool, version 0.3.5")
         if args.flags:
             try:
                 for value in args.flags.split(","):
@@ -318,7 +323,8 @@ if __name__ == "__main__":
               args.skip_tests,
               args.install,
               args.ignore_binary,
-              args.verbose):
+              args.verbose,
+              args.timeout):
             logging.debug("Build tool exited successfully")
         else:
             logging.debug("Build tool exited with error")

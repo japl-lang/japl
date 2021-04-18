@@ -30,7 +30,8 @@ import strutils
 import terminal
 import re
 
-type 
+
+type
     Action {.pure.} = enum
         Run, Help, Version
     ## The action JATS takes.
@@ -57,7 +58,7 @@ when isMainModule:
     var testDir = "japl"
 
     proc evalKey(key: string) =
-        ## Modifies the globals that define what JATS does based on the 
+        ## Modifies the globals that define what JATS does based on the
         ## provided key/flag
         let key = key.toLower()
         if key == "h" or key == "help":
@@ -101,7 +102,7 @@ when isMainModule:
                 # a round is 100 ms, so let's not get close to that
                 if timeoutSeconds < 0.3:
                     timeoutSeconds = 0.3
-                # I don't want anything not nicely convertible to int, 
+                # I don't want anything not nicely convertible to int,
                 # so how about cut it off at 10 hours. Open an issue
                 # if that's not enough... or just tweak it you lunatic
                 if timeoutSeconds > 36000.0:

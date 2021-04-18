@@ -1,7 +1,7 @@
 // Production build options
 {"flags": {
         "gc": "none",
-        "d": "danger"
+        "d": "release"
         },
  "override_config": true,
  "install": true,
