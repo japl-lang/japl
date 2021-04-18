@@ -36,7 +36,7 @@ import types/typeutils
 import types/function
 import types/native
 import types/arrayList
-import types/hashMap
+import types/simpleHashMap
 import multibyte
 when DEBUG_TRACE_VM:
     import util/debug
@@ -63,7 +63,7 @@ type
         frames*: ptr ArrayList[CallFrame]
         stack*: ptr ArrayList[ptr Obj]
         objects*: ptr ArrayList[ptr Obj]
-        globals*: ptr HashMap[string, ptr Obj]
+        globals*: ptr SimpleHashMap
         cached*: array[6, ptr Obj]
         file*: ptr String
 
@@ -256,7 +256,7 @@ proc callObject(self: var VM, callee: ptr Obj, argCount: uint8): bool =
 
 proc defineGlobal*(self: var VM, name: string, value: ptr Obj) =
     ## Adds a key-value couple to the VM's global scope
-    self.globals[name] = value
+    self.globals[name.asStr()] = value
 
 
 proc readByte(self: CallFrame): uint8 =
@@ -632,12 +632,12 @@ proc run(self: var VM): InterpretResult =
                     return RuntimeError
             of OpCode.DefineGlobal:
                 # Defines a global variable
-                var name = frame.readConstant().toStr()
+                var name = cast[ptr String](frame.readConstant())
                 self.globals[name] = self.peek(0)
                 discard self.pop()
             of OpCode.GetGlobal:
                 # Retrieves a global variable
-                var constant = frame.readConstant().toStr()
+                var constant = cast[ptr String](frame.readConstant())
                 if constant notin self.globals:
                     self.error(newReferenceError(&"undefined name '{constant}'"))
                     return RuntimeError
@@ -645,7 +645,7 @@ proc run(self: var VM): InterpretResult =
                     self.push(self.globals[constant])
             of OpCode.SetGlobal:
                 # Changes the value of an already defined global variable
-                var constant = frame.readConstant().toStr()
+                var constant = cast[ptr String](frame.readConstant())
                 if constant notin self.globals:
                     self.error(newReferenceError(&"assignment to undeclared name '{constant}'"))
                     return RuntimeError
@@ -654,7 +654,7 @@ proc run(self: var VM): InterpretResult =
             of OpCode.DeleteGlobal:
                 # Deletes a global variable
                 # TODO: Inspect potential issues with the GC
-                var constant = frame.readConstant().toStr()
+                var constant = cast[ptr String](frame.readConstant())
                 if constant notin self.globals:
                     self.error(newReferenceError(&"undefined name '{constant}'"))
                     return RuntimeError
@@ -806,7 +806,7 @@ proc initVM*(): VM =
     ## and internal data structures
     when DEBUG_TRACE_VM:
         echo &"DEBUG - VM: Initializing the virtual machine, {JAPL_VERSION_STRING}"
-    result = VM(globals: newHashMap[string, ptr Obj]())
+    result = VM(globals: newSimpleHashMap())
     result.initStack()
     result.initCache()
     result.initStdlib()
@@ -814,7 +814,6 @@ proc initVM*(): VM =
     result.lastPop = cast[ptr Nil](result.cached[2])
     when DEBUG_TRACE_VM:
         echo &"DEBUG - VM: Initialization complete, compiled with the following constants: FRAMES_MAX={FRAMES_MAX}, ARRAY_GROW_FACTOR={ARRAY_GROW_FACTOR}, MAP_LOAD_FACTOR={MAP_LOAD_FACTOR}"
-
 
 
 proc interpret*(self: var VM, source: string, file: string): InterpretResult =
@@ -858,3 +857,4 @@ proc interpret*(self: var VM, source: string, file: string): InterpretResult =
         return RuntimeError
     when DEBUG_TRACE_VM:
         echo &"DEBUG - VM: Result -> {result}"
+

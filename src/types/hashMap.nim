@@ -42,13 +42,13 @@ type
         ## a tombstone instead of something like detecting
         ## tombstones as entries with null keys but full values
         ## may seem wasteful. The thing is, though, that since
-        ## we want to implement sets on top of this hashmap and 
+        ## we want to implement sets on top of this hashmap and
         ## the implementation of a set is *literally* a dictionary
-        ## with empty values and keys as the elements, this would 
+        ## with empty values and keys as the elements, this would
         ## confuse our findEntry method and would force us to override
         ## it to account for a different behavior.
         ## Using a third field takes up more space, but saves us
-        ## from the hassle of rewriting code 
+        ## from the hassle of rewriting code
         key: Option[K]
         value: Option[V]
         tombstone: bool
