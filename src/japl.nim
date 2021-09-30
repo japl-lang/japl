@@ -52,6 +52,7 @@ proc repl(vmObj: Option[VM]) =
     var source = ""
     let lineEditor = getLineEditor()
     var keep = true
+    var result: InterpretResult
     lineEditor.bindEvent(jeQuit):
         keep = false
     while keep:
@@ -64,8 +65,8 @@ proc repl(vmObj: Option[VM]) =
             echo "Goodbye!"
             break
         elif source != "":
-            discard bytecodeVM.interpret(source, "stdin")
-            if not bytecodeVM.lastPop.isJaplNil():
+            result = bytecodeVM.interpret(source, "stdin")
+            if not bytecodeVM.lastPop.isJaplNil() and result notin {CompileError, RuntimeError}:
                 echo stringify(bytecodeVM.lastPop)
                 bytecodeVM.lastPop = cast[ptr Nil](bytecodeVM.cached[2])
     bytecodeVM.freeVM()

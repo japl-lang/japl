@@ -46,7 +46,7 @@ when DEBUG_TRACE_VM:
 type
     KeyboardInterrupt* = object of CatchableError
     ## Custom exception to handle Ctrl+C
-    InterpretResult = enum
+    InterpretResult* = enum
         ## All possible interpretation results
         Ok,
         CompileError,
