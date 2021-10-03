@@ -58,8 +58,11 @@ proc findEntry(self: ptr UncheckedArray[ptr SimpleEntry], key: ptr Obj, capacity
     var idx = uint64(key.hash()) mod capacity
     while true:
         result = self[idx]
-        if system.`==`(result.key, nil) or result.tombstone:
+        if system.`==`(result.key, nil):
             break
+        elif result.tombstone:
+            if result.key == key:
+                break
         elif result.key == key:
             break
         idx = (idx + 1) mod capacity

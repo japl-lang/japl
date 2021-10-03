@@ -87,13 +87,24 @@ proc findEntry[K, V](self: ptr UncheckedArray[ptr Entry[K, V]], key: K, capacity
     var idx = uint64(key.hash()) mod capacity
     while true:
         result = self[idx]
-        if result.key.isNone() or result.tombstone:
-            # If we got here, we either found an
-            # empty bucket or a tombstone. In both cases,
-            # we're done so we just make sure to reset
-            # the tombstone field of the entry and just
-            # exit the loop
+        if result.key.isNone():
+            # We found an empty bucket 
             break
+        elif result.tombstone:
+            # We found a previously deleted
+            # entry. In this case, we need
+            # to make sure the tombstone
+            # will get overwritten when the
+            # user wants to add a new value
+            # that would replace it BUT also
+            # for it to not stop our linear
+            # probe sequence. Hence, if the
+            # key of the tombstone isn't
+            # the same as the one we're looking
+            # for, we break out of the loop, otherwise
+            # we keep probing
+            if result.key == key:
+                break
         elif result.key.get() == key:
             # This if will never error out because if
             # an entry is a tombstone, its values are
