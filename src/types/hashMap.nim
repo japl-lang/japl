@@ -96,13 +96,13 @@ proc findEntry[K, V](self: ptr UncheckedArray[ptr Entry[K, V]], key: K, capacity
             # to make sure the tombstone
             # will get overwritten when the
             # user wants to add a new value
-            # that would replace it BUT also
+            # that would replace it, BUT also
             # for it to not stop our linear
             # probe sequence. Hence, if the
-            # key of the tombstone isn't
-            # the same as the one we're looking
-            # for, we break out of the loop, otherwise
-            # we keep probing
+            # key of the tombstone is the same
+            # as the one we're looking for,
+            # we break out of the loop, otherwise
+            # we keep searching
             if result.key == key:
                 break
         elif result.key.get() == key:
