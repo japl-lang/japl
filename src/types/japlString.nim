@@ -23,19 +23,21 @@ import exception
 
 import strutils
 import strformat
+import unicode
 
 
 type
     String* = object of Obj
         ## A string object
-        str*: ptr UncheckedArray[char]  # TODO -> Unicode support
+        str*: ptr UncheckedArray[char]
+        bytelen*: int
         len*: int
 
 
 proc toStr*(obj: ptr Obj): string =
     ## Converts a JAPL string into a nim string
     var strObj = cast[ptr String](obj)
-    for i in 0..strObj.len - 1:
+    for i in 0..strObj.bytelen:
         result.add(strObj.str[i])
 
 
@@ -43,7 +45,7 @@ proc hash*(self: ptr String): uint64 =
     ## Implements the FNV-1a hashing algorithm
     ## for strings
     result = 2166136261u
-    for i in countup(0, self.len-1):
+    for i in countup(0, self.len - 1):
         result = result xor uint64(self.str[i])
         result *= 16777619
 
@@ -52,10 +54,11 @@ proc asStr*(s: string): ptr String =
     ## Converts a nim string into a
     ## JAPL string
     result = allocateObj(String, ObjectType.String)
-    result.str = allocate(UncheckedArray[char], char, len(s))
-    for i in 0..len(s) - 1:
+    result.str = allocate(UncheckedArray[char], char, s.len())
+    for i in 0..<s.len:
         result.str[i] = s[i]
-    result.len = len(s)
+        result.bytelen += 1
+    result.len = s.runeLen()
     if result.len > 0:
         result.hashValue = result.hash()
     else:
@@ -72,16 +75,19 @@ proc stringify*(self: ptr String): string =
     else:
         result = self.toStr()
 
+
 proc typeName*(self: ptr String): string =
     return "string"
 
 
 proc eq*(self, other: ptr String): bool =
-    if self.len != other.len:
+    if self.bytelen != other.bytelen:
+        return false
+    elif self.len != other.len:
         return false
     elif self.hash != other.hash:
         return false
-    for i in 0..self.len - 1:
+    for i in 0..<self.bytelen:
         if self.str[i] != other.str[i]:
             return false
     result = true
@@ -117,15 +123,21 @@ proc getItem*(self: ptr String, other: ptr Obj): returnType =
     else:
         var index: int = other.toInt()
         if index < 0:
-            index = len(str) + other.toInt()
+            index = self.len + other.toInt()
             if index < 0:    # If even now it is less than 0 then it is out of bounds
                 result.kind = returnTypes.Exception
                 result.result = newIndexError("string index out of bounds")
-        elif index - 1 > len(str) - 1:
+        elif index >= self.len:
             result.kind = returnTypes.Exception
             result.result = newIndexError("string index out of bounds")
         else:
-            result.result = asStr(&"{str[index]}")
+            var newStr = allocateObj(String, ObjectType.String)
+            newStr.str = allocate(UncheckedArray[char], char, str.runeAt(index).toUTF8.runeLen())
+            for i in countup(0, len(str.runeAt(index).toUTF8()) - 1):
+                newStr.str[i] = self.str[i]
+                newStr.bytelen += 1
+            newStr.len = str.runeAt(index).toUTF8.runeLen()
+            result.result = newStr
 
 
 proc Slice*(self: ptr String, a: ptr Obj, b: ptr Obj): returnType =
@@ -147,7 +159,7 @@ proc Slice*(self: ptr String, a: ptr Obj, b: ptr Obj): returnType =
         startIndex = (self.len + startIndex)
         if startIndex < 0:
             startIndex = (self.len + endIndex)
-    elif startIndex > self.str.high():
+    elif startIndex >= self.str.high():
         result.result = asStr("")
         return result
     if endIndex > self.str.high():
@@ -155,4 +167,10 @@ proc Slice*(self: ptr String, a: ptr Obj, b: ptr Obj): returnType =
     if startIndex > endIndex:
         result.result = asStr("")
         return result
-    result.result = self.toStr()[startIndex..<endIndex].asStr()
+    var newStr = allocateObj(String, ObjectType.String)
+    newStr.str = allocate(UncheckedArray[char], char, self.toStr().toRunes[startIndex..<endIndex].len())
+    for i in countup(startIndex, endIndex - 1):
+        newStr.str[i] = self.str[i]
+        newStr.bytelen += 1
+    newStr.len = newStr.toStr().runeLen()
+    result.result = newStr

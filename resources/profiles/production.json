@@ -1,6 +1,6 @@
 // Production build options
 {"flags": {
-        "gc": "none",
+        "gc": "boehm",
         "d": "release"
         },
  "override_config": true,
