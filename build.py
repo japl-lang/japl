@@ -185,7 +185,7 @@ def build(path: str, flags: Optional[Dict[str, str]] = {}, options: Optional[Dic
             logging.debug("Compiling test suite")
             start = time()
             test_runner_path = "./tests/jatr" if os.name != "nt" else ".\\tests\jatr"
-            tests_path = "./tests/jats" if os.name != "nt" else ".\tests\jats"
+            tests_path = "./tests/jats" if os.name != "nt" else ".\\tests\jats"
             command = "nim {flags} compile {path}".format(flags=nim_flags, path=test_runner_path)
             _, stderr, status = run_command(command, stdout=DEVNULL, stderr=PIPE)
             if status != 0:
